@@ -1,13 +1,9 @@
-"""
-passlib setup script
-"""
+"""passlib setup script"""
 #=========================================================
-#init app env
+#init script env
 #=========================================================
-import sys,os
-from os.path import abspath, join
-root_path = abspath(join(__file__, ".."))
-os.chdir(root_path)
+import os
+os.chdir(os.path.abspath(os.path.join(__file__,"..")))
 #=========================================================
 #imports
 #=========================================================
