@@ -1,8 +1,8 @@
 ================================================
-:mod:`bps.security.pwgen` -- Password Generation
+:mod:`passlib.gen` -- Password Generation
 ================================================
 
-.. module:: bps.security.pwgen
+.. module:: passlib.gen
     :synopsis: password generation algorithms
 
 The following single function allows
@@ -12,4 +12,3 @@ easy password generation in a number of styles:
 
 .. todo::
     document internal classes
-

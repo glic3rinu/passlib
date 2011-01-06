@@ -1,8 +1,8 @@
 =============================================
-:mod:`bps.security.pwhash` - Crypt Contexts
+:mod:`passlib.hash` - Crypt Contexts
 =============================================
 
-.. currentmodule:: bps.security.pwhash
+.. currentmodule:: passlib.hash
 
 For more complex deployment scenarios than
 the frontend functions described in :doc:`Quick Start <quickstart>`,

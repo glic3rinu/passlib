@@ -14,7 +14,18 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os
+import os, sys
+
+#make sure passlib in sys.path
+doc_root = os.path.abspath(os.path.join(__file__,os.path.pardir))
+source_root = os.path.abspath(os.path.join(doc_root,os.path.pardir))
+sys.path.insert(0, source_root)
+
+#check for Assurance Technologies' BPS library, to conditionally load in some helpers
+try:
+    import bps
+except ImportError:
+    bps = None
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -48,7 +59,7 @@ index_doc = 'index'
 
 # General information about the project.
 project = u'PassLib'
-copyright = u'2004-2009, Assurance Technologies, LLC'
+copyright = u'2008-2010, Assurance Technologies, LLC'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -111,16 +122,17 @@ keep_warnings = True
 
 # The theme to use for HTML and HTML Help pages.  Major themes that come with
 # Sphinx are currently 'default' and 'sphinxdoc'.
-html_theme = 'cloud'
+##html_theme = 'cloud'
+html_theme = "nature"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-html_theme_options = { "roottarget": index_doc }
+##html_theme_options = { "roottarget": index_doc }
 
 # Add any paths that contain custom themes here, relative to this directory.
-from bps.unstable.bpsdoc import theme_path
-html_theme_path = [theme_path]
+##from bps.unstable.bpsdoc import theme_path
+##html_theme_path = [theme_path]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".

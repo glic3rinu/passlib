@@ -1,8 +1,8 @@
 ========================================
-:mod:`bps.security.pwhash` - Quick Start
+:mod:`passlib.hash` - Quick Start
 ========================================
 
-.. currentmodule:: bps.security.pwhash
+.. currentmodule:: passlib.hash
 
 Usage Example
 =============

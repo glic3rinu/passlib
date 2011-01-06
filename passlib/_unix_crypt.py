@@ -2,10 +2,8 @@
 
 History
 =======
-This python implementation was created by Eli Collins <elic@astllc.org>,
-by doing a line-by-line conversion of the Java-based implementation found at
-    http://www.dynamic.net.au/christos/crypt/UnixCrypt2.txt
-and then precalculating tables and pythonizing as much as possible.
+This is a pure-python implementation of the unix "crypt" algorithm,
+based on the Java implementation found at http://www.dynamic.net.au/christos/crypt/UnixCrypt2.txt
 
 The copyright & license for that source is as follows::
 
@@ -34,10 +32,12 @@ The copyright & license for that source is as follows::
     @version $Id: UnixCrypt2.txt,v 1.1.1.1 2005/09/13 22:20:13 christos Exp $
     @author Greg Wilkins (gregw)
 
-    ---
-    converted to python and modified
-    June 2009
-    by Eli Collins <elic@astllc.org>
+This python implementation was adapted from this source by Eli Collins <elic@astllc.org>,
+and released under the BSD license as part of PassLib.
+
+This module is mainly meant as a fallback when stdlib does not supply a ``crypt`` implementation,
+such as on windows systems. As such, it attempts to have a public interface
+which is compatible with stdlib, so it can be used as a drop-in replacement.
 """
 
 #=========================================================
@@ -64,7 +64,7 @@ RR12_1 = range(11, 1, -1)
 PCXROT = IE3264 = SPE = CF6464 = None #placeholders filled in by load_tables
 
 def load_tables():
-    "delay loading data until it's needed for the first time"
+    "delay loading tables until they are actually needed"
     global PCXROT, IE3264, SPE, CF6464
 
     #---------------------------------------------------

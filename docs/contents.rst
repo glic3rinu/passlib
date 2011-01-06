@@ -9,12 +9,11 @@ Table Of Contents
     overview
 
     lib/passlib
-    lib/passlib.rng
     lib/passlib.hash
     lib/passlib.gen
+    lib/passlib.util
 
     history
-    roadmap
     copyright
 
 * :ref:`General Index <genindex>`

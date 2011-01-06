@@ -1,8 +1,8 @@
 =============================================
-:mod:`bps.security.pwhash` - Crypt Algorithms
+:mod:`passlib.hash` - Crypt Algorithms
 =============================================
 
-.. currentmodule:: bps.security.pwhash
+.. currentmodule:: passlib.hash
 
 All of the crypt algorithms must inherit from :class:`CryptAlgorithm`,
 which defines a common interface all algorithms must support.

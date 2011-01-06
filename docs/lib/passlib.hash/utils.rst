@@ -1,8 +1,8 @@
 =============================================
-:mod:`bps.security.pwhash` - Helper Functions
+:mod:`passlib.hash` - Helper Functions
 =============================================
 
-.. currentmodule:: bps.security.pwhash
+.. currentmodule:: passlib.hash
 
 A couple of utility functions are available,
 mainly useful when writing custom password hash algorithms.

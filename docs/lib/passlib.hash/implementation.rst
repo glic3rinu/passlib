@@ -1,8 +1,8 @@
 ===================================================================
-:mod:`bps.security.pwhash` - Implementing a Custom Crypt Algorithm
+:mod:`passlib.hash` - Implementing a Custom Crypt Algorithm
 ===================================================================
 
-.. currentmodule:: bps.security.pwhash
+.. currentmodule:: passlib.hash
 
 New password algorithms can be implemented
 by subclassing :class:`CryptAlgorithm`,

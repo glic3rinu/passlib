@@ -1,8 +1,8 @@
 =============================================
-:mod:`bps.security.pwhash` - Password Hashing
+:mod:`passlib.hash` - Password Hashing
 =============================================
 
-.. module:: bps.security.pwhash
+.. module:: passlib.hash
     :synopsis: password hashing (unix-crypt, md5-crypt, etc)
 
 Overview
@@ -21,24 +21,24 @@ The algorithms currently supported by default in BPS:
     * MD5-Crypt
     * BCrypt
     * SHA-Crypt (256 & 512 bit modes)
-    
+
     * PostgreSQL & MySQL password hashes
 
 Sections
 ========
 The documentation for the pwhash module is broken into the following sections:
 
-* :doc:`Quick Start <bps.security.pwhash/quickstart>` -- frontend funcs for quickly creating / validating hashes
-* :doc:`Crypt Contexts <bps.security.pwhash/contexts>` -- for using just the algorithms your application needs
-* :doc:`Crypt Algorithms <bps.security.pwhash/algorithms>` -- details of the algorithms BPS implements
-* :doc:`Implementing a Custom Crypt Algorithm <bps.security.pwhash/implementation>` -- Roll your own
-* :doc:`Helper Functions <bps.security.pwhash/utils>`
+* :doc:`Quick Start <passlib.hash/quickstart>` -- frontend funcs for quickly creating / validating hashes
+* :doc:`Crypt Contexts <passlib.hash/contexts>` -- for using just the algorithms your application needs
+* :doc:`Crypt Algorithms <passlib.hash/algorithms>` -- details of the algorithms BPS implements
+* :doc:`Implementing a Custom Crypt Algorithm <passlib.hash/implementation>` -- Roll your own
+* :doc:`Helper Functions <passlib.hash/utils>`
 
 .. toctree::
     :hidden:
 
-    bps.security.pwhash/quickstart
-    bps.security.pwhash/contexts
-    bps.security.pwhash/algorithms
-    bps.security.pwhash/implementation
-    bps.security.pwhash/utils
+    passlib.hash/quickstart
+    passlib.hash/contexts
+    passlib.hash/algorithms
+    passlib.hash/implementation
+    passlib.hash/utils

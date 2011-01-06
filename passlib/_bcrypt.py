@@ -1,12 +1,12 @@
 """passlib._bcrypt
 
-Derivation
+History
 ==========
-This is a pure-python implementation of the bcrypt hash algorithm.
-It's based off the java bcrypt implementation jBcrypt 0.2,
-downloaded from http://www.mindrot.org/projects/jBCrypt/.
+This is a pure-python implementation of the bcrypt hash algorithm,
+based off the java bcrypt implementation jBcrypt 0.2,
+as downloaded from http://www.mindrot.org/projects/jBCrypt/.
 
-The original jBcrypt was released with the following license::
+jBcrypt was released under the BSD license::
 
     Copyright (c) 2006 Damien Miller <djm@mindrot.org>
 
@@ -22,15 +22,17 @@ The original jBcrypt was released with the following license::
     ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-The original jBcrypt source was converted line-by-line from java
-and then optimized for python by Eli Collins <elic@astllc.org>
+This python implementation was adapted from jBcrypt by Eli Collins <elic@astllc.org>,
+and released under the BSD license as part of PassLib.
 
-This is meant mainly as a fall-back for passlib to use,
-if you need speedy bcrypt support, install the python-bcrypt
-library, and passlib will use _it_ instead of this module.
+This module is meant mainly as a fall-back for PassLib to use as a last restore.
+If you need speedy bcrypt support, install the python-bcrypt library,
+and passlib will use it instead of this module.
+This module is not suitable for production use, as it's incredibly slow.
 
-The bcrypt unit-tests in passlib.test.test_bcrypt
-will test all available backends.
+The bcrypt unit-tests in passlib.tests.test_bcrypt
+will test all bcrypt backends found, not just the preferred one,
+in order to ensure no impedance mismatch.
 
 Usage
 =====
