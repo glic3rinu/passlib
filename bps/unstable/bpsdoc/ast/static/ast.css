@@ -1,0 +1,153 @@
+/*****************************************************
+ * Additional styles laid on top of default theme
+ *****************************************************/
+
+@import url("default.css");
+
+/*****************************************************
+ * limit page width to 1024px
+ *****************************************************/
+
+div.related, div.document
+{
+    margin: 0 auto;
+    width: 1024px;
+}
+
+div.relbar-top
+{
+    margin-top: 1em;
+}
+
+/*****************************************************
+ * make sure small pages lay out right
+ *****************************************************/
+div.body 
+{
+    min-height: 550px;
+}
+
+/*****************************************************
+ * provide styling for TODO
+ *****************************************************/
+div.admonition.caution {
+    background-color: #FFF0E4;
+    border: 1px solid #FF9966;
+}
+
+div.admonition-todo {
+    background-color: #EEE6E0;
+    border: 1px solid #D4CDC7;
+}
+
+div#todos p.admonition-title
+{
+    font-weight: normal;
+    color: #AAA;
+    font-size: 70%;
+}
+
+div#todos div.admonition-todo + p
+{
+    font-size: 70%;
+    text-align: right;
+    margin-top: -.5em;
+    margin-bottom: 1.5em;
+    color: #AAA;
+}
+
+div#todos div.admonition-todo + p a
+{
+    font-size: 130%;
+}
+
+/*****************************************************
+ * add more whitespace to definitions
+ *****************************************************/
+dl.function,
+dl.method,
+dl.attribute,
+dl.class,
+dl.exception,
+dl.data
+{
+    margin-bottom: 1.5em;
+}
+
+/*****************************************************
+ * add more whitespace to parameter lists
+ *****************************************************/
+td.field-body > ul.first.simple > li,
+td.field-body > p.first
+{
+    margin-bottom: 1em;
+}
+
+td.field-body > ul.first.simple > li > em,
+td.field-body > em
+{
+   border-bottom: 1px solid #DEE6ED;
+   padding: 2px 4px;
+   background: #ECF0F3;
+}
+
+/*****************************************************
+ * css colorization of object definitions,
+ * adds colored line underneath definition title.
+ * color scheme used:
+ *      callables (function, method) - green
+ *      attributes - purple
+ *      classes - red
+ *      exceptions - orange
+ *      data - blue
+ *****************************************************/
+
+dl.function > dt,
+dl.method > dt,
+dl.attribute > dt,
+dl.class > dt,
+dl.exception > dt,
+dl.data > dt
+{
+    border-bottom: 2px solid #9AB9CE;
+    background: #E2ECF3;
+    padding: .1em 1px 1px 3px;
+}
+
+dl.function > dt { border-color: #8BC38B; background: #D8E8D8; }
+dl.method > dt { border-color: #AA96C2; background: #E8E1F2; }
+dl.attribute > dt { border-color: #9996C2; background: #E7E6F6; }
+dl.attribute > dt tt.descname { font-style: italic; }
+dl.class > dt { border-color: #C8A69A; background: #E8DCD8; }
+dl.exception > dt { border-color: #F8A69A; background: #F2E3E1; }
+
+/*****************************************************
+ * css colorization for index page, using styles
+ * provided by customize.py extension
+ *****************************************************/
+
+table.indextable span.category
+{
+	font-size: 80%;
+	color: #84ADBE;
+}
+
+table.indextable span.category.function { color: #8BC38B; }
+table.indextable span.category.method { color: #AA96C2; }
+table.indextable span.category.attribute { color: #9996C2; }
+table.indextable span.category.class { color: #C8A69A; }
+table.indextable span.category.module { color: #9AB9CE; }
+
+table.indextable span.subject
+{
+	font-weight: bold;
+}
+
+table.indextable td > dl > dt
+{
+	margin-bottom: .5em;
+}
+
+/*****************************************************
+ * EOF
+ *****************************************************/

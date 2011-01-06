@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Komodo Project File - DO NOT EDIT -->
+<project id="f57a343a-bef4-4b7e-9d57-2ce8862e06e0" kpf_version="4" name="bps.kpf">
+<preference-set idref="f57a343a-bef4-4b7e-9d57-2ce8862e06e0">
+  <string id="import_exclude_matches">*.*~;*.bak;*.tmp;CVS;.#*;*.pyo;*.pyc;.svn;*%*;tmp*.html;.DS_Store;*eric4project;*.e4p;*.e3p;*.egg-info;build;dist;_build</string>
+  <string id="import_include_matches"></string>
+  <boolean id="import_live">1</boolean>
+  <boolean id="import_recursive">1</boolean>
+  <string id="import_type">useFolders</string>
+  <string id="mappedPaths"></string>
+  <string relative="path" id="pythonExtraPaths"></string>
+  <string id="rubyExtraPaths"></string>
+</preference-set>
+</project>

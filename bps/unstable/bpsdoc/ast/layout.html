@@ -1,0 +1,29 @@
+{% extends "basic/layout.html" %}
+
+{# include release in root breadcrumb #}
+{% block rootrellink %}
+    <li><a href="{{ pathto("index") }}"><b>{{project}} v{{release}}</b> Documentation</a> &raquo; </li>
+{% endblock %}
+
+{# have logo go to index, not TOC #}
+{# FIXME: is there a way to read conf.py setting, so user can set index_doc or we can read master_doc? #}
+{%- block sidebarlogo %}
+    {%- if logo %}
+        <p class="logo"><a href="{{ pathto("index") }}">
+          <img class="logo" src="{{ pathto('_static/' + logo, 1) }}" alt="Logo"/>
+        </a></p>
+    {%- endif %}
+{%- endblock %}
+
+{# give relbars separate classes for themeing #}
+{%- block relbar1 %}
+    <div class="relbar-top">
+        {{ super() }}
+    </div>
+{% endblock %}
+
+{%- block relbar2 %}
+    <div class="relbar-bottom">
+        {{ super() }}
+    </div>
+{% endblock %}
