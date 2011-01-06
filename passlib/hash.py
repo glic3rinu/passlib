@@ -14,8 +14,7 @@ import os
 from bps import *
 from bps.basic import enum_slice
 from bps.rng import srandom
-from bps.meta import abstractmethod, isseq
-from bps.misc import class_property
+from passlib.util import classproperty, abstractmethod, is_seq
 
 try:
     #try stdlib module, which is only present under posix
@@ -318,7 +317,7 @@ class CryptAlgorithm(BaseClass):
     has_rounds = False #has_rounds (via rounds, etc) as computers get more powerful
     has_named_rounds = False #supports round aliases
 
-    @class_property
+    @classproperty
     def has_salt(self):
         if self.salt_bits is None:
             return None
@@ -1412,7 +1411,7 @@ class CryptContext(list):
             #return default algorithm
             if self:
                 return self[-1]
-        elif isseq(name):
+        elif is_seq(name):
             #pick last hit from list of names
             for elem in reversed(self):
                 if elem.name in name:

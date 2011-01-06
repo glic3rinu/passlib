@@ -62,7 +62,7 @@ is not available::
 from cStringIO import StringIO
 #pkg
 from bps.rng import srandom
-from bps.numeric import bytes_to_list, list_to_bytes
+from passlib.util import bytes_to_list, list_to_bytes
 #local
 __all__ = [
     'hashpw',
