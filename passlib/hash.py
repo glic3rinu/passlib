@@ -190,7 +190,7 @@ def h64_gen_salt(size, pad=False):
         out += "=" * (-size % 4)
     return out
 
-class UnixHash(stub):
+class UnixHash(object):
     "helper used by various hash algorithm utilities"
     alg = None
     salt = None
@@ -198,11 +198,12 @@ class UnixHash(stub):
     rounds = None
     source = None
 
-    def __init__(self, alg, salt, chk=None, **kwds):
+    def __init__(self, alg, salt, chk=None, rounds=None, source=None):
         self.alg = alg
         self.salt = salt
         self.chk = chk
-        self.__super.__init__(**kwds)
+        self.rounds = rounds
+        self.source = source
 
 #==========================================================
 #base interface for all the crypt algorithm implementations
