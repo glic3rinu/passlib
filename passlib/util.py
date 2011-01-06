@@ -3,7 +3,6 @@
 rng.srandom
 
 from bps import *
-from bps.basic import enum_slice #NOTE: only used by index method, could be omitted
 from bps.rng import srandom
 """
 #=================================================================================
@@ -11,7 +10,7 @@ from bps.rng import srandom
 #=================================================================================
 #core
 from functools import update_wrapper
-import logging
+import logging; log = logging.getLogger(__name__)
 import sys
 #site
 #pkg
@@ -29,8 +28,6 @@ __all__ = [
     "bytes_to_list",
     "list_to_bytes",
 ]
-
-log = logging.getLogger(__name__)
 #=================================================================================
 #decorators
 #=================================================================================

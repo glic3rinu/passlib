@@ -4,6 +4,7 @@
 #================================================================
 #core
 from hashlib import sha512
+import logging; log = logging.getLogger(__name__)
 import os
 import random as _random
 #site

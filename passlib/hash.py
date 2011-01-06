@@ -7,12 +7,11 @@ from __future__ import with_statement
 import inspect
 import re
 import hashlib
+import logging; log = logging.getLogger(__name__)
 import time
 import os
 #site
 #libs
-from bps import *
-from bps.basic import enum_slice
 from bps.rng import srandom
 from passlib.util import classproperty, abstractmethod, is_seq
 
@@ -1292,23 +1291,23 @@ class CryptContext(list):
         "check for algorithm's presence by name or instance"
         return self.index(value) > -1
 
-    def index(self, value, start=None, stop=None):
+    def index(self, value):
         """find location of algorithm by name or instance"""
         if isinstance(value, str):
             #hunt for element by alg name
-            for idx, crypt in enum_slice(self, start, stop):
+            for idx, crypt in self:
                 if crypt.name == value:
                     return idx
             return -1
 ##        elif isinstance(value, type):
 ##            #hunt for element by alg class
-##            for idx, crypt in enum_slice(self, start, stop):
+##            for idx, crypt in self:
 ##                if isinstance(crypt, value):
 ##                    return idx
 ##            return -1
         else:
             #else should be an alg instance
-            for idx, crypt in enum_slice(self, start, stop):
+            for idx, crypt in self:
                 if crypt == value:
                     return idx
             return -1

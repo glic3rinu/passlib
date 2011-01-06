@@ -5,16 +5,16 @@
 from __future__ import with_statement
 #core
 import inspect
-import re
 import hashlib
-import time
+import logging; log = logging.getLogger(__name__)
 import os
+import re
+import time
 #site
 #libs
-from bps import *
 #pkg
 from bps.rng import srandom
-from bps.security._gpw_data import get_gpw_data as _get_gpw_data
+from passlib._gpw_data import get_gpw_data as _get_gpw_data
 #local
 __all__ = [
     #frontend
