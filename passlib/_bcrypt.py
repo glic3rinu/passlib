@@ -61,8 +61,7 @@ is not available::
 #core
 from cStringIO import StringIO
 #pkg
-from passlib.rng import srandom
-from passlib.util import bytes_to_list, list_to_bytes
+from passlib.util import bytes_to_list, list_to_bytes, getrandbytes, srandom
 #local
 __all__ = [
     'hashpw',
@@ -707,15 +706,11 @@ def gensalt(log_rounds=BCRYPT_DEFAULT_ROUNDS, random=srandom):
         2**log_rounds.
     :param random:
         An random.Random compatible RNG instance to use,
-        by default uses ``passlib.rng.srandom``.
+        by default uses ``passlib.util.srandom``.
     :returns:
         the encoded random salt value
     """
-    try:
-        #getrandbytes() is not standard :(
-        salt = random.getrandbytes(BCRYPT_SALT_LEN)
-    except AttributeError:
-        salt = ''.join(chr(random.randrange(0, 256)) for i in xrange(BCRYPT_SALT_LEN))
+    salt = getrandbytes(random, BCRYPT_SALT_LEN)
     if log_rounds < BCRYPT_MIN_ROUNDS:
         log_rounds = BCRYPT_MIN_ROUNDS
     elif log_rounds > BCRYPT_MAX_ROUNDS:

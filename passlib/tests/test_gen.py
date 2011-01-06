@@ -8,11 +8,12 @@ import os
 from unittest import TestCase
 import hashlib
 import warnings
+import random
 from logging import getLogger
 #site
 #pkg
 from passlib import gen as pwgen
-from passlib.rng import drandom, srandom
+from passlib.util import srandom
 from passlib.tests.utils import enable_suite
 #module
 log = getLogger(__name__)
@@ -91,7 +92,8 @@ class ConstantTest(TestCase):
     ]
 
     def setUp(self):
-        pwgen.srandom = drandom
+        #hack the gen module to use a predicatble random so we can the same output
+        pwgen.srandom = random
 
     def tearDown(self):
         pwgen.srandom = srandom

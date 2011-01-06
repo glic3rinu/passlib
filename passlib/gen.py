@@ -13,8 +13,7 @@ import time
 #site
 #libs
 #pkg
-from passlib.util import abstractmethod
-from passlib.rng import srandom
+from passlib.util import abstractmethod, weighted_choice, srandom
 from passlib._gpw_data import get_gpw_data as _get_gpw_data
 #local
 __all__ = [
@@ -60,7 +59,6 @@ class PasswordGenerator(object):
         return min_size-self.padding, max_size-self.padding
 
     def __call__(self, count=None):
-        srandom.reseed() #shake the prng before generating passwords
         if count == "iter": #mild hack to return an iterator
             return self
         elif count is None:
@@ -70,7 +68,6 @@ class PasswordGenerator(object):
             return [ next() for i in xrange(count) ]
 
     def __iter__(self):
-        srandom.reseed() #shake the prng before generating passwords
         return self
 
     @abstractmethod
@@ -144,7 +141,7 @@ class CvcGenerator(PhoneticGenerator):
         if srandom.random() < self.start_vowel:
             out += srandom.choice(self.vowels)
         while True:
-            choice = srandom.weighted_choice(self.patterns)
+            choice = weighted_choice(srandom, self.patterns)
             if not out and choice.startswith("d"):
                 continue
             i = 0
