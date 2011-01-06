@@ -11,10 +11,10 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from bps.security import pwgen
-from bps.rng import drandom, srandom
+from passlib import gen as pwgen
+from passlib.rng import drandom, srandom
 from bps.text import asbool
-from bps.tests.utils import enable_suite
+from passlib.tests.utils import enable_suite
 #module
 log = getLogger(__name__)
 

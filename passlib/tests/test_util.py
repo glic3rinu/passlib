@@ -2,16 +2,9 @@
 #=========================================================
 #imports
 #=========================================================
-from __future__ import with_statement
 #core
-import sys
-from itertools import islice
-from decimal import Decimal
 #site
 #pkg
-from bps import numeric as num
-from bps.rng import random
-from bps.meta import Params as ak
 #module
 from passlib import util
 from passlib.tests.utils import TestCase

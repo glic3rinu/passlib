@@ -1,10 +1,4 @@
-"""passlib utility functions
-
-rng.srandom
-
-from bps import *
-from bps.rng import srandom
-"""
+"""passlib utility functions"""
 #=================================================================================
 #imports
 #=================================================================================

@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from bps.rng import srandom
+from passlib.rng import srandom
 from passlib.util import classproperty, abstractmethod, is_seq
 
 try:
@@ -22,7 +22,7 @@ try:
     # with the posix behavior so error types/messages and limitations
     # are reliable
 except ImportError:
-    from bps.security._unix_crypt import crypt as unix_crypt
+    from passlib._unix_crypt import crypt as unix_crypt
 
 try:
     #try importing py-bcrypt, it's much faster
@@ -298,7 +298,7 @@ class CryptAlgorithm(BaseClass):
     and set various informational attributes.
 
     .. note::
-        It is recommended to use ``from bps.rng import srandom``
+        It is recommended to use ``from passlib.rng import srandom``
         as your random number generator, since it should (hopefully)
         be the strongest rng BPS can find on your system.
         To help this, you should call ``srandom.reseed()``

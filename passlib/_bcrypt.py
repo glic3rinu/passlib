@@ -22,24 +22,24 @@ The original jBcrypt was released with the following license::
     ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-The original jBcrypt source was converted line-by-line from java,
-and then adapted to be more efficient for python by Eli Collins <elic@astllc.org>
+The original jBcrypt source was converted line-by-line from java
+and then optimized for python by Eli Collins <elic@astllc.org>
 
-This is meant mainly as a fall-back for BPS to use,
+This is meant mainly as a fall-back for passlib to use,
 if you need speedy bcrypt support, install the python-bcrypt
-library, and BPS will use _it_ instead of this module.
+library, and passlib will use _it_ instead of this module.
 
-The bcrypt unit-tests in bps.test.test_security_bcrypt
+The bcrypt unit-tests in passlib.test.test_bcrypt
 will test all available backends.
 
 Usage
 =====
 This class attempts to be compatible with py-bcrypt
-(at least as far as BPS is concerned),
-since this is merely a fallback for BPS when py-bcrypt
+(at least as far as passlib is concerned),
+since this is merely a fallback for passlib when py-bcrypt
 is not available::
 
-        import bps.security._bcrypt as bcrypt
+        import passlib._bcrypt as bcrypt
 
         # Hash a password for the first time
         hashed = bcrypt.hashpw(password, bcrypt.gensalt())
@@ -61,7 +61,7 @@ is not available::
 #core
 from cStringIO import StringIO
 #pkg
-from bps.rng import srandom
+from passlib.rng import srandom
 from passlib.util import bytes_to_list, list_to_bytes
 #local
 __all__ = [
@@ -707,7 +707,7 @@ def gensalt(log_rounds=BCRYPT_DEFAULT_ROUNDS, random=srandom):
         2**log_rounds.
     :param random:
         An random.Random compatible RNG instance to use,
-        by default uses ``bps.rng.srandom``.
+        by default uses ``passlib.rng.srandom``.
     :returns:
         the encoded random salt value
     """

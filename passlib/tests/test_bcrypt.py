@@ -25,8 +25,8 @@ try:
 except ImportError:
     pybcrypt = None
 #pkg
-from bps.tests.utils import TestCase, enable_suite
-from bps.security import _bcrypt as slow_bcrypt
+from passlib.tests.utils import TestCase, enable_suite
+from passlib import _bcrypt as slow_bcrypt
 
 #=========================================================
 #test suite

@@ -9,8 +9,8 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from bps.security import pwhash
-from bps.tests.utils import TestCase, enable_suite, catch_warnings
+from passlib import hash as pwhash
+from passlib.tests.utils import TestCase, enable_suite, catch_warnings
 #module
 log = getLogger(__name__)
 

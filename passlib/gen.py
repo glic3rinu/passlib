@@ -13,7 +13,7 @@ import time
 #site
 #libs
 #pkg
-from bps.rng import srandom
+from passlib.rng import srandom
 from passlib._gpw_data import get_gpw_data as _get_gpw_data
 #local
 __all__ = [
