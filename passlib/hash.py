@@ -15,7 +15,6 @@ from bps import *
 from bps.basic import enum_slice
 from bps.rng import srandom
 from bps.meta import abstractmethod, isseq
-from bps.types import stub
 from bps.misc import class_property
 
 try:
