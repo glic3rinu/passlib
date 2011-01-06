@@ -101,7 +101,7 @@ class ConstantTest(TestCase):
     def test_presets(self):
         #test preset password known to be created for a given seed value
         for kwds, result in self.presets:
-            drandom.seed(1234)
+            random.seed(1234)
             out = pwgen.generate_secret(**kwds)
             self.assertEqual(out, result)
 
