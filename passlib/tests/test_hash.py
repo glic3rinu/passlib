@@ -10,7 +10,7 @@ from logging import getLogger
 #site
 #pkg
 from passlib import hash as pwhash
-from passlib.tests.utils import TestCase, enable_suite, catch_warnings
+from passlib.tests.utils import TestCase, enable_suite
 #module
 log = getLogger(__name__)
 
@@ -112,7 +112,7 @@ class _CryptTestCase(TestCase):
     negative_identify = () # list of hashses that shouldn't identify as this one
     invalid_identify = () # list of this alg's hashes w/ typo
 
-    def _prefix(self):
+    def message_prefix(self):
         return self.alg.name
 
     secrets = SECRETS #list of default secrets to check

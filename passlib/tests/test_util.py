@@ -15,7 +15,7 @@ from passlib.tests.utils import TestCase, Params as ak
 class BytesTest(TestCase):
 
     def test_list_to_bytes(self):
-        self.check_function_results(util.list_to_bytes, [
+        self.assertFunctionResults(util.list_to_bytes, [
             #standard big endian
             ak('\x00', [0], 1),
             ak('\x01', [1], 1),
@@ -56,7 +56,7 @@ class BytesTest(TestCase):
             self.assertEqual(util.list_to_bytes([1], 3, order="native"), '\x00\x00\x01')
 
     def test_bytes_to_list(self):
-        self.check_function_results(util.bytes_to_list, [
+        self.assertFunctionResults(util.bytes_to_list, [
 
             #standard big endian
             ak([1], '\x01'),

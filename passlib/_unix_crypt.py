@@ -1,4 +1,4 @@
-"""bps.security._unix_crypt -- unix crypt(3) implementation
+"""passlib._unix_crypt -- unix crypt(3) implementation
 
 History
 =======

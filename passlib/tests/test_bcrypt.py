@@ -36,7 +36,7 @@ class UtilTest(TestCase):
 
     def test_encode64(self):
         encode = slow_bcrypt.encode_base64
-        self.check_function_results(encode, [
+        self.assertFunctionResults(encode, [
             ('', ''),
             ('..', '\x00'),
             ('...', '\x00\x00'),
@@ -48,7 +48,7 @@ class UtilTest(TestCase):
 
     def test_decode64(self):
         decode = slow_bcrypt.decode_base64
-        self.check_function_results(decode, [
+        self.assertFunctionResults(decode, [
             ('', ''),
             ('\x00', '..'),
             ('\x00\x00', '...'),

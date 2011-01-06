@@ -1509,11 +1509,11 @@ def compile_gpw_data(
     tris = [ [ [0] * num for c2 in rng ] for c1 in rng ] #frequency of c3 given c1,c2
 
     #parse dictionary file
-    source = filepath(source).canonpath
+    source = os.path.realpath(source)
     words = 0
     chars = 0
     seen = set()
-    with source.open() as fh:
+    with file(source) as fh:
         for row in fh:
             row = row.strip().lower()
             if row.endswith("'s"):
@@ -1540,12 +1540,12 @@ def compile_gpw_data(
                 c2 = c3
 
     #generate
-    target = filepath(target).abspath
+    target = os.path.realpath(target)
     if name is None:
-        name = source.name.replace("-", "_")
+        name = os.path.split(source)[1].replace("-", "_")
     def lr(lst):
         return repr(lst).replace(" ", "")
-    with target.open("w") as th:
+    with file(target, "w") as th:
         #
         #generate header, alphabet & first
         #

@@ -1,4 +1,4 @@
-"""bps.security._bcrypt
+"""passlib._bcrypt
 
 Derivation
 ==========
