@@ -7,7 +7,7 @@
 #pkg
 #module
 from passlib import util
-from passlib.tests.utils import TestCase
+from passlib.tests.utils import TestCase, Params as ak
 #=========================================================
 #byte funcs
 #=========================================================
