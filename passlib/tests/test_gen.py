@@ -1,4 +1,4 @@
-"""tests for bps.security.pwhash -- (c) Assurance Technologies 2003-2009"""
+"""passlib tests"""
 #=========================================================
 #imports
 #=========================================================
@@ -13,7 +13,6 @@ from logging import getLogger
 #pkg
 from passlib import gen as pwgen
 from passlib.rng import drandom, srandom
-from bps.text import asbool
 from passlib.tests.utils import enable_suite
 #module
 log = getLogger(__name__)

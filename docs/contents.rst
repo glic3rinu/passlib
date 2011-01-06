@@ -8,24 +8,10 @@ Table Of Contents
     install
     overview
 
-    lib/bps
-    lib/bps.basic
-    lib/bps.cache
-    lib/bps.error.types
-    lib/bps.error.utils
-    lib/bps.fs
-    lib/bps.host
-    lib/bps.logs
-    lib/bps.meta
-    lib/bps.misc
-    lib/bps.numeric
-    lib/bps.rng
-    lib/bps.security
-    lib/bps.stream
-    lib/bps.text
-    lib/bps.types
-    lib/bps.refs
-    lib/bps.warndep
+    lib/passlib
+    lib/passlib.rng
+    lib/passlib.hash
+    lib/passlib.gen
 
     history
     roadmap

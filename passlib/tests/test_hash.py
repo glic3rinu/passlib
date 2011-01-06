@@ -1,4 +1,4 @@
-"""tests for bps.security.pwhash -- (c) Assurance Technologies 2003-2009"""
+"""tests for passlib.pwhash -- (c) Assurance Technologies 2003-2009"""
 #=========================================================
 #imports
 #=========================================================
@@ -1153,55 +1153,6 @@ class QuickAccessTest(TestCase):
             h2 = encrypt(s, h)
             self.assertEqual(identify(h2), alg)
             self.assertEqual(verify(s, h2, alg=alg), True)
-
-    def test_03_legacy(self):
-        "test legacy pwhash quick access funcs"
-        with catch_warnings(record=True) as wmsgs:
-            warnings.filterwarnings("always")
-
-            h = pwhash.encrypt_secret('test', alg='md5-crypt')
-            self.assertWarningEquals(wmsgs.pop(),
-                message="bps.security.pwhash: function 'encrypt_secret' is deprecated, use 'bps.security.pwhash.encrypt' instead",
-                filename=__file__,
-                )
-
-            self.assertEqual(pwhash.identify_secret(h), 'md5-crypt')
-            self.assertWarningEquals(wmsgs.pop(),
-                message="bps.security.pwhash: function 'identify_secret' is deprecated, use 'bps.security.pwhash.identify' instead",
-                filename=__file__,
-                )
-
-            self.assertEqual(pwhash.verify_secret('test', h), True)
-            self.assertWarningEquals(wmsgs.pop(),
-                message="bps.security.pwhash: function 'verify_secret' is deprecated, use 'bps.security.pwhash.verify' instead",
-                filename=__file__,
-                )
-
-            self.assertEqual(pwhash.verify_secret('notest', h), False)
-            self.assertWarningEquals(wmsgs.pop(),
-                message="bps.security.pwhash: function 'verify_secret' is deprecated, use 'bps.security.pwhash.verify' instead",
-                filename=__file__,
-                )
-
-            h2 = pwhash.encrypt_secret('test', h)
-            self.assertWarningEquals(wmsgs.pop(),
-                message="bps.security.pwhash: function 'encrypt_secret' is deprecated, use 'bps.security.pwhash.encrypt' instead",
-                filename=__file__,
-                )
-
-            self.assertEqual(pwhash.identify_secret(h2), 'md5-crypt')
-            self.assertWarningEquals(wmsgs.pop(),
-                message="bps.security.pwhash: function 'identify_secret' is deprecated, use 'bps.security.pwhash.identify' instead",
-                filename=__file__,
-                )
-
-            self.assertEqual(pwhash.verify_secret('test', h2, alg="md5-crypt"), True)
-            self.assertWarningEquals(wmsgs.pop(),
-                message="bps.security.pwhash: function 'verify_secret' is deprecated, use 'bps.security.pwhash.verify' instead",
-                filename=__file__,
-                )
-
-        self.assert_(not wmsgs)
 
     def test_04_default_context(self):
         "test pwhash.default_context contents"

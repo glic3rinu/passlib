@@ -13,7 +13,6 @@ from logging import getLogger; log = getLogger(__name__)
 from cStringIO import StringIO
 import logging
 #pkg
-from bps.types import BaseClass
 from bps.fs import filepath
 from bps.meta import Params, is_oseq, is_iter
 from bps.logs import config_logging
@@ -26,12 +25,36 @@ __all__ = [
     'catch_warnings', 'capture_logger',
 ]
 
-ak = Params
+class Params(object):
+    "helper to represent params for function call"
+    def __init__(self, *args, **kwds):
+        self.args = args
+        self.kwds = kwds
+
+    def render(self, offset=0):
+        """render parenthesized parameters.
+
+        ``Params.parse(p.render())`` should always return
+        a params object equal to the one you started with.
+
+        ``p.render(1)`` is useful for method arguments,
+        when you want to exclude the first argument
+        from being displayed.
+        """
+        txt = ''
+        for a in self.args[offset:]:
+            txt += "%r, " % (a,)
+        kwds = self.kwds
+        for k in sorted(kwds):
+            txt += "%s=%r, " % (k, kwds[k])
+        if txt.endswith(", "):
+            txt = txt[:-2]
+        return txt
 
 #=========================================================
 #custom test base
 #=========================================================
-class TestCase(unittest.TestCase, BaseClass):
+class TestCase(unittest.TestCase):
     "bps-specific test case class, mainly contains messaging enhancements"
 
     _prefix = None
@@ -142,7 +165,7 @@ class TestCase(unittest.TestCase, BaseClass):
         #cases should be list of ak objects,
         #whose first element is the function's return value
         for elem in cases:
-            elem = Params.normalize(elem)
+##            elem = Params.normalize(elem)
             correct = elem.args[0]
             result = func(*elem.args[1:], **elem.kwds)
             self.assertEqual(result, correct,
@@ -214,23 +237,6 @@ class TestCase(unittest.TestCase, BaseClass):
 #=========================================================
 #helper funcs
 #=========================================================
-_tmp_files = []
-def _tmpfile_cleaner():
-    for path in _tmp_files:
-        try:
-            path.discard()
-        except:
-            log.warning("error removing temp file: %r", path, exc_info=True)
-atexit.register(_tmpfile_cleaner)
-def get_tmp_path():
-    "returns a temporary path suitable for any use, which will be removed on exit"
-    fd, path = tempfile.mkstemp(prefix=__name__ + "-")
-    os.close(fd) #close the descriptor
-    path = filepath(path)
-    _tmp_files.append(path) #register it with cleanup routine
-    path.remove() #remove the file which was there
-    assert path.ismissing
-    return path
 
 def enable_suite(name):
     """check if a given test should be included based on the env var.

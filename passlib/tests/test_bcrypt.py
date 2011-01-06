@@ -1,4 +1,4 @@
-"""bps.security._bcrypt unitests
+"""passlib._bcrypt unitests (and parallel test for pybcrypt)
 
 The BaseTest class was adapted from the jBcrypt unitests,
 released under the following license:

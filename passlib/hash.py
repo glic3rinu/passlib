@@ -1,4 +1,4 @@
-"""bps.security.pwhash - implementation of various password hashing functions"""
+"""passlib.hash - implementation of various password hashing functions"""
 #=========================================================
 #imports
 #=========================================================
@@ -29,7 +29,7 @@ try:
     import bcrypt
 except ImportError:
     #fall back to our slow pure-python implementation
-    import bps.security._bcrypt as bcrypt
+    import passlib._bcrypt as bcrypt
 
 #pkg
 #local
@@ -205,7 +205,7 @@ class UnixHash(object):
 #==========================================================
 #base interface for all the crypt algorithm implementations
 #==========================================================
-class CryptAlgorithm(BaseClass):
+class CryptAlgorithm(object):
     """base class for holding information about password algorithm.
 
     The following should be filled out for all crypt algorithm subclasses.
@@ -338,7 +338,7 @@ class CryptAlgorithm(BaseClass):
         for key in self.init_attrs:
             if key in kwds:
                 setattr(self, key, kwds.pop(key))
-        self.__super.__init__(**kwds)
+        super(CryptAlgorithm, self).__init__(**kwds)
         self._validate()
 
     def _validate(self):
@@ -430,7 +430,7 @@ class CryptAlgorithm(BaseClass):
 
         Usage Example::
 
-            >>> from bps.security.pwhash import Md5Crypt
+            >>> from passlib.pwhash import Md5Crypt
             >>> crypt = Md5Crypt()
             >>> #encrypt a secret, creating a new hash
             >>> hash = crypt.encrypt("it's a secret")
@@ -588,8 +588,8 @@ class PostgresMd5Crypt(CryptAlgorithm):
 
     Usage Example::
 
-        >>> from bps.security import pwhash
-        >>> crypt = pwhash.PostgresMd5Crypt()
+        >>> from passlib import hash 
+        >>> crypt = hash.PostgresMd5Crypt()
         >>> crypt.encrypt("mypass", user="postgres")
         'md55fba2ea04fd36069d2574ea71c8efe9d'
         >>> crypt.verify("mypass", 'md55fba2ea04fd36069d2574ea71c8efe9d', user="postgres")
@@ -1031,7 +1031,7 @@ class Sha512Crypt(_ShaCrypt):
 
     Usage Example::
 
-        >>> from bps.security.pwhash import Sha512Crypt
+        >>> from passlib.hash import Sha512Crypt
         >>> crypt = Sha512Crypt()
         >>> #to encrypt a new secret with this algorithm
         >>> hash = crypt.encrypt("forget me not")
@@ -1212,9 +1212,9 @@ class CryptContext(list):
     In general use, none of this matters.
     The typical use case is as follows::
 
-        >>> from bps.security import pwhash
+        >>> from passlib import hash
         >>> #create a new context that only understands Md5Crypt & BCrypt
-        >>> myctx = pwhash.CryptContext([ pwhash.Md5Crypt, pwhash.BCrypt ])
+        >>> myctx = hash.CryptContext([ hash.Md5Crypt, hash.BCrypt ])
 
         >>> #the last one in the list will be used as the default for encrypting...
         >>> hash1 = myctx.encrypt("too many secrets")
@@ -1239,7 +1239,7 @@ class CryptContext(list):
         'bcrypt'
         >>> #or just return the CryptAlgorithm instance directly
         >>> myctx.identify(hash1, resolve=True)
-        <bps.security.pwhash.BCrypt object, name="bcrypt">
+        <passlib.hash.BCrypt object, name="bcrypt">
 
         >>> #you can get a list of algs...
         >>> myctx.keys()
@@ -1248,7 +1248,7 @@ class CryptContext(list):
         >>> #and get the CryptAlgorithm object by name
         >>> bc = myctx['bcrypt']
         >>> bc
-        <bps.security.pwhash.BCrypt object, name="bcrypt">
+        <passlib.hash.BCrypt object, name="bcrypt">
     """
     #=========================================================
     #init
@@ -1295,19 +1295,19 @@ class CryptContext(list):
         """find location of algorithm by name or instance"""
         if isinstance(value, str):
             #hunt for element by alg name
-            for idx, crypt in self:
+            for idx, crypt in enumerate(self):
                 if crypt.name == value:
                     return idx
             return -1
 ##        elif isinstance(value, type):
 ##            #hunt for element by alg class
-##            for idx, crypt in self:
+##            for idx, crypt in enumerate(self):
 ##                if isinstance(crypt, value):
 ##                    return idx
 ##            return -1
         else:
             #else should be an alg instance
-            for idx, crypt in self:
+            for idx, crypt in enumerate(self):
                 if crypt == value:
                     return idx
             return -1
@@ -1677,14 +1677,6 @@ bsd_context = CryptContext([ UnixCrypt, Md5Crypt, BCrypt ])
 mysql40_context = CryptContext([Mysql10Crypt])
 mysql_context = CryptContext([Mysql10Crypt, Mysql41Crypt])
 postgres_context = CryptContext([PostgresMd5Crypt])
-
-#=========================================================
-#deprecated function names
-#=========================================================
-from bps.warndep import relocated_function
-identify_secret = relocated_function("identify_secret", identify)
-encrypt_secret = relocated_function("encrypt_secret", encrypt)
-verify_secret = relocated_function("verify_secret", verify)
 
 #=========================================================
 # eof

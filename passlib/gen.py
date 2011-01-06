@@ -1,4 +1,4 @@
-"""bps.security.pwhash - password hashing tools"""
+"""passlib.hash - password hashing tools"""
 #=========================================================
 #imports
 #=========================================================
@@ -13,6 +13,7 @@ import time
 #site
 #libs
 #pkg
+from passlib.util import abstractmethod
 from passlib.rng import srandom
 from passlib._gpw_data import get_gpw_data as _get_gpw_data
 #local
@@ -34,12 +35,12 @@ __all__ = [
 #=========================================================
 #base generation classes
 #=========================================================
-class PasswordGenerator(BaseClass):
+class PasswordGenerator(object):
     size = 16 #default password size
     padding = 0 #padding being added (used by phonetic algs)
 
-    def __init__(self, size=None, **kwds):
-        self.__super.__init__(**kwds)
+    def __init__(self, size=None, alg=None, **kwds):
+        super(PasswordGenerator, self).__init__(**kwds)
         if size is not None:
             self.size = size
 
@@ -82,7 +83,7 @@ class PhoneticGenerator(PasswordGenerator):
     numeric_tail = 0
 
     def __init__(self, numeric_head=None, numeric_tail=None, **kwds):
-        self.__super.__init__(**kwds)
+        super(PhoneticGenerator, self).__init__(**kwds)
         if numeric_head > 0:
             self.numeric_head = numeric_head
         if numeric_tail > 0:
@@ -113,7 +114,7 @@ class RandomGenerator(PasswordGenerator):
         ascii=_alphanum_chars + _other_chars,
     )
     def __init__(self, charset=None, alphabet=None, **kwds):
-        self.__super.__init__(**kwds)
+        super(RandomGenerator, self).__init__(**kwds)
         if alphabet:
             self.alphabet = alphabet
         else:
@@ -183,7 +184,7 @@ class CvcGenerator(PhoneticGenerator):
 
 class GpwGenerator(PhoneticGenerator):
     def __init__(self, language=None, **kwds):
-        self.__super.__init__(**kwds)
+        super(GpwGenerator, self).__init__(**kwds)
         data = _get_gpw_data(language)
         self.alphabet = data['alphabet']
         self.tris = data['tris']
@@ -290,7 +291,7 @@ def generate_secret(alg=None, count=None, **kwds):
     The follow are some usages examples (your results may vary,
     depending on the random number state)::
 
-        >>> from bps.security.pwgen import generate_secret
+        >>> from passlib.gen import generate_secret
 
         >>> # generate a bunch of passwords using the  gpw algorithm
         >>> generate_secret(count=10, alg="gpw")
