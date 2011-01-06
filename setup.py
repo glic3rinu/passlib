@@ -1,5 +1,5 @@
 """
-bps setup script
+passlib setup script
 """
 #=========================================================
 #init app env
@@ -8,33 +8,27 @@ import sys,os
 from os.path import abspath, join
 root_path = abspath(join(__file__, ".."))
 os.chdir(root_path)
-lib_path = '.'
-##lib_path = abspath(join(root_path,""))
-##if lib_path not in sys.path:
-##    sys.path.insert(0, lib_path)
 #=========================================================
 #imports
 #=========================================================
 from setuptools import setup, find_packages
-from bps import __version__ as version
+from passlib import __version__ as version
 #=========================================================
 #setup
 #=========================================================
 setup(
     #package info
-    packages = find_packages(where=lib_path),
-##    package_data = {},
-##    package_dir= { '':  lib_path },
+    packages = find_packages(),
 
     # metadata
-    name = "bps",
+    name = "passlib",
     version = version,
     author = "Eli Collins",
     author_email = "elic@astllc.org",
-    description = "a package of helper routines for python apps",
+    description = "utilities for password generation & hashing",
     license = "BSD",
-    keywords = "ast",
-    url = "http://www.astllc.org",
+    keywords = "password hash generation secret security sha md5 bcrypt crypt",
+    url = "http://www.astllc.org/software/passlib",
     # could also include long_description, download_url, classifiers, etc.
     zip_safe=True,
 )
