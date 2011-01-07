@@ -10,6 +10,19 @@ import hashlib
 import logging; log = logging.getLogger(__name__)
 import time
 import os
+#site
+#pkg
+from passlib.hash.base import CryptAlgorithm
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
+#local
+__all__ = [
+    'UnixCrypt',
+##    'crypt', 'backend'
+]
+
+#=========================================================
+#load unix crypt backend
+#=========================================================
 try:
     #try stdlib module, which is only present under posix
     from crypt import crypt as _crypt
@@ -41,18 +54,9 @@ except ImportError:
     #TODO: need to reconcile our implementation's behavior
     # with the stdlib's behavior so error types, messages, and limitations
     # are the same. (eg: handling of None and unicode chars)
-    from passlib._unix_crypt import crypt
+    from passlib._slow_unix_crypt import crypt
     backend = "builtin"
-#site
-#pkg
-from passlib.hash.base import CryptAlgorithm, HashInfo
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
-#local
-__all__ = [
-    'UnixCrypt',
-    'crypt',
-]
-
+    
 #=========================================================
 #old unix crypt
 #=========================================================
@@ -65,14 +69,13 @@ class UnixCrypt(CryptAlgorithm):
     name = "unix-crypt"
     salt_bits = 6*2
     hash_bits = 6*11
-    has_rounds = False
     secret_chars = 8
 
     #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
     _pat = re.compile(r"""
         ^
         (?P<salt>[./a-z0-9]{2})
-        (?P<hash>[./a-z0-9]{11})
+        (?P<chk>[./a-z0-9]{11})
         $""", re.X|re.I)
 
     @classmethod
@@ -89,7 +92,7 @@ class UnixCrypt(CryptAlgorithm):
             salt = H64.randstr(2)
         return crypt(secret, salt)
 
-    #default verify used
+    #default verify implementation used
 
 #=========================================================
 # eof

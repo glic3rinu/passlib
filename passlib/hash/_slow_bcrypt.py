@@ -1,4 +1,4 @@
-"""passlib._bcrypt
+"""passlib.hash._slow_bcrypt - fallback pure-python bcrypt implementation
 
 History
 ==========
@@ -25,7 +25,7 @@ jBcrypt was released under the BSD license::
 This python implementation was adapted from jBcrypt by Eli Collins <elic@astllc.org>,
 and released under the BSD license as part of PassLib.
 
-This module is meant mainly as a fall-back for PassLib to use as a last restore.
+This module is meant mainly as a fall-back for PassLib to use as a last resort.
 If you need speedy bcrypt support, install the python-bcrypt library,
 and passlib will use it instead of this module.
 This module is not suitable for production use, as it's incredibly slow.

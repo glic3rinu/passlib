@@ -1,4 +1,4 @@
-"""passlib._unix_crypt -- unix crypt(3) implementation
+"""passlib._slow_unix_crypt -- fallback pure-python unix crypt() implementation
 
 History
 =======

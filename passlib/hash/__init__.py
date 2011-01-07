@@ -1,6 +1,8 @@
-from passlib.hash.base import *
-from passlib.hash.unix_crypt import *
-from passlib.hash.sha_crypt import *
+from passlib.hash.base import CryptContext
+from passlib.hash.unix_crypt import UnixCrypt
+from passlib.hash.md5_crypt import Md5Crypt
+from passlib.hash.sha_crypt import Sha256Crypt, Sha512Crypt
+from passlib.hash.bcrypt import BCrypt
 
 #=========================================================
 #build up the standard context objects
@@ -140,14 +142,9 @@ def verify(secret, hash, alg=None):
     """
     return default_context.verify(secret, hash, alg=alg)
 
-#some general os-context helpers (these may not match your os policy exactly)
+#some general os-context helpers (these may not match your os policy exactly, but are generally useful)
 linux_context = CryptContext([ UnixCrypt, Md5Crypt, Sha256Crypt, Sha512Crypt ])
 bsd_context = CryptContext([ UnixCrypt, Md5Crypt, BCrypt ])
-
-#some sql db context helpers
-mysql40_context = CryptContext([Mysql10Crypt])
-mysql_context = CryptContext([Mysql10Crypt, Mysql41Crypt])
-postgres_context = CryptContext([PostgresMd5Crypt])
 
 #=========================================================
 #eof

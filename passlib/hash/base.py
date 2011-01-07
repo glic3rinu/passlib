@@ -13,25 +13,11 @@ import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
-
-try:
-    #try importing py-bcrypt, it's much faster
-    import bcrypt
-except ImportError:
-    #fall back to our slow pure-python implementation
-    import passlib._bcrypt as bcrypt
-
 #pkg
 #local
 __all__ = [
     #crypt algorithms
     'CryptAlgorithm',
-        'UnixCrypt',
-        'Md5Crypt',
-        'BCrypt',
-        'Mysql10Crypt',
-        'Mysql41Crypt',
-        'PostgresMd5Crypt',
 
     #crypt context
     'CryptContext',
@@ -162,14 +148,16 @@ class CryptAlgorithm(object):
     #informational attrs
     #=========================================================
     name = None #globally unique name to identify algorithm
-    salt_bits = None #number of bits in salt
-    hash_bits = None #number of bits in hash
-    secret_chars = None #number of chars in secret that are used. None if all chars used.
-    has_rounds = False #has_rounds (via rounds, etc) as computers get more powerful
-    has_named_rounds = False #supports round aliases
+    salt_bits = None #number of effective bits in salt
+    hash_bits = None #number of effective bits in hash
+    secret_chars = None #max number of chars of secret that are used in hash. None if all chars used.
+
+    has_rounds = False #supports variable number of rounds via rounds kwd
+    has_named_rounds = False #round kwd supports 'fast', 'medium', 'slow' presets
 
     @classproperty
     def has_salt(self):
+        "helper to determine if hash has a salt"
         if self.salt_bits is None:
             return None
         return self.salt_bits > 0
@@ -186,6 +174,8 @@ class CryptAlgorithm(object):
     #init & internal methods
     #=========================================================
     def __init__(self, **kwds):
+        #XXX: can probably do away with this, nothing uses it.
+        #but should add in checksum / salt / source / ident kwds from HashInfo
         #load in kwds, letting options be overridden on a per-instance basis
         for key in self.init_attrs:
             if key in kwds:
@@ -222,17 +212,11 @@ class CryptAlgorithm(object):
 
         :arg hash:
             the hash string to check
+            
         :returns:
             ``True`` if provided hash string is handled by
             this class, otherwise ``False``.
-
-        .. note::
-            For some of the simplist algorithms (eg plaintext),
-            there is no globally unambiguous way to identify
-            a given hash. In this case, identify() should
-            at the very least be able to distinguish
-            it's hashes from the other algorithms
-            in use within a given context.
+            If hash is ``None``, should return ``False``.
         """
 
     @abstractmethod
@@ -317,6 +301,7 @@ class CryptAlgorithm(object):
 
         :returns:
             ``True`` if the secret matches, otherwise ``False``.
+            If hash is ``None``, should return ``False``.
 
         See :meth:`encrypt` for a usage example.
         """
@@ -327,23 +312,6 @@ class CryptAlgorithm(object):
         if hash is None:
             return False
         return hash == self.encrypt(secret, hash, keep_salt=True)
-
-##    def decrypt(self, hash):
-##        """decrypt hash, recovering original password.
-##
-##        Most (good) password algorithms will not be recoverable.
-##        For those, this will raise a NotImplementedError.
-##        For the few which are weak enough, or can be recovered
-##        with the aid of external information such as a private key,
-##        this method should be overridden to provide an implementation.
-##
-##        Subclasses may add arbitrary options (external keys, etc)
-##        to aid with decryption.
-##
-##        If decrypt is implemented, but does not succeed in the end,
-##        it should raise a ValueError.
-##        """
-##        raise NotImplementedError, "this algorithm does not support decryption"
 
     #=========================================================
     #eoc
@@ -356,410 +324,6 @@ def is_crypt_alg(obj):
     return all(hasattr(obj, name) for name in (
         "name", "verify", "encrypt", "identify",
         ))
-
-#=========================================================
-#sql database hashes
-#=========================================================
-class Mysql10Crypt(CryptAlgorithm):
-    """This implements Mysql's OLD_PASSWORD algorithm, used prior to version 4.1.
-
-    See :class:`Mysql41Crypt` for the new algorithm was put in place in version 4.1
-
-    This function is known to be very insecure,
-    and should only be used to verify existing password hashes.
-
-    """
-    name = "mysql-1.0-crypt"
-    salt_bits = 0
-    hash_bits = 16*16
-
-    _pat = re.compile(r"^[0-9a-f]{16}$", re.I)
-
-    @classmethod
-    def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False):
-        nr1 = 1345345333
-        nr2 = 0x12345671
-        add = 7
-        for c in secret:
-            if c in ' \t':
-                continue
-            tmp = ord(c)
-            nr1 ^= ((((nr1 & 63)+add)*tmp) + (nr1 << 8)) & 0xffffffff
-            nr2 = (nr2+((nr2 << 8) ^ nr1)) & 0xffffffff
-            add = (add+tmp) & 0xffffffff
-        return "%08x%08x" % (nr1 & 0x7fffffff, nr2 & 0x7fffffff)
-
-    @classmethod
-    def verify(self, secret, hash):
-        if hash is None:
-            return False
-        return hash.lower() == self.encrypt(secret)
-
-class Mysql41Crypt(CryptAlgorithm):
-    """This implements Mysql new PASSWORD algorithm, introduced in version 4.1.
-
-    This function is unsalted, and therefore not very secure against rainbow attacks.
-    It should only be used when dealing with mysql passwords,
-    for all other purposes, you should use a salted hash function.
-
-    Description taken from http://dev.mysql.com/doc/refman/6.0/en/password-hashing.html
-    """
-    name = "mysql-4.1-crypt"
-    salt_bits = 0
-    hash_bits = 16*40
-
-    _pat = re.compile(r"^\*[0-9A-F]{40}$", re.I)
-
-    @classmethod
-    def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False):
-        return '*' + hashlib.sha1(hashlib.sha1(secret).digest()).hexdigest().upper()
-
-    @classmethod
-    def verify(self, secret, hash):
-        if hash is None:
-            return False
-        return hash.upper() == self.encrypt(secret)
-
-class PostgresMd5Crypt(CryptAlgorithm):
-    """This implements the md5-based hash algorithm used by Postgres to store
-    passwords in the pg_shadow table.
-
-    This algorithm shouldn't be used for any purpose besides Postgres interaction,
-    it's a weak unsalted algorithm which could easily be attacked with a rainbow table.
-
-    .. warning::
-        This algorithm is slightly different from most of the others,
-        in that both encrypt() and verify() require you pass in
-        the name of the user account via the required 'user' keyword,
-        since postgres uses this in place of a salt :(
-
-    Usage Example::
-
-        >>> from passlib import hash
-        >>> crypt = hash.PostgresMd5Crypt()
-        >>> crypt.encrypt("mypass", user="postgres")
-        'md55fba2ea04fd36069d2574ea71c8efe9d'
-        >>> crypt.verify("mypass", 'md55fba2ea04fd36069d2574ea71c8efe9d', user="postgres")
-        True
-    """
-    name = "postgres-md5-crypt"
-    salt_bits = 0
-    hash_bits = 16*32
-
-    _pat = re.compile(r"^md5[0-9a-f]{32}$")
-
-    @classmethod
-    def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False, user=None):
-        if isinstance(secret, tuple):
-            if user:
-                raise TypeError, "user specified in secret & in kwd"
-            secret, user = secret
-        if not user:
-            raise ValueError, "user keyword must be specified for this algorithm"
-        return "md5" + hashlib.md5(secret + user).hexdigest().lower()
-
-    @classmethod
-    def verify(self, secret, hash, user=None):
-        if hash is None:
-            return False
-        return hash == self.encrypt(secret, user=user)
-
-#=========================================================
-#old unix crypt
-#=========================================================
-try:
-    #try stdlib module, which is only present under posix
-    from crypt import crypt as unix_crypt
-except ImportError:
-    #TODO: need to reconcile our implementation's behavior
-    # with the stdlib's behavior so error types, messages, and limitations
-    # are the same. (eg: handling of None and unicode chars)
-    from passlib._unix_crypt import crypt as unix_crypt
-
-class UnixCrypt(CryptAlgorithm):
-    """Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
-    This implementation uses the builtin ``crypt`` module when available,
-    but contains a pure-python fallback so that this algorithm can always be used.
-    """
-    name = "unix-crypt"
-    salt_bits = 6*2
-    hash_bits = 6*11
-    has_rounds = False
-    secret_chars = 8
-
-    #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
-    _pat = re.compile(r"""
-        ^
-        (?P<salt>[./a-z0-9]{2})
-        (?P<hash>[./a-z0-9]{11})
-        $""", re.X|re.I)
-
-    @classmethod
-    def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False):
-        if hash and keep_salt:
-            salt = hash[:2]
-        else:
-            salt = H64.randstr(2)
-        return unix_crypt(secret, salt)
-
-    #default verify used
-
-#=========================================================
-#id 1 -- md5
-#=========================================================
-
-#TODO: never seen it, but read references to a Sun-specific
-# md5-crypt which supports rounds, format supposedly something like
-# "$md5,rounds=XXX$salt$chk" , could add support under SunMd5Crypt()
-
-class Md5Crypt(CryptAlgorithm):
-    """This provides the MD5-crypt algorithm, used in many 1990's era unix systems.
-    It should be byte compatible with unix shadow hashes beginning with ``$1$``.
-    """
-    name = 'md5-crypt'
-    salt_bits = 48
-    hash_bits = 96
-    has_rounds = False
-
-    @classmethod
-    def _md5_crypt_raw(self, secret, salt):
-        #init salt
-        if not salt:
-            salt = H64.randstr(8)
-        assert len(salt) == 8
-
-        #handle unicode
-        #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
-        if isinstance(secret, unicode):
-            secret = secret.encode("utf-8")
-
-        h = hashlib.md5()
-        assert h.digestsize == 16
-        h.update(secret)
-        h.update(salt)
-        h.update(secret)
-        tmp_digest = h.digest()
-
-        h = hashlib.md5()
-        h.update(secret)
-        h.update("$1$")
-        h.update(salt)
-
-        idx = len(secret)
-        while idx > 0:
-            h.update(tmp_digest[0:min(16, idx)])
-            idx -= 16
-
-        idx = len(secret)
-        while idx > 0:
-            if idx & 1:
-                h.update('\x00')
-            else:
-                h.update(secret[0])
-            idx >>= 1
-
-        hash = h.digest()
-        for idx in xrange(1000):
-            assert len(hash) == 16
-            h = hashlib.md5()
-            if idx & 1:
-                h.update(secret)
-            else:
-                h.update(hash)
-            if idx % 3:
-                h.update(salt)
-            if idx % 7:
-                h.update(secret)
-            if idx & 1:
-                h.update(hash)
-            else:
-                h.update(secret)
-            hash = h.digest()
-
-        out = ''.join(
-            H64.encode_3_offsets(hash,
-                idx+12 if idx < 4 else 5,
-                idx+6,
-                idx,
-            )
-            for idx in xrange(5)
-            ) + H64.encode_1_offset(hash, 11)
-        return HashInfo('1', salt, out)
-
-    _pat = re.compile(r"""
-        ^
-        \$(?P<alg>1)
-        \$(?P<salt>[A-Za-z0-9./]+)
-        (\$(?P<chk>[A-Za-z0-9./]+))?
-        $
-        """, re.X)
-
-    @classmethod
-    def identify(self, hash):
-        "identify md5-crypt hash"
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def _parse(self, hash):
-        "parse an md5-crypt hash"
-        m = self._pat.match(hash)
-        if not m:
-            raise ValueError, "invalid md5 salt"
-        return HashInfo(m.group("alg"), m.group("salt"), m.group("chk"))
-
-    @classmethod
-    def encrypt(self, secret, salt=None, keep_salt=False):
-        "encrypt an md5-crypt hash"
-        real_salt = None
-        if salt:
-            rec = self._parse(salt)
-            if keep_salt:
-                real_salt = rec.salt
-        rec = self._md5_crypt_raw(secret, real_salt)
-        return "$1$%s$%s" % (rec.salt, rec.chk)
-
-    @classmethod
-    def verify(self, secret, hash):
-        "verify an md5-crypt hash"
-        if hash is None:
-            return False
-        rec = self._parse(hash)
-        other = self._md5_crypt_raw(secret, rec.salt)
-        return other.chk == rec.chk
-
-#=========================================================
-#OpenBSD's BCrypt
-#=========================================================
-class BCrypt(CryptAlgorithm):
-    """Implementation of OpenBSD's BCrypt algorithm.
-
-    BPS will use the py-bcrypt package if it is available,
-    otherwise it will fall back to a slower pure-python implementation
-    that is builtin.
-
-    .. automethod:: encrypt
-    """
-    #=========================================================
-    #algorithm info
-    #=========================================================
-    name = "bcrypt"
-    salt_bits = 128
-    hash_bits = 192
-    secret_chars = 55
-    has_rounds = True
-    has_named_rounds = True
-
-    #current recommended default rounds for blowfish
-    # last updated 2009-7-6 on a 2ghz system
-    fast_rounds = 11 # ~0.25s
-    medium_rounds = 13 # ~0.82s
-    slow_rounds = 14 # ~ 1.58s
-
-    #=========================================================
-    #frontend
-    #=========================================================
-    _pat = re.compile(r"""
-        ^
-        \$(?P<alg>2[a]?)
-        \$(?P<rounds>\d+)
-        \$(?P<salt>[A-Za-z0-9./]{22})
-        (?P<chk>[A-Za-z0-9./]{31})?
-        $
-        """, re.X)
-
-    @classmethod
-    def identify(self, hash):
-        "identify bcrypt hash"
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def _parse(self, hash):
-        "parse bcrypt hash"
-        m = self._pat.match(hash)
-        if not m:
-            raise ValueError, "invalid bcrypt hash/salt"
-        alg, rounds, salt, chk = m.group("alg", "rounds", "salt", "chk")
-        return HashInfo(alg, salt, chk, rounds=int(rounds), source=hash)
-
-    @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False, rounds=None):
-        """encrypt using bcrypt.
-
-        In addition to the normal options that :meth:`CryptAlgorithm.encrypt` takes,
-        this function also accepts the following:
-
-        :param rounds:
-            Optionally specify the number of rounds to use
-            (technically, bcrypt will actually use ``2**rounds``).
-            This can be one of "fast", "medium", "slow",
-            or an integer in the range 4..31.
-
-            See :attr:`CryptAlgorithm.has_named_rounds` for details
-            on the meaning of "fast", "medium" and "slow".
-        """
-        #validate salt
-        if hash:
-            rec = self._parse(hash)
-            if rounds is None:
-                rounds = rec.rounds
-        #generate new salt
-        if hash and keep_salt:
-            salt = hash
-        else:
-            rounds = self._norm_rounds(rounds)
-            salt = bcrypt.gensalt(rounds)
-        #encrypt secret
-        return bcrypt.hashpw(secret, salt)
-
-    @classmethod
-    def _norm_rounds(self, rounds):
-        if isinstance(rounds, int):
-            return rounds
-        elif rounds == "fast" or rounds is None:
-            return self.fast_rounds
-        elif rounds == "slow":
-            return self.slow_rounds
-        else:
-            if rounds != "medium":
-                log.warning("unknown rounds alias %r, using 'medium'", rounds)
-            return self.medium_rounds
-
-    @classmethod
-    def verify(self, secret, hash):
-        "verify bcrypt hash"
-        return bcrypt.hashpw(secret, hash) == hash
-
-    #=========================================================
-    #eoc
-    #=========================================================
 
 #=========================================================
 #

@@ -11,9 +11,9 @@ from logging import getLogger
 #pkg
 from passlib.tests.utils import TestCase, enable_suite
 from passlib.util import H64
-from passlib._unix_crypt import crypt as builtin_crypt
+from passlib.hash._slow_unix_crypt import crypt as builtin_crypt
 import passlib.hash.unix_crypt as mod
-from passlib.tests.test_hash import _CryptTestCase as CryptTestCase
+from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
 #module
 log = getLogger(__name__)
 
