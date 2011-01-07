@@ -24,15 +24,7 @@ class Params(object):
         self.kwds = kwds
 
     def render(self, offset=0):
-        """render parenthesized parameters.
-
-        ``Params.parse(p.render())`` should always return
-        a params object equal to the one you started with.
-
-        ``p.render(1)`` is useful for method arguments,
-        when you want to exclude the first argument
-        from being displayed.
-        """
+        """render parenthesized parameters"""
         txt = ''
         for a in self.args[offset:]:
             txt += "%r, " % (a,)
@@ -48,12 +40,12 @@ class Params(object):
 #=========================================================
 class TestCase(unittest.TestCase):
     """passlib-specific test case class
-    
+
     this class mainly overriddes many of the common assert methods
     so to give a default message which includes the values
     as well as the class-specific message_prefix string.
     this latter bit makes the output of various test cases
-    easier to distinguish from eachother.    
+    easier to distinguish from eachother.
     """
 
     message_prefix = None
@@ -81,7 +73,7 @@ class TestCase(unittest.TestCase):
         #NOTE: overriding this to get msg formatting capability
         msg = self._format_msg(msg, "got %r, expected would equal %r", real, correct)
         return self.assert_(real == correct, msg)
-    
+
     def assertEqual(self, *a, **k):
         return self.assertEquals(*a, **k)
 
@@ -121,7 +113,7 @@ class TestCase(unittest.TestCase):
 
     def assertFunctionResults(self, func, cases):
         """helper for running through function calls.
-        
+
         func should be the function to call.
         cases should be list of Param instances,
         where first position argument is expected return value,
@@ -167,7 +159,7 @@ def enable_suite(name):
     if name in _flags:
         return True
     return False
- 
+
 #=========================================================
 #EOF
 #=========================================================

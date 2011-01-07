@@ -23,6 +23,7 @@ class UnsaltedAlg(pwhash.CryptAlgorithm):
     name = "unsalted"
     salt_bits = 0
 
+    @classmethod
     def identify(self, hash):
         if hash is None:
             return False
@@ -34,6 +35,7 @@ class UnsaltedAlg(pwhash.CryptAlgorithm):
             return False
         return True
 
+    @classmethod
     def encrypt(self, secret, salt=None, keep_salt=False):
         #NOTE: that salt / keep_salted are simply ignored
         return hashlib.sha1("boblious" + secret).hexdigest()
@@ -45,19 +47,23 @@ class SaltedAlg(pwhash.CryptAlgorithm):
     name = "salted"
     salt_bits = 6*2
 
+    @classmethod
     def identify(self, hash):
         if hash is None:
             return False
         return hash.startswith("@salt")
 
+    @classmethod
     def _raw(self, secret, salt):
         return "@salt%s%s" % (salt, hashlib.sha1(salt+secret).hexdigest())
 
+    @classmethod
     def encrypt(self, secret, salt=None, keep_salt=False):
 ##        warn("keep_salt not supported by this algorithm")
         real_salt = pwhash.h64_gen_salt(2)
         return self._raw(secret, real_salt)
 
+    @classmethod
     def verify(self, secret, hash):
         if hash is None:
             return False
@@ -69,11 +75,13 @@ class SampleAlg(pwhash.CryptAlgorithm):
     name = "sample"
     salt_bits = 6*2
 
+    @classmethod
     def identify(self, hash):
         if hash is None:
             return False
         return hash.startswith("@sam")
 
+    @classmethod
     def encrypt(self, secret, salt=None, keep_salt=False):
         if salt and keep_salt:
             real_salt = salt[4:6]
@@ -529,10 +537,10 @@ class Sha512BackendTest(TestCase):
     def test512(self):
         crypt = pwhash.Sha512Crypt()
         for hash, secret, result in self.cases512:
-            rec = crypt.parse(hash)
+            rec = crypt._parse(hash)
             self.assertEqual(rec.alg, '6')
             out = crypt.encrypt(secret, hash, keep_salt=True)
-            rec2 = crypt.parse(hash)
+            rec2 = crypt._parse(hash)
             self.assertEqual(rec2.salt, rec.salt, "hash=%r secret=%r" % (hash, secret))
             self.assertEqual(rec2.chk, rec.chk, "hash=%r secret=%r" % (hash, secret))
             self.assertEqual(out, result, "hash=%r secret=%r" % (hash, secret))

@@ -15,15 +15,6 @@ import os
 from passlib.util import classproperty, abstractmethod, is_seq, srandom
 
 try:
-    #try stdlib module, which is only present under posix
-    from crypt import crypt as unix_crypt
-    #XXX: might want to reconcile our implementation's behavior
-    # with the posix behavior so error types/messages and limitations
-    # are reliable
-except ImportError:
-    from passlib._unix_crypt import crypt as unix_crypt
-
-try:
     #try importing py-bcrypt, it's much faster
     import bcrypt
 except ImportError:
@@ -57,6 +48,7 @@ __all__ = [
 #=========================================================
 #common helper funcs for passwords
 #=========================================================
+
 #charmap for "hash64" encoding
 #most unix hash algorithms use this mapping (though bcrypt put it's numerals at the end)
 CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -185,13 +177,13 @@ def h64_gen_salt(size, pad=False):
         out += "=" * (-size % 4)
     return out
 
-class UnixHash(object):
-    "helper used by various hash algorithm utilities"
-    alg = None
-    salt = None
-    chk = None
-    rounds = None
-    source = None
+class HashInfo(object):
+    "helper used by various CryptAlgorithms to store parsed hash information"
+    alg = None #name or alias identifying algorithm
+    salt = None #salt portion of hash
+    chk = None #checksum (result of hashing salt & password according to alg)
+    rounds = None #number of rounds, if known & applicable
+    source = None #source above information was parsed from, if available
 
     def __init__(self, alg, salt, chk=None, rounds=None, source=None):
         self.alg = alg
@@ -445,6 +437,7 @@ class CryptAlgorithm(object):
             False
         """
 
+    @classmethod
     def verify(self, secret, hash):
         """verify a secret against an existing hash.
 
@@ -518,11 +511,13 @@ class Mysql10Crypt(CryptAlgorithm):
 
     _pat = re.compile(r"^[0-9a-f]{16}$", re.I)
 
+    @classmethod
     def identify(self, hash):
         if hash is None:
             return False
         return self._pat.match(hash) is not None
 
+    @classmethod
     def encrypt(self, secret, hash=None, keep_salt=False):
         nr1 = 1345345333
         nr2 = 0x12345671
@@ -536,6 +531,7 @@ class Mysql10Crypt(CryptAlgorithm):
             add = (add+tmp) & 0xffffffff
         return "%08x%08x" % (nr1 & 0x7fffffff, nr2 & 0x7fffffff)
 
+    @classmethod
     def verify(self, secret, hash):
         if hash is None:
             return False
@@ -556,14 +552,17 @@ class Mysql41Crypt(CryptAlgorithm):
 
     _pat = re.compile(r"^\*[0-9A-F]{40}$", re.I)
 
+    @classmethod
     def identify(self, hash):
         if hash is None:
             return False
         return self._pat.match(hash) is not None
 
+    @classmethod
     def encrypt(self, secret, hash=None, keep_salt=False):
         return '*' + hashlib.sha1(hashlib.sha1(secret).digest()).hexdigest().upper()
 
+    @classmethod
     def verify(self, secret, hash):
         if hash is None:
             return False
@@ -584,7 +583,7 @@ class PostgresMd5Crypt(CryptAlgorithm):
 
     Usage Example::
 
-        >>> from passlib import hash 
+        >>> from passlib import hash
         >>> crypt = hash.PostgresMd5Crypt()
         >>> crypt.encrypt("mypass", user="postgres")
         'md55fba2ea04fd36069d2574ea71c8efe9d'
@@ -597,11 +596,13 @@ class PostgresMd5Crypt(CryptAlgorithm):
 
     _pat = re.compile(r"^md5[0-9a-f]{32}$")
 
+    @classmethod
     def identify(self, hash):
         if hash is None:
             return False
         return self._pat.match(hash) is not None
 
+    @classmethod
     def encrypt(self, secret, hash=None, keep_salt=False, user=None):
         if isinstance(secret, tuple):
             if user:
@@ -611,6 +612,7 @@ class PostgresMd5Crypt(CryptAlgorithm):
             raise ValueError, "user keyword must be specified for this algorithm"
         return "md5" + hashlib.md5(secret + user).hexdigest().lower()
 
+    @classmethod
     def verify(self, secret, hash, user=None):
         if hash is None:
             return False
@@ -619,6 +621,15 @@ class PostgresMd5Crypt(CryptAlgorithm):
 #=========================================================
 #old unix crypt
 #=========================================================
+try:
+    #try stdlib module, which is only present under posix
+    from crypt import crypt as unix_crypt
+except ImportError:
+    #TODO: need to reconcile our implementation's behavior
+    # with the stdlib's behavior so error types, messages, and limitations
+    # are the same. (eg: handling of None and unicode chars)
+    from passlib._unix_crypt import crypt as unix_crypt
+
 class UnixCrypt(CryptAlgorithm):
     """Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
     This implementation uses the builtin ``crypt`` module when available,
@@ -630,17 +641,20 @@ class UnixCrypt(CryptAlgorithm):
     has_rounds = False
     secret_chars = 8
 
+    #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
     _pat = re.compile(r"""
         ^
         (?P<salt>[./a-z0-9]{2})
         (?P<hash>[./a-z0-9]{11})
         $""", re.X|re.I)
 
+    @classmethod
     def identify(self, hash):
         if hash is None:
             return False
         return self._pat.match(hash) is not None
 
+    @classmethod
     def encrypt(self, secret, hash=None, keep_salt=False):
         if hash and keep_salt:
             salt = hash[:2]
@@ -667,6 +681,7 @@ class Md5Crypt(CryptAlgorithm):
     hash_bits = 96
     has_rounds = False
 
+    @classmethod
     def _md5_crypt_raw(self, secret, salt):
         #init salt
         if not salt:
@@ -724,7 +739,7 @@ class Md5Crypt(CryptAlgorithm):
             )
             for idx in xrange(5)
             ) + _enc64b1(hash, 11)
-        return UnixHash('1', salt, out)
+        return HashInfo('1', salt, out)
 
     _pat = re.compile(r"""
         ^
@@ -734,34 +749,38 @@ class Md5Crypt(CryptAlgorithm):
         $
         """, re.X)
 
+    @classmethod
     def identify(self, hash):
         "identify md5-crypt hash"
         if hash is None:
             return False
         return self._pat.match(hash) is not None
 
-    def parse(self, hash):
+    @classmethod
+    def _parse(self, hash):
         "parse an md5-crypt hash"
         m = self._pat.match(hash)
         if not m:
             raise ValueError, "invalid md5 salt"
-        return UnixHash(m.group("alg"), m.group("salt"), m.group("chk"))
+        return HashInfo(m.group("alg"), m.group("salt"), m.group("chk"))
 
+    @classmethod
     def encrypt(self, secret, salt=None, keep_salt=False):
         "encrypt an md5-crypt hash"
         real_salt = None
         if salt:
-            rec = self.parse(salt)
+            rec = self._parse(salt)
             if keep_salt:
                 real_salt = rec.salt
         rec = self._md5_crypt_raw(secret, real_salt)
         return "$1$%s$%s" % (rec.salt, rec.chk)
 
+    @classmethod
     def verify(self, secret, hash):
         "verify an md5-crypt hash"
         if hash is None:
             return False
-        rec = self.parse(hash)
+        rec = self._parse(hash)
         other = self._md5_crypt_raw(secret, rec.salt)
         return other.chk == rec.chk
 
@@ -802,6 +821,7 @@ class _ShaCrypt(CryptAlgorithm):
     #=========================================================
     #core sha crypt algorithm
     #=========================================================
+    @classmethod
     def _sha_crypt_raw(self, rounds, salt, secret):
         "perform sha crypt, returning just the checksum"
         #setup alg-specific parameters
@@ -886,8 +906,9 @@ class _ShaCrypt(CryptAlgorithm):
         #encode result using 256/512 specific func
         out = self._encode(last_result)
         assert len(out) == self._hash_size, "wrong length: %r" % (out,)
-        return UnixHash(self._key, salt, out, rounds=rounds)
+        return HashInfo(self._key, salt, out, rounds=rounds)
 
+    @classmethod
     def _sha_crypt(self, rounds, salt, secret):
         rec = self._sha_crypt_raw(rounds, salt, secret)
         if rec.rounds == -1:
@@ -898,13 +919,15 @@ class _ShaCrypt(CryptAlgorithm):
     #=========================================================
     #frontend helpers
     #=========================================================
+    @classmethod
     def identify(self, hash):
         "identify bcrypt hash"
         if hash is None:
             return False
         return self._pat.match(hash) is not None
 
-    def parse(self, hash):
+    @classmethod
+    def _parse(self, hash):
         "parse bcrypt hash"
         m = self._pat.match(hash)
         if not m:
@@ -915,8 +938,9 @@ class _ShaCrypt(CryptAlgorithm):
         else:
             rounds = int(rounds)
         assert alg == self._key
-        return UnixHash(alg, salt, chk, rounds=rounds, source=hash)
+        return HashInfo(alg, salt, chk, rounds=rounds, source=hash)
 
+    @classmethod
     def encrypt(self, secret, hash=None, rounds=None, keep_salt=False):
         """encrypt using sha256/512-crypt.
 
@@ -933,7 +957,7 @@ class _ShaCrypt(CryptAlgorithm):
         """
         salt = None
         if hash:
-            rec = self.parse(hash)
+            rec = self._parse(hash)
             if keep_salt:
                 salt = rec.salt
             if rounds is None:
@@ -941,6 +965,7 @@ class _ShaCrypt(CryptAlgorithm):
         rounds = self._norm_rounds(rounds)
         return self._sha_crypt(rounds, salt, secret)
 
+    @classmethod
     def _norm_rounds(self, rounds):
         if isinstance(rounds, int):
             return rounds
@@ -953,10 +978,11 @@ class _ShaCrypt(CryptAlgorithm):
                 log.warning("unknown rounds alias %r, using 'medium'", rounds)
             return self.medium_rounds
 
+    @classmethod
     def verify(self, secret, hash):
         if hash is None:
             return False
-        rec = self.parse(hash)
+        rec = self._parse(hash)
         other = self._sha_crypt_raw(rec.rounds, rec.salt, secret)
         return other.chk == rec.chk
 
@@ -985,6 +1011,7 @@ class Sha256Crypt(_ShaCrypt):
     _chunk_size = 32
     _hash_size = 43
 
+    @classmethod
     def _encode(self, result):
         out = ''
         a, b, c = [0, 10, 20]
@@ -1056,6 +1083,7 @@ class Sha512Crypt(_ShaCrypt):
     _chunk_size = 64
     _hash_size = 86
 
+    @classmethod
     def _encode(self, result):
         out = ''
         a, b, c = [0, 21, 42]
@@ -1123,20 +1151,23 @@ class BCrypt(CryptAlgorithm):
         $
         """, re.X)
 
+    @classmethod
     def identify(self, hash):
         "identify bcrypt hash"
         if hash is None:
             return False
         return self._pat.match(hash) is not None
 
-    def parse(self, hash):
+    @classmethod
+    def _parse(self, hash):
         "parse bcrypt hash"
         m = self._pat.match(hash)
         if not m:
             raise ValueError, "invalid bcrypt hash/salt"
         alg, rounds, salt, chk = m.group("alg", "rounds", "salt", "chk")
-        return UnixHash(alg, salt, chk, rounds=int(rounds), source=hash)
+        return HashInfo(alg, salt, chk, rounds=int(rounds), source=hash)
 
+    @classmethod
     def encrypt(self, secret, hash=None, keep_salt=False, rounds=None):
         """encrypt using bcrypt.
 
@@ -1154,7 +1185,7 @@ class BCrypt(CryptAlgorithm):
         """
         #validate salt
         if hash:
-            rec = self.parse(hash)
+            rec = self._parse(hash)
             if rounds is None:
                 rounds = rec.rounds
         #generate new salt
@@ -1166,6 +1197,7 @@ class BCrypt(CryptAlgorithm):
         #encrypt secret
         return bcrypt.hashpw(secret, salt)
 
+    @classmethod
     def _norm_rounds(self, rounds):
         if isinstance(rounds, int):
             return rounds
@@ -1178,6 +1210,7 @@ class BCrypt(CryptAlgorithm):
                 log.warning("unknown rounds alias %r, using 'medium'", rounds)
             return self.medium_rounds
 
+    @classmethod
     def verify(self, secret, hash):
         "verify bcrypt hash"
         return bcrypt.hashpw(secret, hash) == hash
@@ -1395,7 +1428,7 @@ class CryptContext(list):
     #=========================================================
     #TODO: recode default to be explicitly settable, not just using first one.
     #TODO: simplify interface as much as possible.
-    
+
     def resolve(self, name=None, default=None):
         """given an algorithm name, return CryptAlgorithm instance which manages it.
         if no match is found, returns None.
@@ -1551,7 +1584,7 @@ def identify(hash, resolve=False):
         =================== ================================================
         Name                Description
         ------------------- ------------------------------------------------
-        ``"unix-crypt"``    the historic unix-crypt algorithm
+        ``"unix-crypt"``    the historical unix-crypt algorithm
 
         ``"md5-crypt"``     the md5-crypt algorithm, usually identified
                             by the prefix ``$1$`` in unix shadow files.

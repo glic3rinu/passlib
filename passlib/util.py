@@ -15,15 +15,15 @@ __all__ = [
     #decorators
     "classproperty",
     "abstractmethod",
-    
+
     #tests
     "is_seq",
     "is_num",
-    
+
     #byte manipulation
     "bytes_to_list",
     "list_to_bytes",
-    
+
     #random helpers
     'srandom',
     'getrandbytes',
@@ -54,6 +54,8 @@ def abstractmethod(func):
     update_wrapper(wrapper, func)
     return wrapper
 
+##def abstract_class_method
+
 #=================================================================================
 #tests
 #=================================================================================
@@ -66,7 +68,7 @@ NumericTypes = (int, float, long) #XXX: add decimal?
 def is_num(obj):
     "tests if *obj* is a known numeric type"
     return isinstance(obj, NumericTypes)
-    
+
 #=================================================================================
 #numeric helpers
 #=================================================================================
@@ -165,8 +167,8 @@ def bytes_to_list(value, order="big"):
     else:
         assert order == "little"
         return [ ord(c) for c in reversed(value) ]
-        
-        
+
+
 #=================================================================================
 #pick strongest rng (SystemRandom, if available), and store in srandom
 #=================================================================================
@@ -196,7 +198,7 @@ def getrandbytes(rng, size):
         chr((value >> offset) & 0xff)
         for offset in xrange(0, bits, 8)
         )
-    
+
 def weighted_choice(rng, source):
     """pick randomly from a weighted list of choices.
 
@@ -266,8 +268,7 @@ def weighted_choice(rng, source):
                 return choice
         else:
             raise RuntimeError, "failed to sum weights correctly"
-        
+
 #=================================================================================
 #eof
 #=================================================================================
-
