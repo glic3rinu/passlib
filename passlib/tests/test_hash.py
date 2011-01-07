@@ -104,7 +104,8 @@ SECRETS = [
     'test bcdef',
     'Compl3X AlphaNu3meric',
     '4lpHa N|_|M3r1K W/ Cur51|\\|g: #$%(*)(*%#',
-    'Really Long Password (tm), which is all the rage nowadays with the cool kids'
+    'Really Long Password (tm), which is all the rage nowadays with the cool kids',
+##    u'test with unic\u00D6de', #<- note, not all codecs can handle unicode yet.
     ]
 
 class _CryptTestCase(TestCase):

@@ -552,6 +552,11 @@ class Md5Crypt(CryptAlgorithm):
             salt = H64.randstr(8)
         assert len(salt) == 8
 
+        #handle unicode
+        #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+
         h = hashlib.md5()
         assert h.digestsize == 16
         h.update(secret)

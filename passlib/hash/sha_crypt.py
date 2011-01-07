@@ -1,7 +1,13 @@
 """passlib.hash.sha_crypt - implements SHA-256-Crypt & SHA-512-Crypt
 
 Implementation written based on specification at `<http://www.akkadia.org/drepper/SHA-crypt.txt>`_.
-It should be byte-compatible with unix shadow hashes beginning with ``$5$``.
+It should be byte-compatible with unix shadow hashes beginning with ``$5$`` and ``$6%``.
+More details about specification at `<http://www.akkadia.org/drepper/sha-crypt.html>`_.
+
+XXX: spec says salt can be variable (8-16 chars), but implementation currently always generates 16 chars.
+    should at least make sure it can accept <16 chars properly
+
+NOTE: the spec says nothing about unicode, so we handle it by converting to utf-8
 """
 #=========================================================
 #imports
@@ -35,7 +41,7 @@ class _ShaCrypt(CryptAlgorithm):
     #algorithm info
     #=========================================================
     #hash_bits, name filled in for subclass
-    salt_bits = 96
+    salt_bits = 6*16
     has_rounds = True
     has_named_rounds = True
 
@@ -73,6 +79,11 @@ class _ShaCrypt(CryptAlgorithm):
             salt = H64.randstr(16)
         elif len(salt) > 16:
             salt = salt[:16] #spec says to use up to first chars 16 only
+
+        #handle unicode
+        #FIXME: can't find definitive policy on how sha-crypt handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
 
         #init rounds
         if rounds == -1:
