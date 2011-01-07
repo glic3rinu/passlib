@@ -19,6 +19,15 @@ __all__ = [
 #=========================================================
 class Params(object):
     "helper to represent params for function call"
+
+    @classmethod
+    def norm(cls, value):
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, (list,tuple)):
+            return cls(*value)
+        return cls(**value)
+
     def __init__(self, *args, **kwds):
         self.args = args
         self.kwds = kwds
@@ -43,17 +52,17 @@ class TestCase(unittest.TestCase):
 
     this class mainly overriddes many of the common assert methods
     so to give a default message which includes the values
-    as well as the class-specific message_prefix string.
+    as well as the class-specific case_prefix string.
     this latter bit makes the output of various test cases
     easier to distinguish from eachother.
     """
 
-    message_prefix = None
+    case_prefix = None
 
     def __init__(self, *a, **k):
-        #set the doc strings for all test messages to begin w/ message_prefix
+        #set the doc strings for all test messages to begin w/ case_prefix
         #yes, this is incredibly hacked.
-        prefix = self.message_prefix
+        prefix = self.case_prefix
         if prefix:
             if callable(prefix):
                 prefix = prefix()
@@ -120,6 +129,7 @@ class TestCase(unittest.TestCase):
         and remaining args and kwds are passed to function.
         """
         for elem in cases:
+            elem = Params.norm(elem)
             correct = elem.args[0]
             result = func(*elem.args[1:], **elem.kwds)
             self.assertEqual(result, correct,

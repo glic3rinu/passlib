@@ -4,6 +4,7 @@
 #=========================================================
 #core
 import sys
+import random
 #site
 #pkg
 #module
@@ -85,6 +86,54 @@ class BytesTest(TestCase):
             self.assertEqual(util.bytes_to_list('\x01\x00\x00', order="native"), [0, 0, 1])
         else:
             self.assertEqual(util.bytes_to_list('\x00\x00\x01', order="native"), [0, 0, 1])
+
+#=========================================================
+#hash64
+#=========================================================
+class Test_H64(TestCase):
+    "test H64 codec functions"
+    case_prefix = "H64 codec"
+
+    def test_encode_1_offset(self):
+        self.assertFunctionResults(util.H64.encode_1_offset,[
+            ("z1", "\xff", 0),
+            ("..", "\x00", 0),
+        ])
+
+    def test_encode_2_offsets(self):
+        self.assertFunctionResults(util.H64.encode_2_offsets,[
+            (".wD", "\x00\xff", 0, 1),
+            ("z1.", "\xff\x00", 0, 1),
+            ("z1.", "\x00\xff", 1, 0),
+        ])
+
+    def test_encode_3_offsets(self):
+        self.assertFunctionResults(util.H64.encode_3_offsets,[
+            #move through each byte, keep offsets
+            ("..kz", "\x00\x00\xff", 0, 1, 2),
+            (".wD.", "\x00\xff\x00", 0, 1, 2),
+            ("z1..", "\xff\x00\x00", 0, 1, 2),
+
+            #move through each offset, keep bytes
+            (".wD.", "\x00\x00\xff", 0, 2, 1),
+            ("z1..", "\x00\x00\xff", 2, 0, 1),
+        ])
+
+    def test_randstr(self):
+        #override default rng so we can get predictable values
+        rng = random.Random()
+        def wrapper(*a, **k):
+            rng.seed(1234)
+            k['rng'] = rng
+            return util.H64.randstr(*a, **k)
+        self.assertFunctionResults(wrapper,[
+            ("", 0),
+            ("x", 1),
+            ("xQ", 2),
+            ("xQ.uwZe3lD/mKbb7", 16),
+            ("xQ.uwZe3lD/mKbb795.Tx2WRa3ZFXdSK", 32),
+        ])
+
 
 #=========================================================
 #EOF

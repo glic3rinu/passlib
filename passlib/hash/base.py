@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, is_seq, srandom
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
 
 try:
     #try importing py-bcrypt, it's much faster
@@ -28,154 +28,18 @@ __all__ = [
     'CryptAlgorithm',
         'UnixCrypt',
         'Md5Crypt',
-        'Sha256Crypt',
-        'Sha512Crypt',
         'BCrypt',
+        'Mysql10Crypt',
+        'Mysql41Crypt',
+        'PostgresMd5Crypt',
 
     #crypt context
     'CryptContext',
-        'default_context',
-        'linux_context',
-        'bsd_context',
-
-    #quick helpers
-    'identify_secret',
-    'encrypt_secret',
-    'verify_secret',
-
 ]
 
 #=========================================================
 #common helper funcs for passwords
 #=========================================================
-
-#charmap for "hash64" encoding
-#most unix hash algorithms use this mapping (though bcrypt put it's numerals at the end)
-CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-CHARIDX = dict( (c,i) for i,c in enumerate(CHARS))
-
-def _enc64(value, offset=0, num=False):
-    if num:
-        x, y, z = value[offset], value[offset+1], value[offset+2]
-    else:
-        x, y, z = ord(value[offset]), ord(value[offset+1]), ord(value[offset+2])
-    #xxxxxx xxyyyy yyyyzz zzzzzz
-    #aaaaaa bbbbbb cccccc dddddd
-    a = (x >> 2) # x [8..3]
-    b = ((x & 0x3) << 4) + (y>>4) # x[2..1] + y [8..5]
-    c = ((y & 0xf) << 2) + (z>>6) #y[4..1] + d[8..7]
-    d = z & 0x3f
-    return CHARS[a] + CHARS[b] + CHARS[c] + CHARS[d]
-
-def _dec64(value, offset=0, num=False):
-    a, b, c, d = CHARIDX[value[offset]], CHARIDX[value[offset+1]], \
-        CHARIDX[value[offset+2]], CHARIDX[value[offset+3]]
-    #aaaaaabb bbbbcccc ccdddddd
-    #xxxxxxxx yyyyyyyy zzzzzzzz
-    x = (a<<2) + (b >> 4) #a[6..1] + b[6..5]
-    y = ((b & 0xf) << 4) + (c >> 2) #b[4..1] + c[6..3]
-    z = ((c & 0x3) << 6) + d #c[2..1] + d[6..1]
-    if num:
-        return x, y, z
-    return chr(x) + chr(y) + chr(z)
-
-def h64_encode(value, pad=False, num=False):
-    "encode string of bytes into hash64 format"
-    if num:
-        value = list(value)
-    #pad value to align w/ 3 byte chunks
-    x = len(value) % 3
-    if x == 2:
-        if num:
-            value += [0]
-        else:
-            value += "\x00"
-        p = 1
-    elif x == 1:
-        if num:
-            value += [0, 0]
-        else:
-            value += "\x00\x00"
-        p = 2
-    else:
-        p = 0
-    assert len(value) % 3 == 0
-    out = "".join( _enc64(value, offset, num=num) for offset in xrange(0, len(value), 3))
-    assert len(out) % 4 == 0
-    if p:
-        if pad:
-            out = out[:-p] + "=" * p
-        else:
-            out = out[:-p]
-    return out
-
-def h64_decode(value, pad=False, num=False):
-    "decode string of bytes from hash64 format"
-    if value.endswith("="):
-        assert len(value) % 4 == 0, value
-        if value.endswith('=='):
-            p = 2
-            value = value[:-2] + '..'
-        else:
-            p = 1
-            value = value[:-1] + '.'
-    else:
-        #else add padding if needed
-        x = len(value) % 4
-        if x == 0:
-            p = 0
-        elif pad:
-            raise ValueError, "size must be multiple of 4"
-        elif x == 3:
-            p = 1
-            value += "."
-        elif x == 2:
-            p = 2
-            value += ".."
-        elif x == 1:
-            p = 3
-            value += "..."
-    assert len(value) % 4 == 0, value
-    if num:
-        out = []
-        for offset in xrange(0, len(value), 4):
-            out.extend(_dec64(value, offset, num=True))
-    else:
-        out = "".join( _dec64(value, offset) for offset in xrange(0, len(value), 4))
-    assert len(out) % 3 == 0
-    if p: #strip out garbage chars
-        out = out[:-p]
-    return out
-
-def _enc64b(a, b, c, n=4):
-    "std hash64 bit encoding"
-    v = (ord(a) << 16) + (ord(b) << 8) + ord(c)
-    return "".join(
-        CHARS[(v >> (i*6)) & 0x3F]
-        for i in range(n)
-        )
-
-def _enc64b1(buffer, a):
-    "do 64bit encode of single element of a buffer"
-    return _enc64b('\x00', '\x00', buffer[a], 2)
-
-def _enc64b2(buffer, a, b):
-    "do 64bit encode of 2 elements of a buffer"
-    return _enc64b('\x00', buffer[a], buffer[b], 3)
-
-def _enc64b3(buffer, a, b, c):
-    "do 64bit encode of 3 elements of a buffer"
-    return _enc64b(buffer[a], buffer[b], buffer[c], 4)
-
-def h64_gen_salt(size, pad=False):
-    "generate hash64 salt of arbitrary length"
-    out = ''.join(
-        srandom.choice(CHARS)
-        for idx in xrange(size)
-        )
-    if pad and size % 4:
-        out += "=" * (-size % 4)
-    return out
 
 class HashInfo(object):
     "helper used by various CryptAlgorithms to store parsed hash information"
@@ -659,7 +523,7 @@ class UnixCrypt(CryptAlgorithm):
         if hash and keep_salt:
             salt = hash[:2]
         else:
-            salt = h64_gen_salt(2)
+            salt = H64.randstr(2)
         return unix_crypt(secret, salt)
 
     #default verify used
@@ -685,7 +549,7 @@ class Md5Crypt(CryptAlgorithm):
     def _md5_crypt_raw(self, secret, salt):
         #init salt
         if not salt:
-            salt = h64_gen_salt(8)
+            salt = H64.randstr(8)
         assert len(salt) == 8
 
         h = hashlib.md5()
@@ -732,13 +596,13 @@ class Md5Crypt(CryptAlgorithm):
             hash = h.digest()
 
         out = ''.join(
-            _enc64b3(hash,
-                idx,
-                idx+6,
+            H64.encode_3_offsets(hash,
                 idx+12 if idx < 4 else 5,
+                idx+6,
+                idx,
             )
             for idx in xrange(5)
-            ) + _enc64b1(hash, 11)
+            ) + H64.encode_1_offset(hash, 11)
         return HashInfo('1', salt, out)
 
     _pat = re.compile(r"""
@@ -783,333 +647,6 @@ class Md5Crypt(CryptAlgorithm):
         rec = self._parse(hash)
         other = self._md5_crypt_raw(secret, rec.salt)
         return other.chk == rec.chk
-
-#=========================================================
-#ids 5,6 -- sha
-#algorithm defined on this page:
-#   http://people.redhat.com/drepper/SHA-crypt.txt
-#=========================================================
-class _ShaCrypt(CryptAlgorithm):
-    "this is the base class used by SHA-256 & SHA-512. don't use directly."
-    #=========================================================
-    #algorithm info
-    #=========================================================
-    #hash_bits, name filled in for subclass
-    salt_bits = 96
-    has_rounds = True
-    has_named_rounds = True
-
-    #tuning the round aliases
-    rounds_per_second = 156000 #last tuned 2009-7-6 on a 2gz system
-    fast_rounds = int(rounds_per_second * .25)
-    medium_rounds = int(rounds_per_second * .75)
-    slow_rounds = int(rounds_per_second * 1.5)
-
-    #=========================================================
-    #internals required from subclass
-    #=========================================================
-    _key = None #alg id (5, 6) of specific sha alg
-    _hash = None #callable to use for hashing
-    _chunk_size = None #bytes at a time to input secret
-    _hash_size = None #bytes in hash
-    _pat = None #regexp for sha variant
-
-    @abstractmethod
-    def _encode(self, result):
-        "encode raw result into h64 style"
-
-    #=========================================================
-    #core sha crypt algorithm
-    #=========================================================
-    @classmethod
-    def _sha_crypt_raw(self, rounds, salt, secret):
-        "perform sha crypt, returning just the checksum"
-        #setup alg-specific parameters
-        hash = self._hash
-        chunk_size = self._chunk_size
-
-        #init salt
-        if salt is None:
-            salt = h64_gen_salt(16)
-        elif len(salt) > 16:
-            salt = salt[:16] #spec says to use up to first chars 16 only
-
-        #init rounds
-        if rounds == -1:
-            real_rounds = 5000
-        else:
-            if rounds < 1000:
-                rounds = 1000
-            if rounds > 999999999:
-                rounds = 999999999
-            real_rounds = rounds
-
-        def extend(source, size_ref):
-            size = len(size_ref)
-            return source * int(size/chunk_size) + source[:size % chunk_size]
-
-        #calc digest B
-        b = hash()
-        b.update(secret)
-        b.update(salt)
-        b.update(secret)
-        b_result = b.digest()
-        b_extend = extend(b_result, secret)
-
-        #begin digest A
-        a = hash()
-        a.update(secret)
-        a.update(salt)
-        a.update(b_extend)
-
-        #for each bit in slen, add B or SECRET
-        value = len(secret)
-        while value > 0:
-            if value % 2:
-                a.update(b_result)
-            else:
-                a.update(secret)
-            value >>= 1
-
-        #finish A
-        a_result = a.digest()
-
-        #calc DP
-        dp = hash()
-        dp.update(secret * len(secret))
-        dp_result = extend(dp.digest(), secret)
-
-        #calc DS
-        ds = hash()
-        for i in xrange(0, 16+ord(a_result[0])):
-            ds.update(salt)
-        ds_result = extend(ds.digest(), salt) #aka 'S'
-
-        #calc digest C
-        last_result = a_result
-        for i in xrange(0, real_rounds):
-            c = hash()
-            if i % 2:
-                c.update(dp_result)
-            else:
-                c.update(last_result)
-            if i % 3:
-                c.update(ds_result)
-            if i % 7:
-                c.update(dp_result)
-            if i % 2:
-                c.update(last_result)
-            else:
-                c.update(dp_result)
-            last_result = c.digest()
-
-        #encode result using 256/512 specific func
-        out = self._encode(last_result)
-        assert len(out) == self._hash_size, "wrong length: %r" % (out,)
-        return HashInfo(self._key, salt, out, rounds=rounds)
-
-    @classmethod
-    def _sha_crypt(self, rounds, salt, secret):
-        rec = self._sha_crypt_raw(rounds, salt, secret)
-        if rec.rounds == -1:
-            return "$%s$%s$%s" % (rec.alg, rec.salt, rec.chk)
-        else:
-            return "$%s$rounds=%d$%s$%s" % (rec.alg, rec.rounds, rec.salt, rec.chk)
-
-    #=========================================================
-    #frontend helpers
-    #=========================================================
-    @classmethod
-    def identify(self, hash):
-        "identify bcrypt hash"
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def _parse(self, hash):
-        "parse bcrypt hash"
-        m = self._pat.match(hash)
-        if not m:
-            raise ValueError, "invalid sha hash/salt"
-        alg, rounds, salt, chk = m.group("alg", "rounds", "salt", "chk")
-        if rounds is None:
-            rounds = -1 #indicate we're using the default mode
-        else:
-            rounds = int(rounds)
-        assert alg == self._key
-        return HashInfo(alg, salt, chk, rounds=rounds, source=hash)
-
-    @classmethod
-    def encrypt(self, secret, hash=None, rounds=None, keep_salt=False):
-        """encrypt using sha256/512-crypt.
-
-        In addition to the normal options that :meth:`CryptAlgorithm.encrypt` takes,
-        this function also accepts the following:
-
-        :param rounds:
-            Optionally specify the number of rounds to use.
-            This can be one of "fast", "medium", "slow",
-            or an integer in the range 1000...999999999.
-
-            See :attr:`CryptAlgorithm.has_named_rounds` for details
-            on the meaning of "fast", "medium" and "slow".
-        """
-        salt = None
-        if hash:
-            rec = self._parse(hash)
-            if keep_salt:
-                salt = rec.salt
-            if rounds is None:
-                rounds = rec.rounds
-        rounds = self._norm_rounds(rounds)
-        return self._sha_crypt(rounds, salt, secret)
-
-    @classmethod
-    def _norm_rounds(self, rounds):
-        if isinstance(rounds, int):
-            return rounds
-        elif rounds == "fast" or rounds is None:
-            return self.fast_rounds
-        elif rounds == "slow":
-            return self.slow_rounds
-        else:
-            if rounds != "medium":
-                log.warning("unknown rounds alias %r, using 'medium'", rounds)
-            return self.medium_rounds
-
-    @classmethod
-    def verify(self, secret, hash):
-        if hash is None:
-            return False
-        rec = self._parse(hash)
-        other = self._sha_crypt_raw(rec.rounds, rec.salt, secret)
-        return other.chk == rec.chk
-
-    #=========================================================
-    #eoc
-    #=========================================================
-
-class Sha256Crypt(_ShaCrypt):
-    """This class implements the SHA-256 Crypt Algorithm,
-    according to the specification at `<http://people.redhat.com/drepper/SHA-crypt.txt>`_.
-    It should be byte-compatible with unix shadow hashes beginning with ``$5$``.
-
-    See Sha512Crypt for usage examples and details.
-    """
-    #=========================================================
-    #algorithm info
-    #=========================================================
-    name='sha256-crypt'
-    hash_bits = 256
-
-    #=========================================================
-    #internals
-    #=========================================================
-    _hash = hashlib.sha256
-    _key = '5'
-    _chunk_size = 32
-    _hash_size = 43
-
-    @classmethod
-    def _encode(self, result):
-        out = ''
-        a, b, c = [0, 10, 20]
-        while a < 30:
-            out += _enc64b3(result, a, b, c)
-            a, b, c = c+1, a+1, b+1
-        assert a == 30, "loop to far: %r" % (a,)
-        out += _enc64b2(result, 31, 30)
-        return out
-
-    #=========================================================
-    #frontend
-    #=========================================================
-    _pat = re.compile(r"""
-        ^
-        \$(?P<alg>5)
-        (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]+)
-        (\$(?P<chk>[A-Za-z0-9./]+))?
-        $
-        """, re.X)
-
-    #=========================================================
-    #eof
-    #=========================================================
-
-class Sha512Crypt(_ShaCrypt):
-    """This class implements the SHA-512 Crypt Algorithm,
-    according to the specification at `http://people.redhat.com/drepper/SHA-crypt.txt`_.
-    It should be byte-compatible with unix shadow hashes beginning with ``$6$``.
-
-    This implementation is based on a pure-python translation
-    of the original specification.
-
-    .. note::
-        This is *not* just the raw SHA-512 hash of the password,
-        which is sometimes incorrectly referred to as sha512-crypt.
-        This is a variable-round descendant of md5-crypt,
-        and is comparable in strength to bcrypt.
-
-    Usage Example::
-
-        >>> from passlib.hash import Sha512Crypt
-        >>> crypt = Sha512Crypt()
-        >>> #to encrypt a new secret with this algorithm
-        >>> hash = crypt.encrypt("forget me not")
-        >>> hash
-        '$6$rounds=11949$KkBupsnnII6YXqgT$O8qAEcEgDyJlMC4UB3buST8vE1PsPPABA.0lQIUARTNnlLPZyBRVXAvqqynVByGRLTRMIorkcR0bsVQS5i3Xw1'
-        >>> #to verify an existing secret
-        >>> crypt.verify("forget me not", hash)
-        True
-        >>> crypt.verify("i forgot it", hash)
-        False
-
-    .. automethod:: encrypt
-    """
-    #=========================================================
-    #algorithm info
-    #=========================================================
-
-    name='sha512-crypt'
-    hash_bits = 512
-
-    #=========================================================
-    #internals
-    #=========================================================
-    _hash = hashlib.sha512
-    _key = '6'
-    _chunk_size = 64
-    _hash_size = 86
-
-    @classmethod
-    def _encode(self, result):
-        out = ''
-        a, b, c = [0, 21, 42]
-        while c < 63:
-            out += _enc64b3(result, a, b, c)
-            a, b, c = b+1, c+1, a+1
-        assert c == 63, "loop to far: %r" % (c,)
-        out += _enc64b1(result, 63)
-        return out
-
-    #=========================================================
-    #frontend
-    #=========================================================
-
-    _pat = re.compile(r"""
-        ^
-        \$(?P<alg>6)
-        (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]+)
-        (\$(?P<chk>[A-Za-z0-9./]+))?
-        $
-        """, re.X)
-
-    #=========================================================
-    #eof
-    #=========================================================
 
 #=========================================================
 #OpenBSD's BCrypt
@@ -1559,153 +1096,6 @@ def is_crypt_context(obj):
     return all(hasattr(obj, name) for name in (
         "resolve", "verify", "encrypt", "identify",
         ))
-
-#=========================================================
-#build up the standard context objects
-#=========================================================
-
-#default context for quick use.. recognizes all known algorithms,
-#   currently uses SHA-512 as default
-default_context = CryptContext([ UnixCrypt, Md5Crypt, BCrypt, Sha256Crypt, Sha512Crypt ])
-
-def identify(hash, resolve=False):
-    """Identify algorithm which generated a password hash.
-
-    :arg hash:
-        The hash string to identify.
-    :param resolve:
-        If ``True``, this function will return a :class:`CryptAlgorithm`
-        instance which can handle the hash.
-        If ``False`` (the default), then only the name of the hash algorithm
-        will be returned.
-
-    The following algorithms are currently recognized:
-
-        =================== ================================================
-        Name                Description
-        ------------------- ------------------------------------------------
-        ``"unix-crypt"``    the historical unix-crypt algorithm
-
-        ``"md5-crypt"``     the md5-crypt algorithm, usually identified
-                            by the prefix ``$1$`` in unix shadow files.
-
-        ``"bcrypt"``        the openbsd blowfish-crypt algorithm,
-                            usually identified by the prefixes ``$2$`` or ``$2a$``
-                            in unix shadow files.
-
-        ``"sha256-crypt"``  the 256-bit version of the sha-crypt algorithm,
-                            usually identified by the prefix ``$5$``
-                            in unix shadow files.
-
-        ``"sha512-crypt"``  the 512-bit version of the sha-crypt algorithm,
-                            usually identified by the prefix ``$6$``
-                            in unix shadow files.
-        =================== ================================================
-
-    :returns:
-        The name of the hash, or ``None`` if the hash could not be identified.
-        (The return may be altered by the *resolve* keyword).
-
-    .. note::
-        This is a convience wrapper for ``pwhash.default_context.identify(hash)``.
-    """
-    return default_context.identify(hash, resolve=resolve)
-
-def encrypt(secret, hash=None, alg=None, **kwds):
-    """Encrypt secret using a password hash algorithm.
-
-    :type secret: str
-    :arg secret:
-        String containing the secret to encrypt
-
-    :type hash: str|None
-    :arg hash:
-        Optional previously existing hash string which
-        will be used to provide default value for the salt, rounds,
-        or other algorithm-specific options.
-        If not specified, algorithm-chosen defaults will be used.
-
-    :type alg: str|None
-    :param alg:
-        Optionally specify the name of the algorithm to use.
-        If no algorithm is specified, an attempt is made
-        to guess from the hash string. If no hash string
-        is specified, sha512-crypt will be used.
-        See :func:`identify` for a list of algorithm names.
-
-    All other keywords are passed on to the specific password algorithm
-    being used to encrypt the secret.
-
-    :type keep_salt: bool
-    :param keep_salt:
-        This option is accepted by all of the builtin algorithms.
-
-        By default, a new salt value generated each time
-        a secret is encrypted. However, if this keyword
-        is set to ``True``, and a previous hash string is provided,
-        the salt from that string will be used instead.
-
-        .. note::
-            This is generally only useful when verifying an existing hash
-            (see :func:`verify`). Other than that, this option should be
-            avoided, as re-using a salt will needlessly decrease security.
-
-    :type rounds: int
-    :param rounds:
-        For the sha256-crypt and sha512-crypt algorithms,
-        this option lets you specify the number of rounds
-        of encryption to use. For the bcrypt algorithm,
-        this option lets you specify the log-base-2 of
-        the number of rounds of encryption to use.
-
-        For all three of these algorithms, you can either
-        specify a positive integer, or one of the strings
-        "fast", "medium", "slow" to choose a preset number
-        of rounds corresponding to an appropriate level
-        of encryption.
-
-    :returns:
-        The secret as encoded by the specified algorithm and options.
-    """
-    return default_context.encrypt(secret, hash=hash, alg=alg, **kwds)
-
-def verify(secret, hash, alg=None):
-    """verify a secret against an existing hash.
-
-    This checks if a secret matches against the one stored
-    inside the specified hash. By default this uses :func:`encrypt`
-    to re-crypt the secret, and compares it to the provided hash;
-    though some algorithms may implement this in a more efficient manner.
-
-    :type secret: str
-    :arg secret:
-        A string containing the secret to check.
-
-    :type hash: str
-    :param hash:
-        A string containing the hash to check against.
-
-    :type alg: str|None
-    :param alg:
-        Optionally specify the name of the algorithm to use.
-        If no algorithm is specified, an attempt is made
-        to guess from the hash string. If it can't be
-        identified, a ValueError will be raised.
-        See :func:`identify` for a list of algorithm names.
-
-    :returns:
-        ``True`` if the secret matches, otherwise ``False``.
-    """
-    return default_context.verify(secret, hash, alg=alg)
-
-#some general os-context helpers (these may not match your os policy exactly)
-linux_context = CryptContext([ UnixCrypt, Md5Crypt, Sha256Crypt, Sha512Crypt ])
-bsd_context = CryptContext([ UnixCrypt, Md5Crypt, BCrypt ])
-
-#some sql db context helpers
-mysql40_context = CryptContext([Mysql10Crypt])
-mysql_context = CryptContext([Mysql10Crypt, Mysql41Crypt])
-postgres_context = CryptContext([PostgresMd5Crypt])
 
 #=========================================================
 # eof

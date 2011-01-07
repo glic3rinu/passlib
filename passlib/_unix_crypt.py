@@ -44,6 +44,8 @@ which is compatible with stdlib, so it can be used as a drop-in replacement.
 #simple constants
 #=========================================================
 
+#XXX: can b64_encode / b64_decode be replaced with H64.encode/decode?
+
 #base64 char sequence
 CHARS = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 b64_encode = CHARS.__getitem__ # int -> char
@@ -621,10 +623,26 @@ def crypt(key, salt):
     if PCXROT is None:
         load_tables()
 
+    #parse key values
     if '\x00' in key:
-        #builtin linux crypt doesn't like this,
-        #so we don't either
-        raise ValueError, "key must not contain null characters"
+        #builtin linux crypt doesn't like this, so we don't either
+        #XXX: would make more sense to raise ValueError, but want to be compatible w/ stdlib crypt
+        raise ValueError, "key must be string without null bytes"
+
+    #XXX: doesn't match stdlib, but just to useful to not add in
+    if isinstance(key, unicode):
+        key = key.encode("utf-8")
+
+    #parse salt into bytes
+    if not salt or len(salt) < 2:
+        raise ValueError, "invalid salt"
+    sa, sb = salt[0:2]
+    try:
+        salt_value = (b64_decode(sb) << 6) + b64_decode(sa)
+    except KeyError:
+        raise ValueError, "invalid salt"
+    #FIXME: ^ this will throws error if bad salt chars are used
+    # whereas linux crypt does something (inexplicable) with it
 
     #convert key string into an integer
     if len(key) < 8:
@@ -636,17 +654,6 @@ def crypt(key, salt):
 
     #convert key int -> key schedule
     key_sched = des_setkey(key_value)
-
-    #parse salt into int
-    if not salt:
-        sa = sb = '.' #no std behavior in this case
-    elif len(salt) < 2:
-        sa = sb = salt #linux's behavior, probably no real standard
-    else:
-        sa, sb = salt[0:2]
-    salt_value = (b64_decode(sb) << 6) + b64_decode(sa)
-        #FIXME: ^ this will throw a KeyError if bad salt chars are used
-        # whereas linux crypt does something with it
 
     #run data through des using input of 0
     result = des_cipher(0, salt_value, 25, key_sched)
