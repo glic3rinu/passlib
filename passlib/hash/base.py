@@ -138,7 +138,7 @@ class CryptAlgorithm(object):
     and set various informational attributes.
 
     .. note::
-        It is recommended to use ``from passlib.util import srandom``
+        It is recommended to use ``from passlib.rng import srandom``
         as your random number generator, since it should (hopefully)
         be the strongest rng passlib can find on your system.
 

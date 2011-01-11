@@ -5,11 +5,13 @@
 #core
 from functools import update_wrapper
 import logging; log = logging.getLogger(__name__)
+import os
 import sys
 import random
 import warnings
 #site
 #pkg
+from passlib.rng import srandom, getrandstr
 #local
 __all__ = [
     #decorators
@@ -23,11 +25,8 @@ __all__ = [
     #byte manipulation
     "bytes_to_list",
     "list_to_bytes",
-
-    #random helpers
-    'srandom',
-    'getrandbytes',
-    'weighted_choice',
+    "H64",
+    "srandom",
 ]
 #=================================================================================
 #decorators
@@ -54,7 +53,18 @@ def abstractmethod(func):
     update_wrapper(wrapper, func)
     return wrapper
 
-##def abstract_class_method
+def abstract_class_method(func):
+    """Class Method decorator which indicates this is a placeholder method which
+    should be overridden by subclass.
+
+    If called directly, this method will raise an :exc:`NotImplementedError`.
+    """
+    msg = "class %(cls)r method %(name)r is abstract, and must be subclassed"
+    def wrapper(cls, *args, **kwds):
+        text = msg % dict(cls=cls, name=wrapper.__name__)
+        raise NotImplementedError(text)
+    update_wrapper(wrapper, func)
+    return classmethod(wrapper)
 
 #=================================================================================
 #tests
@@ -168,111 +178,9 @@ def bytes_to_list(value, order="big"):
         assert order == "little"
         return [ ord(c) for c in reversed(value) ]
 
-
-#=================================================================================
-#pick strongest rng (SystemRandom, if available), and store in srandom
-#=================================================================================
-srandom = random.SystemRandom()
-
-try:
-    srandom.getrandbits(8)
-    has_urandom = True
-except NotImplementedError:
-    warnings.warn("Your system lacks urandom support, passlib's output will be predictable")
-    #XXX: should this be a critical error that halts importing?
-    # for now, just providing fallback...
-    # we could at least provide a way to help add some entropy for systems that need it
-    srandom = random
-    has_urandom = False
-
-#=================================================================================
-#random number helpers
-#=================================================================================
-def getrandbytes(rng, size):
-    """return string of *size* number of random bytes, using specified rng"""
-    #NOTE: would be nice if this was present in stdlib Random class
-    #TODO: make this faster?
-    bits = size<<3
-    value = rng.getrandbits(bits)
-    return ''.join(
-        chr((value >> offset) & 0xff)
-        for offset in xrange(0, bits, 8)
-        )
-
-def weighted_choice(rng, source):
-    """pick randomly from a weighted list of choices.
-
-    The list can be specified in a number of formats (see below),
-    but in essence, provides a list of choices, each with
-    an attached (non-negative) numeric weight. The probability of a given choice
-    being selected is ``w/tw``, where ``w`` is the weight
-    attached to that choice, and ``tw`` is the sum of all weighted
-    in the list.
-
-    :param source:
-        weighted list of choices to select from.
-
-        * source can be dict mapping choice -> weight.
-        * source can be sequence of ``(choice,weight)`` pairs
-        * source can be sequence of weights, in which case
-          a given index in the sequence will be chosen based on the weight
-          (equivalent too ``enumerate(source)``).
-
-    :returns:
-        The selected choice.
-
-    .. note::
-        * Choices with a weight of ``0`` will NEVER be chosen.
-        * Weights should never be negative
-        * If the total weight is 0, an error will be raised.
-    """
-    if not source:
-        raise IndexError, "no choices"
-    if hasattr(source, "items"):
-        #assume it's a map of choice=>weight
-        total = sum(source.itervalues())
-        if total == 0:
-            raise ValueError, "zero sum weights"
-        pik = 1+rng.randrange(0, total)
-        cur = 0
-        for choice, weight in source.iteritems():
-            cur += weight
-            if cur >= pik:
-                return choice
-        else:
-            raise RuntimeError, "failed to sum weights correctly"
-        source = source.items()
-    elif isinstance(source[0], (int, float, long)):
-        #assume it's a sequence of weights, they just want the index
-        total = sum(source)
-        if total == 0:
-            raise ValueError, "zero sum weights"
-        pik = 1+rng.randrange(0, total)
-        cur = 0
-        for idx, weight in enumerate(source):
-            cur += weight
-            if cur >= pik:
-                return idx
-        else:
-            raise RuntimeError, "failed to sum weights correctly"
-    else:
-        #assume it's a sequence of (choice,weight) pairs
-        total = sum(elem[1] for elem in source)
-        if total == 0:
-            raise ValueError, "zero sum weights"
-        pik = 1+rng.randrange(0, total)
-        cur = 0
-        for choice, weight in source:
-            cur += weight
-            if cur >= pik:
-                return choice
-        else:
-            raise RuntimeError, "failed to sum weights correctly"
-
 #=================================================================================
 # "hash64" encoding
 #=================================================================================
-
 class H64:
     """hash64 encoding helpers.
 
@@ -296,9 +204,8 @@ class H64:
     @classmethod
     def randstr(cls, count, rng=srandom):
         "generate random hash64 string containing specified # of chars; usually used as salt"
-        CHARS = cls.CHARS
-        return ''.join(rng.choice(CHARS) for idx in xrange(count))
-
+        return getrandstr(rng, cls.CHARS, count)
+        
     @classmethod
     def encode_3_offsets(cls, buffer, o1, o2, o3):
         "do hash64 encode of three bytes at specified offsets in buffer; returns 4 chars"

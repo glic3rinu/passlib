@@ -13,7 +13,8 @@ import time
 #site
 #libs
 #pkg
-from passlib.util import abstractmethod, weighted_choice, srandom
+from passlib.util import abstractmethod
+from passlib.rng import weighted_choice, srandom
 from passlib._gpw_data import get_gpw_data as _get_gpw_data
 #local
 __all__ = [
@@ -449,3 +450,4 @@ def generate_secret(alg=None, count=None, **kwds):
 #=========================================================
 # eof
 #=========================================================
+

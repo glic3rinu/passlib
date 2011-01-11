@@ -63,7 +63,8 @@ is not available::
 #core
 from cStringIO import StringIO
 #pkg
-from passlib.util import bytes_to_list, list_to_bytes, getrandbytes, srandom
+from passlib.util import bytes_to_list, list_to_bytes
+from passlib.rng import getrandbytes, srandom
 #local
 __all__ = [
     'hashpw',
