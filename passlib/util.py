@@ -25,6 +25,7 @@ __all__ = [
     #byte manipulation
     "bytes_to_list",
     "list_to_bytes",
+    "xor_bytes",
     "H64",
     "srandom",
 ]
@@ -178,9 +179,15 @@ def bytes_to_list(value, order="big"):
         assert order == "little"
         return [ ord(c) for c in reversed(value) ]
 
+_join = "".join
+def xor_bytes(left, right):
+    "bitwise-xor two byte-strings together"
+    return _join(chr(ord(l) ^ ord(r)) for l, r in zip(left, right))
+    
 #=================================================================================
 # "hash64" encoding
 #=================================================================================
+
 class H64:
     """hash64 encoding helpers.
 
@@ -200,6 +207,13 @@ class H64:
 
     #string of all h64 chars; position in string corresponds to value encoded
     CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+   #CHARS = "./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+    @classmethod
+    def validate(cls, value):
+        "helper to validate salt strings"
+        CHARS = cls.CHARS
+        return all(c in CHARS for c in value)
 
     @classmethod
     def randstr(cls, count, rng=srandom):

@@ -12,13 +12,17 @@ this module also provides some utility functions for generating random strings
 #=================================================================================
 #imports
 #=================================================================================
+from __future__ import with_statement
 #core
 from binascii import hexlify as _hexlify
 from cStringIO import StringIO
+import hashlib
 import logging; log = logging.getLogger(__name__)
 import math
 import os
 import random as _random
+import threading
+import time
 from warnings import warn
 #site
 #pkg
@@ -27,18 +31,18 @@ __all__ = [
     # random proxy used by passlib
     'srandom',
     'set_srandom_rng',
-    
+
     #helper for creating Rng sources
     'StreamRandom',
 ##    'SystemRandom',
 ##    'has_urandom',
- 
-    #utils not part of stdlib random object   
+
+    #utils not part of stdlib random object
     'getrandbytes',
     'getrandstr',
-    'weighted_choice',    
+    'weighted_choice',
 ]
-    
+
 #=================================================================================
 #helper class for implementation other random sources (eg: SSLRandom, below)
 #=================================================================================
@@ -57,7 +61,7 @@ class StreamRandom(_random.Random):
                 getrandbytes = getrandbytes
             self.getrandbytes = getrandbytes
         super(StreamRandom, self).__init__()
-    
+
     def getrandbytes(self, count):
         "return string containing specified number of random bytes"
         raise NotImplementedError, "getrandbytes() must be implemented by subclass or instance constructor"
@@ -76,7 +80,11 @@ class StreamRandom(_random.Random):
         bytes = (k + 7) // 8                    # bits / 8 and rounded up
         x = long(_hexlify(self.getrandbytes(bytes)), 16)
         return x >> (bytes * 8 - k)             # trim excess bits
-    
+
+    def _stub(self, *args, **kwds):
+        pass
+    seed = jumpahead = _stub
+
     def _notimplemented(self, *args, **kwds):
         "subclasses may implement these if they wish"
         raise NotImplementedError('%s entropy source does not have state.' % (self.__class__.__name__,))
@@ -88,7 +96,7 @@ class StreamRandom(_random.Random):
 
 #NOTE: this is done mainly to speed up :func:`getrandbytes` calls
 class SystemRandom(_random.SystemRandom):
-    "subclass of random.SystemRandom which implements getrandbytes as urandom call"    
+    "subclass of random.SystemRandom which implements getrandbytes as urandom call"
     def getrandbytes(self, count):
         return os.urandom(count)
 
@@ -99,74 +107,90 @@ except NotImplementedError:
     has_urandom = False
 else:
     has_urandom = True
-    
+has_urandom = False
+
 #=================================================================================
-#setup proxy for chosen strong random source
+#merseene twister helper class
 #=================================================================================
-class RandomProxy(object):
-    "proxy object for RNG instances"
-    def __init__(self, name, rng=None):
-        self.__name = name
-        self.__rng = None
-        if rng:
-            self.set_rng(rng)
+class WeakRandom(_random.Random):
+    """fallback rng if system random not available.
 
-    def __getattr__(self, attr):
-        rng = self.__rng
-        if rng is None:
-            raise AttributeError, "attribute not found (no RNG specified for proxy %r)" % (self.__name)
-        return getattr(rng, attr)
-        
-    def get_rng(self):
-        "return rng instance currently used by this proxy object"
-        return self.__rng
+    if we have to fallback to builtin Merseene Twister,
+    this class tries to add a *little* more entropy than
+    the stdlib Random class (which just uses the current time).
 
-    def set_rng(self, source):
-        """change rng source which this proxy object uses
-        
-        :arg source:
-            replacement RNG. can be one of the following:
-            
-            * class or instance of :class:`random.Random` or a subclass.
-            * callable which takes in byte count and returns random bytes (eg :func:``os.urandom``)
-            * a stream which contains an unending source of random bytes (eg: file("/dev/urandom") on unix))
-            * predefined constant "system", which uses SystemRandom - raises EnvironmentError if urandom not available
-            * predefined constant "default", which resets the proxy to the rng passlib would use by default.
-        """
-        if isinstance(source, (str,unicode)):
-            if source == "system":
-                if not has_urandom:
-                    raise EnvironmentError, "urandom support not available"
-                source = SystemRandom
-            elif source == "default":
-                source = get_default_rng()
-            else:
-                raise ValueError, "unknown preset random source: %r" % (source,)
-        if hasattr(source, "randrange"): #random class or instance
-            if callable(source):
-                source = source()
-        elif hasattr(source, "read") or callable(source):
-            source = StreamRandom(source)
-        else:
-            raise TypeError, "unknown random source type: %r" % (source,)
-        self.__rng = source
-        return source
-        
-    def __repr__(self):
-        return "<RandomProxy %r target=%r>" % (self.__name, self.__rng)
+    it does this at init, as well as periodically every few bytes read.
+    it's not very good (NOT EVEN CRYPTOGRAPHICALLY STRONG),
+    but if there's no urandom, it's better than Random alone
+    """
+    def __init__(self, *args, **kwds):
+        self.__super = super(WeakRandom, self)
+        self.__super.__init__(*args, **kwds)
 
-def get_default_rng():
-    "return default rng class for passlib to use"
-    if has_urandom:
-        return SystemRandom
-    warnings.warn("Your system lacks urandom support, passlib's output will be predictable")
-    #XXX: should this be a critical error that halts importing?
-    # for now, just providing fallback...
-    # we could at least provide a way to help add some entropy for systems that need it
-    return random.Random
+    def random(self):
+        result = self.__super.random()
+        self._check_reseed(_random.BPF)
+        return result
 
-#proxy for whichever RNG has been selected for passlib routines to use.    
-srandom = RandomProxy(name="strong random", rng="default")    
+    def getrandbits(self, count):
+        result = self.__super.getrandbits(count)
+        self._check_reseed(count*.125)
+        return result
+
+    reseed_bytes = 128 if has_urandom else 16 #don't have to reseed as often if urandom being included in genseed
+    _counter = 0
+
+    def _check_reseed(self, bytes):
+        self._counter += bytes
+        if self._counter > self.reseed_bytes:
+##            log.debug("%r: doing periodic reseed", self)
+            self.seed()
+            assert self._counter == 0
+
+    def seed(self, value=None):
+        value = self.genseed(value)
+##        log.debug("%r: seeding generator: %r", self, value)
+        self.__super.seed(value)
+        self._counter = 0
+
+    def genseed(self, value=None):
+        "try to generate seed value from known resources"
+        t = threading.currentThread()
+        text = "%s%s%s%x%x%x%.15f%s" % (
+            value,
+                #if user specified a seed value, mix it in
+
+            os.getpid(),
+                #add current process id
+
+            t.name,
+                #name of current thread, for thread-uniqueness
+
+            id(t),
+                #id of thread object as well,
+                #since that's harder to predict than thread name
+
+            self.__super.getrandbits(32*8),
+                #add in bytes from existing prng state
+                #NOTE: calling super method so we don't recurse if called by _check_reseed()
+
+            id(object()),
+                #id of a freshly created object.
+                #should be rather hard to predict
+
+            time.time(),
+                #the current time, to whatever precision os uses
+
+            os.urandom(16) if has_urandom else 0,
+                #generally won't use WeakRandom class if urandom available,
+                #but if that does happen, might as well mix some urandom in.
+            )
+        #hash it all up and return it as int
+        return long(hashlib.sha256(text).hexdigest(), 16)
+
+    def setstate(self, value):
+        self.__super.setstate(value)
+        self.seed()
 
 #=================================================================================
 #random number helpers
@@ -174,12 +198,12 @@ srandom = RandomProxy(name="strong random", rng="default")
 def getrandbytes(rng, count):
     """return string of *count* number of random bytes, using specified rng"""
     #NOTE: would be nice if this was present in stdlib Random class
-    
+
     #just in case rng provides this (eg our SystemRandom subclass above)...
     meth = getattr(rng, "getrandbytes", None)
     if meth:
         return meth(count)
-    
+
     #XXX: break into chunks for large number of bits?
     value = rng.getrandbits(count<<3)
     buf = StringIO()
@@ -189,7 +213,7 @@ def getrandbytes(rng, count):
     return buf.getvalue()
 
 def getrandstr(rng, alphabet, count):
-    """return string of *size* number of chars, whose elements are drawn from specified alphabet"""    
+    """return string of *size* number of chars, whose elements are drawn from specified alphabet"""
     #check alphabet & count
     if count < 0:
         raise ValueError, "count must be >= 0"
@@ -203,7 +227,7 @@ def getrandstr(rng, alphabet, count):
     #XXX: break into chunks for large number of bits?
     value = rng.randrange(0, letters**count)
     buf = StringIO()
-    for i in xrange(count):        
+    for i in xrange(count):
         buf.write(alphabet[value % letters])
         value //= letters
     assert value == 0
@@ -278,8 +302,74 @@ def weighted_choice(rng, source):
                 return choice
         else:
             raise RuntimeError, "failed to sum weights correctly"
-        
+
+#=================================================================================
+#setup proxy for chosen strong random source
+#=================================================================================
+class RandomProxy(object):
+    "proxy object for RNG instances"
+    def __init__(self, name, rng=None):
+        self.__name = name
+        self.__rng = None
+        if rng:
+            self.set_rng(rng)
+
+    def __getattr__(self, attr):
+        rng = self.__rng
+        if rng is None:
+            raise AttributeError, "attribute not found (no RNG specified for proxy %r)" % (self.__name)
+        return getattr(rng, attr)
+
+    def get_rng(self):
+        "return rng instance currently used by this proxy object"
+        return self.__rng
+
+    def set_rng(self, source):
+        """change rng source which this proxy object uses
+
+        :arg source:
+            replacement RNG. can be one of the following:
+
+            * class or instance of :class:`random.Random` or a subclass.
+            * callable which takes in byte count and returns random bytes (eg :func:``os.urandom``)
+            * a stream which contains an unending source of random bytes (eg: file("/dev/urandom") on unix))
+            * predefined constant "system", which uses SystemRandom - raises EnvironmentError if urandom not available
+            * predefined constant "default", which resets the proxy to the rng passlib would use by default.
+        """
+        if isinstance(source, (str,unicode)):
+            if source == "system":
+                if not has_urandom:
+                    raise EnvironmentError, "urandom support not available"
+                source = SystemRandom
+            elif source == "default":
+                source = get_default_rng()
+            else:
+                raise ValueError, "unknown preset random source: %r" % (source,)
+        if hasattr(source, "randrange"): #random class or instance
+            if callable(source):
+                source = source()
+        elif hasattr(source, "read") or callable(source):
+            source = StreamRandom(source)
+        else:
+            raise TypeError, "unknown random source type: %r" % (source,)
+        self.__rng = source
+        return source
+
+    def __repr__(self):
+        return "<RandomProxy %r target=%r>" % (self.__name, self.__rng)
+
+def get_default_rng():
+    "return default rng class for passlib to use"
+    if has_urandom:
+        return SystemRandom
+    warn("Your system lacks urandom support, passlib's output will be predictable")
+    #XXX: should this be a critical error that halts importing?
+    # for now, just providing fallback...
+    # we could at least provide a way to help add some entropy for systems that need it
+    return WeakRandom
+
+#proxy for whichever RNG has been selected for passlib routines to use.
+srandom = RandomProxy(name="strong random", rng="default")
 #=================================================================================
 #eof
 #=================================================================================
-

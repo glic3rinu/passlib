@@ -45,7 +45,7 @@ try:
             key = key.encode("utf-8")
         if not salt or len(salt) < 2:
             raise ValueError, "invalid salt"
-        elif salt[0] not in H64.CHARS or salt[1] not in H64.CHARS:
+        elif not H64.validate(salt):
             raise ValueError, "invalid salt"
         return _crypt(key, salt)
 
