@@ -107,7 +107,6 @@ except NotImplementedError:
     has_urandom = False
 else:
     has_urandom = True
-has_urandom = False
 
 #=================================================================================
 #merseene twister helper class
@@ -137,7 +136,7 @@ class WeakRandom(_random.Random):
         self._check_reseed(count*.125)
         return result
 
-    reseed_bytes = 128 if has_urandom else 16 #don't have to reseed as often if urandom being included in genseed
+    reseed_bytes = 256 if has_urandom else 64 #don't have to reseed as often if urandom being included in genseed
     _counter = 0
 
     def _check_reseed(self, bytes):
@@ -362,7 +361,7 @@ def get_default_rng():
     "return default rng class for passlib to use"
     if has_urandom:
         return SystemRandom
-    warn("Your system lacks urandom support, passlib's output will be predictable")
+    warn("Your system lacks 'os.urandom' support, passlib is falling to a cryptographically weak prng")
     #XXX: should this be a critical error that halts importing?
     # for now, just providing fallback...
     # we could at least provide a way to help add some entropy for systems that need it
