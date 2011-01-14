@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
+from passlib.util import classproperty, abstractmethod, is_seq, srandom
 from passlib.hash.base import CryptAlgorithm, CryptContext
 #pkg
 #local

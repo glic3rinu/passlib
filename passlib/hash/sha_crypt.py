@@ -22,7 +22,8 @@ import os
 #site
 #libs
 from passlib.hash.base import CryptAlgorithm
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64, HashInfo
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
+    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_2_offsets
 #pkg
 #local
 __all__ = [
@@ -78,7 +79,7 @@ class _ShaCrypt(CryptAlgorithm):
 
         #init salt
         if salt is None:
-            salt = H64.randstr(16)
+            salt = h64_gensalt(16)
         elif len(salt) > 16:
             salt = salt[:16] #spec says to use up to first chars 16 only
 
@@ -256,10 +257,10 @@ class Sha256Crypt(_ShaCrypt):
         out = ''
         a, b, c = 0, 10, 20
         while a < 30:
-            out += H64.encode_3_offsets(result, c, b, a)
+            out += h64_encode_3_offsets(result, c, b, a)
             a, b, c = c+1, a+1, b+1
         assert a == 30, "loop went to far: %r" % (a,)
-        out += H64.encode_2_offsets(result, 30, 31)
+        out += h64_encode_2_offsets(result, 30, 31)
         return out
 
     #=========================================================
@@ -327,10 +328,10 @@ class Sha512Crypt(_ShaCrypt):
         out = ''
         a, b, c = 0, 21, 42
         while c < 63:
-            out += H64.encode_3_offsets(result, c, b, a)
+            out += h64_encode_3_offsets(result, c, b, a)
             a, b, c = b+1, c+1, a+1
         assert c == 63, "loop to far: %r" % (c,)
-        out += H64.encode_1_offset(result, 63)
+        out += h64_encode_1_offset(result, 63)
         return out
 
     #=========================================================

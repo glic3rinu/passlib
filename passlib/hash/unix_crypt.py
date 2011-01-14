@@ -13,7 +13,7 @@ import os
 #site
 #pkg
 from passlib.hash.base import CryptAlgorithm
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, h64_gensalt, h64_validate
 #local
 __all__ = [
     'UnixCrypt',
@@ -33,7 +33,7 @@ try:
     #       but appears to calculate the hash based on the letter + "G" as the second byte.
     #       this results in a hash that won't validate, which is DEFINITELY wrong.
     #       the wrapper raises an error.
-    #   3. given salt chars outside of H64.CHARS range, it does something unknown internally,
+    #   3. given salt chars outside of H64_CHARS range, it does something unknown internally,
     #       but reports the hashes correctly. until this alg gets fixed in builtin crypt or stdlib crypt,
     #       wrapper raises an error for bad salts.
     #   4. it tries to encode unicode -> ascii, unlike most hashes. the wrapper encodes to utf-8.
@@ -45,7 +45,7 @@ try:
             key = key.encode("utf-8")
         if not salt or len(salt) < 2:
             raise ValueError, "invalid salt"
-        elif not H64.validate(salt):
+        elif not h64_validate(salt):
             raise ValueError, "invalid salt"
         return _crypt(key, salt)
 
@@ -88,7 +88,7 @@ class UnixCrypt(CryptAlgorithm):
         if hash and keep_salt:
             salt = hash[:2]
         else:
-            salt = H64.randstr(2)
+            salt = h64_gensalt(2)
         return crypt(secret, salt)
 
     #default verify implementation used

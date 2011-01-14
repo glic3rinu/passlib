@@ -11,7 +11,6 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.util import H64
 import passlib.hash.pbkdf2 as mod
 from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
 #module

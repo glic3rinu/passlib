@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, abstract_class_method, is_seq, srandom, H64
+from passlib.util import classproperty, abstractmethod, abstract_class_method, is_seq, srandom
 #pkg
 #local
 __all__ = [

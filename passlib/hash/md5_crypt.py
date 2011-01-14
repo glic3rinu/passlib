@@ -12,7 +12,8 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64, HashInfo
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
+    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_1_offset
 from passlib.hash.base import CryptAlgorithm
 #pkg
 #local
@@ -44,7 +45,7 @@ class Md5Crypt(CryptAlgorithm):
     def _md5_crypt_raw(self, secret, salt):
         #init salt
         if not salt:
-            salt = H64.randstr(8)
+            salt = h64_gensalt(8)
         assert len(salt) == 8
 
         #handle unicode
@@ -96,13 +97,13 @@ class Md5Crypt(CryptAlgorithm):
             hash = h.digest()
 
         out = ''.join(
-            H64.encode_3_offsets(hash,
+            h64_encode_3_offsets(hash,
                 idx+12 if idx < 4 else 5,
                 idx+6,
                 idx,
             )
             for idx in xrange(5)
-            ) + H64.encode_1_offset(hash, 11)
+            ) + h64_encode_1_offset(hash, 11)
         return HashInfo('1', salt, out)
 
     _pat = re.compile(r"""

@@ -11,7 +11,7 @@ from logging import getLogger
 #pkg
 from passlib.hash.base import CryptAlgorithm
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.util import H64
+from passlib.util import h64_gensalt
 #module
 log = getLogger(__name__)
 
@@ -60,7 +60,7 @@ class SaltedAlg(CryptAlgorithm):
     @classmethod
     def encrypt(self, secret, salt=None, keep_salt=False):
 ##        warn("keep_salt not supported by this algorithm")
-        real_salt = H64.randstr(2)
+        real_salt = h64_gensalt(2)
         return self._raw(secret, real_salt)
 
     @classmethod
@@ -86,7 +86,7 @@ class SampleAlg(CryptAlgorithm):
         if salt and keep_salt:
             real_salt = salt[4:6]
         else:
-            real_salt = H64.randstr(2)
+            real_salt = h64_gensalt(2)
         return "@sam%s%s" % (real_salt, hashlib.sha1(real_salt+secret).hexdigest())
 
 #=========================================================

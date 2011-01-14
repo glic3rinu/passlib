@@ -10,7 +10,6 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.util import H64
 from passlib.hash._slow_unix_crypt import crypt as builtin_crypt
 import passlib.hash.unix_crypt as mod
 from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase

@@ -11,7 +11,6 @@ from logging import getLogger
 #pkg
 from passlib import hash as pwhash
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.util import H64
 from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
 import passlib.hash.md5_crypt as mod
 #module

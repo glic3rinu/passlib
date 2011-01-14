@@ -12,7 +12,6 @@ from logging import getLogger
 from passlib import hash as pwhash
 from passlib.tests.utils import TestCase, enable_suite
 from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
-from passlib.util import H64
 import passlib.hash.sha_crypt as mod
 #module
 log = getLogger(__name__)

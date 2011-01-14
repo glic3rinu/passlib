@@ -95,20 +95,20 @@ class Test_H64(TestCase):
     case_prefix = "H64 codec"
 
     def test_encode_1_offset(self):
-        self.assertFunctionResults(util.H64.encode_1_offset,[
+        self.assertFunctionResults(util.h64_encode_1_offset,[
             ("z1", "\xff", 0),
             ("..", "\x00", 0),
         ])
 
     def test_encode_2_offsets(self):
-        self.assertFunctionResults(util.H64.encode_2_offsets,[
+        self.assertFunctionResults(util.h64_encode_2_offsets,[
             (".wD", "\x00\xff", 0, 1),
             ("z1.", "\xff\x00", 0, 1),
             ("z1.", "\x00\xff", 1, 0),
         ])
 
     def test_encode_3_offsets(self):
-        self.assertFunctionResults(util.H64.encode_3_offsets,[
+        self.assertFunctionResults(util.h64_encode_3_offsets,[
             #move through each byte, keep offsets
             ("..kz", "\x00\x00\xff", 0, 1, 2),
             (".wD.", "\x00\xff\x00", 0, 1, 2),
@@ -125,7 +125,7 @@ class Test_H64(TestCase):
     ##    def wrapper(*a, **k):
     ##        rng.seed(1234)
     ##        k['rng'] = rng
-    ##        return util.H64.randstr(*a, **k)
+    ##        return util.h64_gensalt(*a, **k)
     ##    self.assertFunctionResults(wrapper,[
     ##        ("", 0),
     ##        ("x", 1),

@@ -8,7 +8,7 @@ import re
 import logging; log = logging.getLogger(__name__)
 #site
 #libs
-from passlib.util import H64, HashInfo
+from passlib.util import HashInfo, h64_gensalt
 from passlib.hash.base import CryptAlgorithm
 #pkg
 #local
@@ -116,7 +116,7 @@ class BCrypt(CryptAlgorithm):
                 salt = info.salt
         rounds = cls._resolve_preset_rounds(rounds)
         if not salt:
-            salt = H64.randstr(22)
+            salt = h64_gensalt(22)
         enc_salt = "$2a$%d$%s" % (rounds, salt)
         print repr([secret, enc_salt])
         return bcrypt.hashpw(secret, enc_salt)
