@@ -12,8 +12,8 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
-from passlib.hash.base import CryptAlgorithm, HashInfo
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64, HashInfo
+from passlib.hash.base import CryptAlgorithm
 #pkg
 #local
 __all__ = [

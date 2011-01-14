@@ -38,7 +38,7 @@ class UnsaltedAlg(CryptAlgorithm):
 
     @classmethod
     def encrypt(self, secret, salt=None, keep_salt=False):
-        #NOTE: that salt / keep_salted are simply ignored
+        #NOTE: that salt / _keep_salt are simply ignored
         return hashlib.sha1("boblious" + secret).hexdigest()
 
 class SaltedAlg(CryptAlgorithm):
@@ -231,7 +231,7 @@ class _CryptTestCase(TestCase):
         hash = self.do_encrypt(secret)
 
         sc = self.alg.secret_chars
-        if sc:
+        if sc > 0:
             #bcrypt, unixcrypt
             assert sc < len(secret), "need to increase test secret size"
             self.assert_(self.do_verify(secret[:sc], hash))
@@ -239,6 +239,7 @@ class _CryptTestCase(TestCase):
             self.assert_(not self.do_verify(secret[:sc-1], hash))
         else:
             #if no limit, secret+tail shouldn't verify
+            self.assertEquals(sc, -1)
             self.assert_(not self.do_verify(secret[:16], hash))
             self.assert_(not self.do_verify(secret+tail, hash))
 

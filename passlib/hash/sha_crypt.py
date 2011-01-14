@@ -21,8 +21,8 @@ import time
 import os
 #site
 #libs
-from passlib.hash.base import CryptAlgorithm, HashInfo
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
+from passlib.hash.base import CryptAlgorithm
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64, HashInfo
 #pkg
 #local
 __all__ = [
@@ -43,13 +43,15 @@ class _ShaCrypt(CryptAlgorithm):
     #hash_bits, name filled in for subclass
     salt_bits = 6*16
     has_rounds = True
-    has_named_rounds = True
 
     #tuning the round aliases
-    rounds_per_second = 156000 #last tuned 2009-7-6 on a 2gz system
-    fast_rounds = int(rounds_per_second * .25)
-    medium_rounds = int(rounds_per_second * .75)
-    slow_rounds = int(rounds_per_second * 1.5)
+    default_rounds = "medium"
+    _rounds_per_second = 156000 #last tuned 2009-7-6 on a 2gz system
+    round_presets = dict(
+        fast = int(_rounds_per_second * .25),
+        medium = int(_rounds_per_second * .75),
+        slow = int(_rounds_per_second * 1.5),
+    )
 
     #=========================================================
     #internals required from subclass
@@ -213,21 +215,8 @@ class _ShaCrypt(CryptAlgorithm):
                 salt = rec.salt
             if rounds is None:
                 rounds = rec.rounds
-        rounds = self._norm_rounds(rounds)
+        rounds = self._resolve_preset_rounds(rounds)
         return self._sha_crypt(rounds, salt, secret)
-
-    @classmethod
-    def _norm_rounds(self, rounds):
-        if isinstance(rounds, int):
-            return rounds
-        elif rounds == "fast" or rounds is None:
-            return self.fast_rounds
-        elif rounds == "slow":
-            return self.slow_rounds
-        else:
-            if rounds != "medium":
-                log.warning("unknown rounds alias %r, using 'medium'", rounds)
-            return self.medium_rounds
 
     @classmethod
     def verify(self, secret, hash):

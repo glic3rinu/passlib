@@ -119,20 +119,20 @@ class Test_H64(TestCase):
             ("z1..", "\x00\x00\xff", 2, 0, 1),
         ])
 
-    def test_randstr(self):
-        #override default rng so we can get predictable values
-        rng = random.Random()
-        def wrapper(*a, **k):
-            rng.seed(1234)
-            k['rng'] = rng
-            return util.H64.randstr(*a, **k)
-        self.assertFunctionResults(wrapper,[
-            ("", 0),
-            ("x", 1),
-            ("xQ", 2),
-            ("xQ.uwZe3lD/mKbb7", 16),
-            ("xQ.uwZe3lD/mKbb795.Tx2WRa3ZFXdSK", 32),
-        ])
+    ##def test_randstr(self):
+    ##    #override default rng so we can get predictable values
+    ##    rng = random.Random()
+    ##    def wrapper(*a, **k):
+    ##        rng.seed(1234)
+    ##        k['rng'] = rng
+    ##        return util.H64.randstr(*a, **k)
+    ##    self.assertFunctionResults(wrapper,[
+    ##        ("", 0),
+    ##        ("x", 1),
+    ##        ("xQ", 2),
+    ##        ("xQ.uwZe3lD/mKbb7", 16),
+    ##        ("xQ.uwZe3lD/mKbb795.Tx2WRa3ZFXdSK", 32),
+    ##    ])
 
 
 #=========================================================

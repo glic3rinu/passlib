@@ -12,8 +12,8 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
-from passlib.hash.base import CryptAlgorithm, HashInfo
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64, HashInfo
+from passlib.hash.base import CryptAlgorithm
 #pkg
 #local
 __all__ = [
@@ -52,15 +52,17 @@ class BCrypt(CryptAlgorithm):
     salt_bits = 128
     hash_bits = 192
     secret_chars = 55
-    
+
     has_rounds = True
-    has_named_rounds = True
 
     #current recommended default rounds for blowfish
     # last updated 2009-7-6 on a 2ghz system
-    fast_rounds = 11 # ~0.25s
-    medium_rounds = 13 # ~0.82s
-    slow_rounds = 14 # ~ 1.58s
+    default_rounds = "medium"
+    round_presets = dict(
+        fast = 12, # ~0.25s
+        medium = 13, # ~0.82s
+        slow = 14, # ~ 1.58s
+    )
 
     #=========================================================
     #frontend
@@ -106,6 +108,7 @@ class BCrypt(CryptAlgorithm):
             See :attr:`CryptAlgorithm.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
+        #XXX: could probably remove a bunch of this.
         #validate salt
         if hash:
             rec = self._parse(hash)
@@ -115,23 +118,10 @@ class BCrypt(CryptAlgorithm):
         if hash and keep_salt:
             salt = hash
         else:
-            rounds = self._norm_rounds(rounds)
+            rounds = self._resolve_preset_rounds(rounds)
             salt = bcrypt.gensalt(rounds)
         #encrypt secret
         return bcrypt.hashpw(secret, salt)
-
-    @classmethod
-    def _norm_rounds(self, rounds):
-        if isinstance(rounds, int):
-            return rounds
-        elif rounds == "fast" or rounds is None:
-            return self.fast_rounds
-        elif rounds == "slow":
-            return self.slow_rounds
-        else:
-            if rounds != "medium":
-                log.warning("unknown rounds alias %r, using 'medium'", rounds)
-            return self.medium_rounds
 
     @classmethod
     def verify(self, secret, hash):

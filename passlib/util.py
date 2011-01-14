@@ -183,10 +183,33 @@ _join = "".join
 def xor_bytes(left, right):
     "bitwise-xor two byte-strings together"
     return _join(chr(ord(l) ^ ord(r)) for l, r in zip(left, right))
-    
+
+#=================================================================================
+#misc
+#=================================================================================
+class HashInfo(object):
+    "helper used internally by various CryptAlgorithm implementations to store parsed results"
+    alg = None #name or alias identifying algorithm
+    salt = None #salt portion of hash
+    chk = None #checksum (result of hashing salt & password according to alg)
+    rounds = None #number of rounds, if known & applicable
+    source = None #source above information was parsed from, if available
+
+    def __init__(self, alg, salt, chk=None, rounds=None, source=None):
+        self.alg = alg
+        self.salt = salt
+        self.chk = chk
+        self.rounds = rounds
+        self.source = source
+
 #=================================================================================
 # "hash64" encoding
 #=================================================================================
+##H64_CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+##
+##def gensalt64(count, rng=srandom):
+##    "return base64 salt containing specified number of characters"
+##    return getrandstr(rng, H64_CHARS, count)
 
 class H64:
     """hash64 encoding helpers.
@@ -219,7 +242,7 @@ class H64:
     def randstr(cls, count, rng=srandom):
         "generate random hash64 string containing specified # of chars; usually used as salt"
         return getrandstr(rng, cls.CHARS, count)
-        
+
     @classmethod
     def encode_3_offsets(cls, buffer, o1, o2, o3):
         "do hash64 encode of three bytes at specified offsets in buffer; returns 4 chars"

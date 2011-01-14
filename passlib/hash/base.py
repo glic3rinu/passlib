@@ -12,11 +12,15 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64
+from passlib.util import classproperty, abstractmethod, abstract_class_method, is_seq, srandom, H64
 #pkg
 #local
 __all__ = [
     #crypt algorithms
+    ##'register_crypt_algorithm',
+    ##'get_crypt_algorithm',
+    ##'list_crypt_algorithms'
+    'is_crypt_algorithm',
     'CryptAlgorithm',
 
     #crypt context
@@ -24,29 +28,67 @@ __all__ = [
 ]
 
 #=========================================================
-#common helper funcs for passwords
+#registry
 #=========================================================
+##_alg_map = {} #dict mapping names & aliases -> crypt algorithm instances
+##_name_set = set() #list of keys in _alg_map which are names not aliases
+##
+##def register_crypt_algorithm(obj):
+##    "register CryptAlgorithm handler"
+##    global _alg_map, _name_set
+##
+##    if not is_crypt_alg(obj):
+##        raise TypeError, "object does not appear to be CryptAlgorithm handler: %r" % (obj,)
+##
+##    name = obj.name
+##    _validate_name(name)
+##
+##    if name in _name_set:
+##        raise ValueError, "handle already registered for name %r: %r" % (name, _alg_map[name])
+##
+##    _alg_map[name] = obj
+##    _name_set.add(name)
+##
+##    for alias in obj.aliases:
+##        _validate_name(alias)
+##        if alias not in _name_set:
+##            _alg_map[alias] = obj
+##
+##    log.info("registered crypt algorithm: cls=%r name=%r aliases=%r", obj, obj.name, obj.aliases)
+##
+##def _validate_name(name):
+##    "validate crypt algorithm name"
+##    if not name:
+##        raise ValueError, "name/alias empty: %r" % (name,)
+##    if name.lower() != name:
+##        raise ValueError, "name/alias must be lower-case: %r" %(name,)
+##    if re.search("[^a-zA-Z0-9]",name):
+##        raise ValueError, "names must consist of a-z, 0-9, A-Z: %r" % (name,)
+##    return True
+##
+##def get_crypt_algorithm(name):
+##    "resolve crypt algorithm name / alias"
+##    global _alg_map
+##    return _alg_map[name]
+##
+##def list_crypt_algorithms():
+##    "return sorted list of all known crypt algorithm names"
+##    global _name_set
+##    return sorted(_name_set)
 
-class HashInfo(object):
-    "helper used by various CryptAlgorithms to store parsed hash information"
-    alg = None #name or alias identifying algorithm
-    salt = None #salt portion of hash
-    chk = None #checksum (result of hashing salt & password according to alg)
-    rounds = None #number of rounds, if known & applicable
-    source = None #source above information was parsed from, if available
-
-    def __init__(self, alg, salt, chk=None, rounds=None, source=None):
-        self.alg = alg
-        self.salt = salt
-        self.chk = chk
-        self.rounds = rounds
-        self.source = source
+def is_crypt_alg(obj):
+    "check if obj following CryptAlgorithm protocol"
+    #NOTE: this isn't an exhaustive check of all required attrs,
+    #just a quick check of the most uniquely identifying ones
+    return all(hasattr(obj, name) for name in (
+        "name", "verify", "encrypt", "identify",
+        ))
 
 #==========================================================
 #base interface for all the crypt algorithm implementations
 #==========================================================
 class CryptAlgorithm(object):
-    """base class for holding information about password algorithm.
+    """base class for implementing a password algorithm.
 
     The following should be filled out for all crypt algorithm subclasses.
     Additional methods, attributes, and features may vary.
@@ -145,81 +187,56 @@ class CryptAlgorithm(object):
     """
 
     #=========================================================
-    #informational attrs
+    #class attrs
     #=========================================================
-    name = None #globally unique name to identify algorithm
-    salt_bits = None #number of effective bits in salt
-    hash_bits = None #number of effective bits in hash
-    secret_chars = None #max number of chars of secret that are used in hash. None if all chars used.
 
+    #---------------------------------------------------------
+    #registry identification
+    #---------------------------------------------------------
+    name = None #globally unique name to identify algorithm. should be lower case, no hypens or underscores
+    aliases = () #optional list of aliases (other names) this hash should be recognized by
+
+    #---------------------------------------------------------
+    #informational attributes
+    #---------------------------------------------------------
+    salt_bits = None #number of effective bits in salt.
+    hash_bits = None #number of effective bits in hash
+    secret_chars = -1 #max number of chars of secret that are used in hash. -1 if all chars used.
+
+    default_rounds = None #default number of rounds to use if none specified (can be a preset)
+    round_presets = None #map of preset name -> integer for common rounds ("fast", "medium", "slow") recommended, with "medium" as default
+
+    context_kwds = () #tuple of additional kwds required for any encrypt / verify operations; eg "realm" or "user"
+
+    #---------------------------------------------------------
+    #features
+    #---------------------------------------------------------
     has_rounds = False #supports variable number of rounds via rounds kwd
-    has_named_rounds = False #round kwd supports 'fast', 'medium', 'slow' presets
 
     @classproperty
     def has_salt(self):
-        "helper to determine if hash has a salt"
+        "whether hash contains a salt"
         if self.salt_bits is None:
             return None
         return self.salt_bits > 0
 
     #=========================================================
-    #class config
-    #=========================================================
-    #keywords which will be set by constructor
-    init_attrs = ("name", "salt_bits", "hash_bits", "has_rounds",
-        "identify", "encrypt", "verify",
-        )
-
-    #=========================================================
-    #init & internal methods
-    #=========================================================
-    def __init__(self, **kwds):
-        #XXX: can probably do away with this, nothing uses it.
-        #but should add in checksum / salt / source / ident kwds from HashInfo
-        #load in kwds, letting options be overridden on a per-instance basis
-        for key in self.init_attrs:
-            if key in kwds:
-                setattr(self, key, kwds.pop(key))
-        super(CryptAlgorithm, self).__init__(**kwds)
-        self._validate()
-
-    def _validate(self):
-        #make sure instance has everything defined
-        if not self.name:
-            raise ValueError, "no name specified"
-
-    def __repr__(self):
-        c = self.__class__
-        return '<%s.%s object, name=%r>' % (c.__module__, c.__name__, self.name)
-
-##    def __repr__(self):
-##        c = self.__class__
-##        tail = ''
-##        for key in ("name",):
-##            if key in self.__dict__:
-##                tail += "%s=%r, " % (key, getattr(self, key))
-##        if tail:
-##            tail = tail[:-2]
-##        return "%s.%s(%s)" % (c.__module__,c.__name__, tail)
-
-    #=========================================================
     #subclass-provided methods
     #=========================================================
-
-    @abstractmethod
-    def identify(self, hash):
+    @abstract_class_method
+    def identify(cls, hash):
         """identify if a hash string belongs to this algorithm.
 
         :arg hash:
             the hash string to check
-            
+
         :returns:
             ``True`` if provided hash string is handled by
             this class, otherwise ``False``.
             If hash is ``None``, should return ``False``.
         """
 
-    @abstractmethod
+    @abstract_class_method
     def encrypt(self, secret, hash=None, keep_salt=False):
         """encrypt secret, returning resulting hash string.
 
@@ -254,9 +271,14 @@ class CryptAlgorithm(object):
         .. note::
             Various password algorithms may accept addition keyword
             arguments, usually to override default configuration parameters.
-            For example, most has_rounds algorithms will have a *rounds* keyword.
+            For example, most has_rounds algorithms will have a ``rounds`` keyword.
             Such details vary on a per-algorithm basis, consult their encrypt method
             for details.
+
+        .. note::
+            In general, if an option was specified both as a kwd
+            and encoded within the ``hash`` parameter,
+            the kwd value should be given preference (eg, the ``rounds`` kwds).
 
         :returns:
             The encoded hash string, with any chrome and identifiers.
@@ -266,16 +288,15 @@ class CryptAlgorithm(object):
 
         Usage Example::
 
-            >>> from passlib.pwhash import Md5Crypt
-            >>> crypt = Md5Crypt()
+            >>> from passlib.hash.md5_crypt import Md5Crypt
             >>> #encrypt a secret, creating a new hash
-            >>> hash = crypt.encrypt("it's a secret")
+            >>> hash = Md5Crypt.encrypt("it's a secret")
             >>> hash
             '$1$2xYRz6ta$IWpg/auAdyc8.CyZ0K6QK/'
             >>> #verify our secret
-            >>> crypt.verify("fluffy bunnies", hash)
+            >>> Md5Crypt.verify("fluffy bunnies", hash)
             False
-            >>> crypt.verify("it's a secret", hash)
+            >>> Md5Crypt.verify("it's a secret", hash)
             True
             >>> #encrypting again should generate a new salt,
             >>> #even if we pass in the old one
@@ -285,8 +306,11 @@ class CryptAlgorithm(object):
             False
         """
 
+    #=========================================================
+    #methods which subclass can override, but whose defaults are sufficient
+    #=========================================================
     @classmethod
-    def verify(self, secret, hash):
+    def verify(cls, secret, hash, **kwds):
         """verify a secret against an existing hash.
 
         This checks if a secret matches against the one stored
@@ -304,26 +328,40 @@ class CryptAlgorithm(object):
             If hash is ``None``, should return ``False``.
 
         See :meth:`encrypt` for a usage example.
+
+        .. note::
+            The default implementation works most of the time,
+            but may give false negatives
+            if the hash algorithm has encoding quirks,
+            such as multiple possible encodings for the same
+            salt + secret.
         """
-        #NOTE: this implementation works most of the time,
-        # but if hash algorithm is funky, or input hash
-        # is not in the proper normalized form that encrypt returns,
-        # there will be false negatives.
+        assert all(k in cls.context_kwds for k in kwds), "default verify kwds must be one of context_kwds"
         if hash is None:
             return False
-        return hash == self.encrypt(secret, hash, keep_salt=True)
+        return hash == cls.encrypt(secret, hash, keep_salt=True, **kwds)
+
+    #=========================================================
+    #helper functions
+    #=========================================================
+    @classmethod
+    def _resolve_preset_rounds(cls, value):
+        "helper to resolve preset round names"
+        if isinstance(value, int):
+            return value
+        if value is not None:
+            presets = cls.round_presets
+            if presets and value in presets:
+                return presets[value]
+            log.warning("unknown round preset %r", value)
+        value = self.default_rounds
+        if isinstance(value, str):
+            value = presets[value]
+        return value
 
     #=========================================================
     #eoc
     #=========================================================
-
-def is_crypt_alg(obj):
-    "check if obj following CryptAlgorithm protocol"
-    #NOTE: this isn't an exhaustive check of all required attrs,
-    #just a quick check of the most uniquely identifying ones
-    return all(hasattr(obj, name) for name in (
-        "name", "verify", "encrypt", "identify",
-        ))
 
 #=========================================================
 #
