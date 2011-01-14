@@ -528,7 +528,8 @@ def register_crypt_algorithm(obj):
     _validate_name(name)
 
     if name in _name_set:
-        raise ValueError, "handle already registered for name %r: %r" % (name, _alg_map[name])
+        log.warning("overriding previous handler registered to name %r: %r", name, _alg_map[name])
+##        raise ValueError, "handler already registered for name %r: %r" % (name, _alg_map[name])
 
     _alg_map[name] = obj
     _name_set.add(name)

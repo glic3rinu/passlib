@@ -44,7 +44,7 @@ class PostgresMd5Crypt(CryptAlgorithm):
         >>> crypt.verify("mypass", 'md55fba2ea04fd36069d2574ea71c8efe9d', user="postgres")
         True
     """
-    name = "postgres-md5-crypt"
+    name = "postgres-md5"
     hash_bytes = 64
     context_kwds = ("user",)
 
