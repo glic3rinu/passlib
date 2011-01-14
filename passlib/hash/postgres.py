@@ -45,8 +45,7 @@ class PostgresMd5Crypt(CryptAlgorithm):
         True
     """
     name = "postgres-md5-crypt"
-    salt_bits = 0
-    hash_bits = 16*32
+    hash_bytes = 64
 
     _pat = re.compile(r"^md5[0-9a-f]{32}$")
 

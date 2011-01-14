@@ -49,8 +49,8 @@ class BCrypt(CryptAlgorithm):
     #algorithm info
     #=========================================================
     name = "bcrypt"
-    salt_bits = 128
-    hash_bits = 192
+    salt_bytes = 16
+    hash_bytes = 24
     secret_chars = 55
 
     has_rounds = True

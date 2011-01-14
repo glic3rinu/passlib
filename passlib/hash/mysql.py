@@ -19,7 +19,7 @@ from passlib.hash.base import CryptAlgorithm, CryptContext
 __all__ = [
     'Mysql10Crypt',
     'Mysql41Crypt',
-    
+
     'mysql10_context',
     'mysql_context',
 ]
@@ -37,8 +37,7 @@ class Mysql10Crypt(CryptAlgorithm):
 
     """
     name = "mysql-1.0-crypt"
-    salt_bits = 0
-    hash_bits = 16*16
+    hash_bytes = 32
 
     _pat = re.compile(r"^[0-9a-f]{16}$", re.I)
 
@@ -78,8 +77,7 @@ class Mysql41Crypt(CryptAlgorithm):
     Description taken from http://dev.mysql.com/doc/refman/6.0/en/password-hashing.html
     """
     name = "mysql-4.1-crypt"
-    salt_bits = 0
-    hash_bits = 16*40
+    hash_bytes = 80
 
     _pat = re.compile(r"^\*[0-9A-F]{40}$", re.I)
 

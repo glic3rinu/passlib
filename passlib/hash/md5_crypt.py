@@ -33,8 +33,8 @@ class Md5Crypt(CryptAlgorithm):
     It should be byte compatible with unix shadow hashes beginning with ``$1$``.
     """
     name = 'md5-crypt'
-    salt_bits = 48
-    hash_bits = 96
+    salt_bytes = 6
+    hash_bytes = 12
     has_rounds = False
 
     #=========================================================

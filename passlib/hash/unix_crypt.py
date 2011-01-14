@@ -56,7 +56,7 @@ except ImportError:
     # are the same. (eg: handling of None and unicode chars)
     from passlib._slow_unix_crypt import crypt
     backend = "builtin"
-    
+
 #=========================================================
 #old unix crypt
 #=========================================================
@@ -67,8 +67,8 @@ class UnixCrypt(CryptAlgorithm):
     but contains a pure-python fallback so that this algorithm can always be used.
     """
     name = "unix-crypt"
-    salt_bits = 6*2
-    hash_bits = 6*11
+    salt_bytes = 6*2/8.0
+    hash_bytes = 6*11/8.0
     secret_chars = 8
 
     #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum

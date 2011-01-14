@@ -40,8 +40,8 @@ class _ShaCrypt(CryptAlgorithm):
     #=========================================================
     #algorithm info
     #=========================================================
-    #hash_bits, name filled in for subclass
-    salt_bits = 6*16
+    #hash_bytes & name filled in for subclass
+    salt_bytes = 12
     has_rounds = True
 
     #tuning the round aliases
@@ -241,7 +241,7 @@ class Sha256Crypt(_ShaCrypt):
     #algorithm info
     #=========================================================
     name='sha-256-crypt'
-    hash_bits = 256
+    hash_bytes = 32
 
     #=========================================================
     #internals
@@ -312,7 +312,7 @@ class Sha512Crypt(_ShaCrypt):
     #algorithm info
     #=========================================================
     name='sha-512-crypt'
-    hash_bits = 512
+    hash_bytes = 64
 
     #=========================================================
     #internals

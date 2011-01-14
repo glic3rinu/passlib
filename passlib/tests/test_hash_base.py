@@ -22,7 +22,6 @@ log = getLogger(__name__)
 class UnsaltedAlg(CryptAlgorithm):
     "example algorithm usuing constant-salt hash"
     name = "unsalted"
-    salt_bits = 0
 
     @classmethod
     def identify(self, hash):
@@ -46,7 +45,7 @@ class SaltedAlg(CryptAlgorithm):
     (note that the default verify() is implemented in this case)
     """
     name = "salted"
-    salt_bits = 6*2
+    salt_bytes = 6*2/8.0
 
     @classmethod
     def identify(self, hash):
@@ -74,7 +73,7 @@ class SaltedAlg(CryptAlgorithm):
 class SampleAlg(CryptAlgorithm):
     "example salted algorithm w/ keep_salt support"
     name = "sample"
-    salt_bits = 6*2
+    salt_bytes = 6*2/8.0
 
     @classmethod
     def identify(self, hash):
