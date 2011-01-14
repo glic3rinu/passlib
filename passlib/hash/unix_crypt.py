@@ -12,7 +12,7 @@ import time
 import os
 #site
 #pkg
-from passlib.hash.base import CryptAlgorithm
+from passlib.hash.base import CryptAlgorithm, register_crypt_algorithm
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, h64_gensalt, h64_validate
 #local
 __all__ = [
@@ -92,6 +92,8 @@ class UnixCrypt(CryptAlgorithm):
         return crypt(secret, salt)
 
     #default verify implementation used
+
+register_crypt_algorithm(UnixCrypt)
 
 #=========================================================
 # eof

@@ -26,7 +26,6 @@ __all__ = [
     "bytes_to_list",
     "list_to_bytes",
     "xor_bytes",
-    "H64",
     "srandom",
 ]
 #=================================================================================
@@ -66,6 +65,8 @@ def abstract_class_method(func):
         raise NotImplementedError(text)
     update_wrapper(wrapper, func)
     return classmethod(wrapper)
+
+Undef = object() #singleton used as default kwd value in some functions
 
 #=================================================================================
 #tests

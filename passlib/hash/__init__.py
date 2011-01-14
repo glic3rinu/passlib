@@ -1,18 +1,17 @@
 from passlib.hash.base import CryptContext
-from passlib.hash.unix_crypt import UnixCrypt
-from passlib.hash.md5_crypt import Md5Crypt
-from passlib.hash.sha_crypt import Sha256Crypt, Sha512Crypt
-from passlib.hash.bcrypt import BCrypt
+import passlib.hash.unix_crypt
+import passlib.hash.md5_crypt
+import passlib.hash.bcrypt
+import passlib.hash.sha_crypt
 
 #=========================================================
 #build up the standard context objects
 #=========================================================
 
-#default context for quick use.. recognizes all known algorithms,
-#   currently uses SHA-512 as default
-default_context = CryptContext([ UnixCrypt, Md5Crypt, BCrypt, Sha256Crypt, Sha512Crypt ])
+#default context for quick use.. recognizes common algorithms, uses SHA-512 as default
+default_context = CryptContext(["unix-crypt", "md5-crypt", "bcrypt", "sha256-crypt", "sha512-crypt"])
 
-def identify(hash, resolve=False):
+def identify(hash, name=name):
     """Identify algorithm which generated a password hash.
 
     :arg hash:
@@ -53,7 +52,7 @@ def identify(hash, resolve=False):
     .. note::
         This is a convience wrapper for ``pwhash.default_context.identify(hash)``.
     """
-    return default_context.identify(hash, resolve=resolve)
+    return default_context.identify(hash, name=name)
 
 def encrypt(secret, hash=None, alg=None, **kwds):
     """Encrypt secret using a password hash algorithm.
@@ -143,8 +142,8 @@ def verify(secret, hash, alg=None):
     return default_context.verify(secret, hash, alg=alg)
 
 #some general os-context helpers (these may not match your os policy exactly, but are generally useful)
-linux_context = CryptContext([ UnixCrypt, Md5Crypt, Sha256Crypt, Sha512Crypt ])
-bsd_context = CryptContext([ UnixCrypt, Md5Crypt, BCrypt ])
+linux_context = CryptContext([ "unix-crypt", "md5-crypt", "sha256-crypt", "sha512-crypt" ])
+bsd_context = CryptContext([ "unix-crypt", "md5-crypt", "bcrypt" ])
 
 #=========================================================
 #eof

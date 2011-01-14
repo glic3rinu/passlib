@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 #site
 #libs
 from passlib.util import HashInfo, h64_gensalt
-from passlib.hash.base import CryptAlgorithm
+from passlib.hash.base import CryptAlgorithm, register_crypt_algorithm
 #pkg
 #local
 __all__ = [
@@ -129,6 +129,8 @@ class BCrypt(CryptAlgorithm):
     #=========================================================
     #eoc
     #=========================================================
+
+register_crypt_algorithm(BCrypt)
 
 #=========================================================
 # eof

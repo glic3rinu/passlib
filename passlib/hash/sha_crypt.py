@@ -21,7 +21,7 @@ import time
 import os
 #site
 #libs
-from passlib.hash.base import CryptAlgorithm
+from passlib.hash.base import CryptAlgorithm, register_crypt_algorithm
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
     HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_2_offsets
 #pkg
@@ -279,6 +279,8 @@ class Sha256Crypt(_ShaCrypt):
     #eof
     #=========================================================
 
+register_crypt_algorithm(Sha256Crypt)
+
 class Sha512Crypt(_ShaCrypt):
     """This class implements the SHA-512 Crypt Algorithm,
     according to the specification at `http://people.redhat.com/drepper/SHA-crypt.txt`_.
@@ -350,6 +352,8 @@ class Sha512Crypt(_ShaCrypt):
     #=========================================================
     #eof
     #=========================================================
+
+register_crypt_algorithm(Sha512Crypt)
 
 #=========================================================
 # eof

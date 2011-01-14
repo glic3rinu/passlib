@@ -12,77 +12,21 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, abstract_class_method, is_seq, srandom
+from passlib.util import classproperty, abstractmethod, abstract_class_method, \
+    is_seq, srandom, Undef
 #pkg
 #local
 __all__ = [
     #crypt algorithms
-    ##'register_crypt_algorithm',
-    ##'get_crypt_algorithm',
-    ##'list_crypt_algorithms'
+    'register_crypt_algorithm',
+    'get_crypt_algorithm',
+    'list_crypt_algorithms'
     'is_crypt_algorithm',
     'CryptAlgorithm',
 
     #crypt context
     'CryptContext',
 ]
-
-#=========================================================
-#registry
-#=========================================================
-##_alg_map = {} #dict mapping names & aliases -> crypt algorithm instances
-##_name_set = set() #list of keys in _alg_map which are names not aliases
-##
-##def register_crypt_algorithm(obj):
-##    "register CryptAlgorithm handler"
-##    global _alg_map, _name_set
-##
-##    if not is_crypt_alg(obj):
-##        raise TypeError, "object does not appear to be CryptAlgorithm handler: %r" % (obj,)
-##
-##    name = obj.name
-##    _validate_name(name)
-##
-##    if name in _name_set:
-##        raise ValueError, "handle already registered for name %r: %r" % (name, _alg_map[name])
-##
-##    _alg_map[name] = obj
-##    _name_set.add(name)
-##
-##    for alias in obj.aliases:
-##        _validate_name(alias)
-##        if alias not in _name_set:
-##            _alg_map[alias] = obj
-##
-##    log.info("registered crypt algorithm: cls=%r name=%r aliases=%r", obj, obj.name, obj.aliases)
-##
-##def _validate_name(name):
-##    "validate crypt algorithm name"
-##    if not name:
-##        raise ValueError, "name/alias empty: %r" % (name,)
-##    if name.lower() != name:
-##        raise ValueError, "name/alias must be lower-case: %r" %(name,)
-##    if re.search("[^-a-zA-Z0-9]",name):
-##        raise ValueError, "names must consist of a-z, 0-9, A-Z: %r" % (name,)
-##    return True
-##
-##def get_crypt_algorithm(name):
-##    "resolve crypt algorithm name / alias"
-##    global _alg_map
-##    return _alg_map[name]
-##
-##def list_crypt_algorithms():
-##    "return sorted list of all known crypt algorithm names"
-##    global _name_set
-##    return sorted(_name_set)
-
-def is_crypt_alg(obj):
-    "check if obj following CryptAlgorithm protocol"
-    #NOTE: this isn't an exhaustive check of all required attrs,
-    #just a quick check of the most uniquely identifying ones
-    return all(hasattr(obj, name) for name in (
-        "name", "verify", "encrypt", "identify",
-        ))
 
 #==========================================================
 #base interface for all the crypt algorithm implementations
@@ -215,6 +159,7 @@ class CryptAlgorithm(object):
     #---------------------------------------------------------
     has_rounds = False #supports variable number of rounds via rounds kwd
     default_rounds = None #default number of rounds to use if none specified (can be name of a preset)
+    ##XXX: min_rounds ?
     round_presets = None #map of preset name -> integer for common rounds ("fast", "medium", "slow") recommended, with "medium" as default
 
     #---------------------------------------------------------
@@ -365,10 +310,18 @@ class CryptAlgorithm(object):
     #eoc
     #=========================================================
 
+def is_crypt_alg(obj):
+    "check if obj following CryptAlgorithm protocol"
+    #NOTE: this isn't an exhaustive check of all required attrs,
+    #just a quick check of the most uniquely identifying ones
+    return all(hasattr(obj, name) for name in (
+        "name", "verify", "encrypt", "identify",
+        ))
+
 #=========================================================
 #
 #=========================================================
-class CryptContext(list):
+class CryptContext(object):
     """Helper for encrypting passwords using different algorithms.
 
     Different storage contexts (eg: linux shadow files vs openbsd shadow files)
@@ -425,219 +378,78 @@ class CryptContext(list):
         >>> bc
         <passlib.hash.BCrypt object, name="bcrypt">
     """
-    #=========================================================
-    #init
-    #=========================================================
-    def __init__(self, source=None):
-        list.__init__(self)
-        if source:
-            self.extend(source)
 
-    #=========================================================
-    #wrapped list methods
-    #=========================================================
+    def __init__(self, handlers):
+        self._handlers = map(self._norm_handler, handlers)
 
-    #---------------------------------------------------------
-    #misc
-    #---------------------------------------------------------
+    def _norm_handler(self, handler):
+        if isinstance(handler, str):
+            handler = get_crypto_algorithm(handler)
+        if not is_crypt_alg(handler):
+            raise TypeError, "handler must be CryptAlgorithm class or name: %r" % (handler,)
+        return handler
+
     def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__, list.__repr__(self))
+        names = [ handler.name for handler in self._handlers ]
+        return "CryptContext(%r)" % (names,)
 
-    #---------------------------------------------------------
-    #readers
-    #---------------------------------------------------------
-    def keys(self):
-        "return list of names of all algorithms in context"
-        return [ alg.name for alg in self ]
-
-    def get(self, name, default=None):
-        return self.resolve(name) or default
-
-    def __getitem__(self, value):
-        "look up algorithm by index or by name"
-        if isinstance(value, str):
-            #look up by string
-            return self.must_resolve(value)
-        else:
-            #look up by index
-            return list.__getitem__(self, value)
-
-    def __contains__(self, value):
-        "check for algorithm's presence by name or instance"
-        return self.index(value) > -1
-
-    def index(self, value):
-        """find location of algorithm by name or instance"""
-        if isinstance(value, str):
-            #hunt for element by alg name
-            for idx, crypt in enumerate(self):
-                if crypt.name == value:
-                    return idx
-            return -1
-##        elif isinstance(value, type):
-##            #hunt for element by alg class
-##            for idx, crypt in enumerate(self):
-##                if isinstance(crypt, value):
-##                    return idx
-##            return -1
-        else:
-            #else should be an alg instance
-            for idx, crypt in enumerate(self):
-                if crypt == value:
-                    return idx
-            return -1
-
-    #---------------------------------------------------------
-    #adding
-    #---------------------------------------------------------
-    #XXX: prevent duplicates?
-
-    def _norm_alg(self, value):
-        "makes sure all elements of list are CryptAlgorithm instances"
-        if not is_crypt_alg(value):
-            raise ValueError, "value must be CryptAlgorithm class or instance: %r" % (value,)
-        if isinstance(value, type):
-            value = value()
-        if not value.name:
-            raise ValueError, "algorithm instance lacks name: %r" % (value,)
-        return value
-
-    def __setitem__(self, idx, value):
-        "override algorithm at specified location"
-        if idx < 0:
-            idx += len(self)
-        value = self._norm_alg(value)
-        old = self.index(value.name)
-        if old > -1 and old != idx:
-            raise KeyError, "algorithm named %r already present in context" % (value.name,)
-        list.__setitem__(self, idx, value)
-
-    def append(self, value):
-        "add another algorithm to end of list"
-        value = self._norm_alg(value)
-        if value.name in self:
-            raise KeyError, "algorithm named %r already present in context" % (value.name,)
-        list.append(self, value)
-
-    def insert(self, idx, value):
-        value = self._norm_alg(value)
-        if value.name in self:
-            raise KeyError, "algorithm named %r already present in context" % (value.name,)
-        list.insert(self, idx, value)
-
-    #---------------------------------------------------------
-    #composition
-    #---------------------------------------------------------
-    def __add__(self, other):
-        c = CryptContext()
-        c.extend(self)
-        c.extend(other)
-        return c
-
-    def __iadd__(self, other):
-        self.extend(other)
-        return self
-
-    def extend(self, values, include=None, exclude=None):
-        "add more algorithms from another list, optionally filtering by name"
-        if include:
-            values = (e for e in values if e.name in include)
-        if exclude:
-            values = (e for e in values if e.name not in exclude)
-        for value in values:
-            self.append(value)
-
-    #---------------------------------------------------------
-    #removing
-    #---------------------------------------------------------
-    def remove(self, value):
-        if isinstance(value, str):
-            value = self[value]
-        list.remove(self, value)
-
-    def discard(self, value):
-        if isinstance(value, str):
-            try:
-                self.remove(value)
-                return True
-            except KeyError:
-                return False
-        else:
-            try:
-                self.remove(value)
-                return True
-            except ValueError:
-                return False
-
-    #=========================================================
-    #CryptAlgorithm workalikes
-    #=========================================================
-    #TODO: recode default to be explicitly settable, not just using first one.
-    #TODO: simplify interface as much as possible.
-
-    def resolve(self, name=None, default=None):
+    def lookup(self, name=None, required=False):
         """given an algorithm name, return CryptAlgorithm instance which manages it.
         if no match is found, returns None.
 
-        resolve() without arguments will return default algorithm
+        if name is None, will return default algorithm
         """
-        if name is None:
-            #return default algorithm
-            if self:
-                return self[-1]
-        elif is_seq(name):
-            #pick last hit from list of names
-            for elem in reversed(self):
-                if elem.name in name:
-                    return elem
+        handlers = self._handlers
+        if not handlers:
+            if required:
+                raise KeyError, "no crypt algorithms registered with context"
+            return None
+        if name and name != "default":
+            for handler in handlers:
+                if handler.name == name:
+                    return handler
+            for handler in handlers:
+                if name in handler.aliases:
+                    return handler
         else:
-            #pick name
-            for elem in reversed(self):
-                if elem.name == name:
-                    return elem
-        return default
+            return self._args[-1]
+        if required:
+            raise KeyError, "no crypt algorithm by that name in context: %r" % (name,)
+        return None
 
-    def must_resolve(self, name):
-        "helper which raises error if alg can't be found"
-        crypt = self.resolve(name)
-        if crypt is None:
-            raise KeyError, "algorithm not found: %r" % (name,)
-        else:
-            return crypt
-
-    def identify(self, hash, resolve=False):
+    def identify(self, hash, name=False, required=False):
         """Attempt to identify which algorithm hash belongs to w/in this context.
 
         :arg hash:
             The hash string to test.
-        :param resolve:
-            If ``True``, the actual algorithm object is returned.
-            If ``False`` (the default), only the name of the algorithm is returned.
+
+        :param name:
+            If true, returns the name of the handler
+            instead of the handler itself.
 
         All registered algorithms will be checked in from last to first,
         and whichever one claims the hash first will be returned.
 
         :returns:
-            The first algorithm instance that identifies the hash,
-            or ``None`` if none of the algorithms claims the hash.
+            The handler which first identifies the hash,
+            or ``None`` if none of the algorithms identify the hash.
         """
         if hash is None:
+            if required:
+                raise ValueError, "no hash specified"
             return None
-        for alg in reversed(self):
-            if alg.identify(hash):
-                if resolve:
-                    return alg
+        #NOTE: going in reverse order so default handler gets checked first,
+        # also so if handler 0 is a legacy "plaintext" handler or some such,
+        # it doesn't match *everything* that's passed into this function.
+        for handler in reversed(self._handlers):
+            if handlers.identify(hash):
+                if name:
+                    return handler.name
                 else:
-                    return alg.name
-        return None
-
-    def must_identify(self, hash, **kwds):
-        "helper which raises error if hash can't be identified"
-        alg = self.identify(hash, **kwds)
-        if alg is None:
+                    return handler
+        if required:
             raise ValueError, "hash could not be identified"
-        else:
-            return alg
+        return None
 
     def encrypt(self, secret, hash=None, alg=None, **kwds):
         """encrypt secret, returning resulting hash.
@@ -665,13 +477,11 @@ class CryptContext(list):
         """
         if not self:
             raise ValueError, "no algorithms registered"
-        if alg:
-            crypt = self.must_resolve(alg)
-        elif hash:
-            crypt = self.must_identify(hash, resolve=True)
+        if alg or not hash:
+            handler = self.lookup(alg, required=True)
         else:
-            crypt = self[-1]
-        return crypt.encrypt(secret, hash, **kwds)
+            handler = self.identify(hash, required=True)
+        return handler.encrypt(secret, hash, **kwds)
 
     def verify(self, secret, hash, alg=None, **kwds):
         """verify secret against specified hash
@@ -685,26 +495,73 @@ class CryptContext(list):
         """
         if not self:
             raise ValueError, "no algorithms registered"
-        if hash is None: #for convience, so apps can pass in user_account.hash field w/o worrying if it was set
+        if hash is None:
             return False
         if alg:
-            crypt = self.must_resolve(alg)
+            handler = self.lookup(alg, required=True)
         else:
-            crypt = self.must_identify(hash, resolve=True)
-        #NOTE: passing additional keywords for algorithms such as PostgresMd5Crypt
+            handler = self.identify(hash, required=True)
         return crypt.verify(secret, hash, **kwds)
-
-    #=========================================================
-    #eof
-    #=========================================================
 
 def is_crypt_context(obj):
     "check if obj following CryptContext protocol"
     #NOTE: this isn't an exhaustive check of all required attrs,
     #just a quick check of the most uniquely identifying ones
     return all(hasattr(obj, name) for name in (
-        "resolve", "verify", "encrypt", "identify",
+        "lookup", "verify", "encrypt", "identify",
         ))
+
+#=========================================================
+#registry
+#=========================================================
+_alg_map = {} #dict mapping names & aliases -> crypt algorithm instances
+_name_set = set() #list of keys in _alg_map which are names not aliases
+
+def register_crypt_algorithm(obj):
+    "register CryptAlgorithm handler"
+    global _alg_map, _name_set
+
+    if not is_crypt_alg(obj):
+        raise TypeError, "object does not appear to be CryptAlgorithm handler: %r" % (obj,)
+
+    name = obj.name
+    _validate_name(name)
+
+    if name in _name_set:
+        raise ValueError, "handle already registered for name %r: %r" % (name, _alg_map[name])
+
+    _alg_map[name] = obj
+    _name_set.add(name)
+
+    for alias in obj.aliases:
+        _validate_name(alias)
+        if alias not in _name_set:
+            _alg_map[alias] = obj
+
+    log.info("registered crypt algorithm: cls=%r name=%r aliases=%r", obj, obj.name, obj.aliases)
+
+def _validate_name(name):
+    "validate crypt algorithm name"
+    if not name:
+        raise ValueError, "name/alias empty: %r" % (name,)
+    if name.lower() != name:
+        raise ValueError, "name/alias must be lower-case: %r" %(name,)
+    if re.search("[^-a-zA-Z0-9]",name):
+        raise ValueError, "names must consist of a-z, 0-9, A-Z: %r" % (name,)
+    return True
+
+def get_crypt_algorithm(name, default=Undef):
+    "resolve crypt algorithm name / alias"
+    global _alg_map
+    if default is Undef:
+        return _alg_map[name]
+    else:
+        return _alg_map.get(name, default)
+
+def list_crypt_algorithms():
+    "return sorted list of all known crypt algorithm names"
+    global _name_set
+    return sorted(_name_set)
 
 #=========================================================
 # eof

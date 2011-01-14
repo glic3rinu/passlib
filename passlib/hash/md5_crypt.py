@@ -14,7 +14,7 @@ import os
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
     HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_1_offset
-from passlib.hash.base import CryptAlgorithm
+from passlib.hash.base import CryptAlgorithm, register_crypt_algorithm
 #pkg
 #local
 __all__ = [
@@ -148,6 +148,8 @@ class Md5Crypt(CryptAlgorithm):
         rec = self._parse(hash)
         other = self._md5_crypt_raw(secret, rec.salt)
         return other.checksum == rec.checksum
+
+register_crypt_algorithm(Md5Crypt)
 
 #=========================================================
 # eof

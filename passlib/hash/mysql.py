@@ -13,7 +13,7 @@ import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom
-from passlib.hash.base import CryptAlgorithm, CryptContext
+from passlib.hash.base import CryptAlgorithm, CryptContext, register_crypt_algorithm
 #pkg
 #local
 __all__ = [
@@ -67,6 +67,8 @@ class Mysql10Crypt(CryptAlgorithm):
             return False
         return hash.lower() == self.encrypt(secret)
 
+register_crypt_algorithm(Mysql10Crypt)
+
 class Mysql41Crypt(CryptAlgorithm):
     """This implements Mysql new PASSWORD algorithm, introduced in version 4.1.
 
@@ -96,6 +98,8 @@ class Mysql41Crypt(CryptAlgorithm):
         if hash is None:
             return False
         return hash.upper() == self.encrypt(secret)
+
+register_crypt_algorithm(Mysql41Crypt)
 
 #=========================================================
 #some db context helpers

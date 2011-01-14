@@ -13,7 +13,7 @@ import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom
-from passlib.hash.base import CryptAlgorithm, CryptContext
+from passlib.hash.base import CryptAlgorithm, CryptContext, register_crypt_algorithm
 #pkg
 #local
 __all__ = [
@@ -71,6 +71,8 @@ class PostgresMd5Crypt(CryptAlgorithm):
         if hash is None:
             return False
         return hash == self.encrypt(secret, user=user)
+
+register_crypt_algorithm(PostgresMd5Crypt)
 
 #=========================================================
 #db contexts
