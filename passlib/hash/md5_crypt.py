@@ -137,7 +137,7 @@ class Md5Crypt(CryptAlgorithm):
             if keep_salt:
                 real_salt = rec.salt
         rec = self._md5_crypt_raw(secret, real_salt)
-        return "$1$%s$%s" % (rec.salt, rec.chk)
+        return "$1$%s$%s" % (rec.salt, rec.checksum)
 
     @classmethod
     def verify(self, secret, hash):
@@ -146,7 +146,7 @@ class Md5Crypt(CryptAlgorithm):
             return False
         rec = self._parse(hash)
         other = self._md5_crypt_raw(secret, rec.salt)
-        return other.chk == rec.chk
+        return other.checksum == rec.checksum
 
 #=========================================================
 # eof

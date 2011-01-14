@@ -165,9 +165,9 @@ class _ShaCrypt(CryptAlgorithm):
     def _sha_crypt(self, rounds, salt, secret):
         rec = self._sha_crypt_raw(rounds, salt, secret)
         if rec.rounds == -1:
-            return "$%s$%s$%s" % (rec.alg, rec.salt, rec.chk)
+            return "$%s$%s$%s" % (rec.ident, rec.salt, rec.checksum)
         else:
-            return "$%s$rounds=%d$%s$%s" % (rec.alg, rec.rounds, rec.salt, rec.chk)
+            return "$%s$rounds=%d$%s$%s" % (rec.ident, rec.rounds, rec.salt, rec.checksum)
 
     #=========================================================
     #frontend helpers
@@ -224,7 +224,7 @@ class _ShaCrypt(CryptAlgorithm):
             return False
         rec = self._parse(hash)
         other = self._sha_crypt_raw(rec.rounds, rec.salt, secret)
-        return other.chk == rec.chk
+        return other.checksum == rec.checksum
 
     #=========================================================
     #eoc

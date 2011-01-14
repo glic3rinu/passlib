@@ -4,15 +4,11 @@
 #=========================================================
 from __future__ import with_statement, absolute_import
 #core
-import inspect
 import re
-import hashlib
 import logging; log = logging.getLogger(__name__)
-import time
-import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, H64, HashInfo
+from passlib.util import H64, HashInfo
 from passlib.hash.base import CryptAlgorithm
 #pkg
 #local
@@ -29,7 +25,7 @@ try:
     import bcrypt
     backend = "pybcrypt"
 except ImportError:
-    #fall back to our slow pure-python implementation
+    #fall back to our much slower pure-python implementation
     import passlib.hash._slow_bcrypt as bcrypt
     backend = "builtin"
 
@@ -39,9 +35,8 @@ except ImportError:
 class BCrypt(CryptAlgorithm):
     """Implementation of OpenBSD's BCrypt algorithm.
 
-    BPS will use the py-bcrypt package if it is available,
-    otherwise it will fall back to a slower pure-python implementation
-    that is builtin.
+    Passlib will use the py-bcrypt package if it is available,
+    otherwise it will fall back to a slower builtin pure-python implementation.
 
     .. automethod:: encrypt
     """
@@ -54,10 +49,10 @@ class BCrypt(CryptAlgorithm):
     secret_chars = 55
 
     has_rounds = True
+    default_rounds = "medium"
 
     #current recommended default rounds for blowfish
     # last updated 2009-7-6 on a 2ghz system
-    default_rounds = "medium"
     round_presets = dict(
         fast = 12, # ~0.25s
         medium = 13, # ~0.82s
@@ -65,35 +60,37 @@ class BCrypt(CryptAlgorithm):
     )
 
     #=========================================================
-    #frontend
+    #helpers
     #=========================================================
     _pat = re.compile(r"""
         ^
-        \$(?P<alg>2[a]?)
+        \$(?P<ident>2a?)
         \$(?P<rounds>\d+)
         \$(?P<salt>[A-Za-z0-9./]{22})
-        (?P<chk>[A-Za-z0-9./]{31})?
+        (?P<chk>[A-Za-z0-9./]{31})
         $
         """, re.X)
 
     @classmethod
-    def identify(self, hash):
-        "identify bcrypt hash"
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
-
-    @classmethod
-    def _parse(self, hash):
-        "parse bcrypt hash"
-        m = self._pat.match(hash)
+    def _parse(cls, hash):
+        "helper used to parse bcrypt hash into HashInfo object"
+        m = cls._pat.match(hash)
         if not m:
-            raise ValueError, "invalid bcrypt hash/salt"
-        alg, rounds, salt, chk = m.group("alg", "rounds", "salt", "chk")
-        return HashInfo(alg, salt, chk, rounds=int(rounds), source=hash)
+            raise ValueError, "invalid bcrypt hash"
+        ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
+        return HashInfo(ident, salt, chk, rounds=int(rounds), source=hash)
+
+    #=========================================================
+    #frontend
+    #=========================================================
 
     @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False, rounds=None):
+    def identify(cls, hash):
+        "identify bcrypt hash"
+        return bool(hash and cls._pat.match(hash))
+
+    @classmethod
+    def encrypt(cls, secret, hash=None, keep_salt=False, rounds=None):
         """encrypt using bcrypt.
 
         In addition to the normal options that :meth:`CryptAlgorithm.encrypt` takes,
@@ -108,25 +105,23 @@ class BCrypt(CryptAlgorithm):
             See :attr:`CryptAlgorithm.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
-        #XXX: could probably remove a bunch of this.
-        #validate salt
+        salt = None
         if hash:
-            rec = self._parse(hash)
+            info = cls._parse(hash)
             if rounds is None:
-                rounds = rec.rounds
-        #generate new salt
-        if hash and keep_salt:
-            salt = hash
-        else:
-            rounds = self._resolve_preset_rounds(rounds)
-            salt = bcrypt.gensalt(rounds)
-        #encrypt secret
-        return bcrypt.hashpw(secret, salt)
+                rounds = info.rounds
+            if keep_salt:
+                salt = info.salt
+        rounds = cls._resolve_preset_rounds(rounds)
+        if not salt:
+            salt = H64.randstr(22)
+        enc_salt = "$2a$%d$%s" % (rounds, salt)
+        return bcrypt.hashpw(secret, enc_salt)
 
     @classmethod
-    def verify(self, secret, hash):
+    def verify(cls, secret, hash):
         "verify bcrypt hash"
-        return bcrypt.hashpw(secret, hash) == hash
+        return bool(hash) and bcrypt.hashpw(secret, hash) == hash
 
     #=========================================================
     #eoc

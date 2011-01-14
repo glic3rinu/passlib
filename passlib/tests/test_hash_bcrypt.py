@@ -60,7 +60,7 @@ class UtilTest(TestCase):
             ('\xff\xff\xff','9999'),
             ])
 
-class _BcryptTestBase(TestCase):
+class _BCryptTestBase(TestCase):
     mod = None
 
     #XXX: where did these test vectors come from? jBCrypt?
@@ -196,9 +196,10 @@ class _BcryptTestBase(TestCase):
     #eoc
     #=========================================================
 
-if enable_suite("slow_bcrypt"):
-    class SlowBcryptTest(_BcryptTestBase):
+if enable_suite("slow_bcrypt") or (not pybcrypt and enable_suite("bcrypt")):
+    class SlowBcryptTest(_BCryptTestBase):
         "test slow bcrypt module"
+        case_prefix = "builtin bcrypt() backend"
         mod = slow_bcrypt
 
 if pybcrypt and enable_suite("bcrypt"):
@@ -206,6 +207,8 @@ if pybcrypt and enable_suite("bcrypt"):
     #just to ensure slow_bcrypt's interface is compatible.
     class PyBcryptTest(_BCryptTestBase):
         "make sure slow_bcrypt is compatible w/ pybcrypt"
+        case_prefix = "pybcrypt bcrypt() backend"
+
         mod = pybcrypt
 
 #=========================================================
@@ -249,8 +252,6 @@ if enable_suite("bcrypt"):
             #bad char in otherwise correct hash
             "$2a$12$EXRkfkdmXn!gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q",
             )
-
-    #NOTE: BCrypt backend tests stored in test_security_bcrypt
 else:
     BCryptTest = None
 

@@ -66,7 +66,7 @@ class Sha512BackendTest(TestCase):
             rec = crypt._parse(hash)
 
             #ensure identifier read correctly
-            self.assertEqual(rec.alg, '6')
+            self.assertEqual(rec.ident, '6')
 
             #encrypt secret, preserving rounds & salt
             out = crypt.encrypt(secret, hash, keep_salt=True)

@@ -189,16 +189,16 @@ def xor_bytes(left, right):
 #=================================================================================
 class HashInfo(object):
     "helper used internally by various CryptAlgorithm implementations to store parsed results"
-    alg = None #name or alias identifying algorithm
+    ident = None #identifier portion of hash
     salt = None #salt portion of hash
-    chk = None #checksum (result of hashing salt & password according to alg)
+    checksum = None #checksum (result of hashing salt & password according to alg)
     rounds = None #number of rounds, if known & applicable
     source = None #source above information was parsed from, if available
 
-    def __init__(self, alg, salt, chk=None, rounds=None, source=None):
-        self.alg = alg
+    def __init__(self, ident, salt, checksum=None, rounds=None, source=None):
+        self.ident = ident
         self.salt = salt
-        self.chk = chk
+        self.checksum = checksum
         self.rounds = rounds
         self.source = source
 

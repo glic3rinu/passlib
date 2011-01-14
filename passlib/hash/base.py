@@ -62,7 +62,7 @@ __all__ = [
 ##        raise ValueError, "name/alias empty: %r" % (name,)
 ##    if name.lower() != name:
 ##        raise ValueError, "name/alias must be lower-case: %r" %(name,)
-##    if re.search("[^a-zA-Z0-9]",name):
+##    if re.search("[^-a-zA-Z0-9]",name):
 ##        raise ValueError, "names must consist of a-z, 0-9, A-Z: %r" % (name,)
 ##    return True
 ##
@@ -189,32 +189,38 @@ class CryptAlgorithm(object):
     #=========================================================
 
     #---------------------------------------------------------
-    #registry identification
+    #registry
     #---------------------------------------------------------
     name = None #globally unique name to identify algorithm. should be lower case, no hypens or underscores
     aliases = () #optional list of aliases (other names) this hash should be recognized by
 
     #---------------------------------------------------------
-    #informational attributes
+    #general information
     #---------------------------------------------------------
-    salt_bytes = 0 #number of effective bytes in salt (not count of encoded bytes)
     hash_bytes = 0 #number of effective bits in hash
     secret_chars = -1 #max number of chars of secret that are used in hash. -1 if all chars used.
 
-    default_rounds = None #default number of rounds to use if none specified (can be a preset)
-    round_presets = None #map of preset name -> integer for common rounds ("fast", "medium", "slow") recommended, with "medium" as default
-
-    context_kwds = () #tuple of additional kwds required for any encrypt / verify operations; eg "realm" or "user"
-
     #---------------------------------------------------------
-    #features
+    #salt
     #---------------------------------------------------------
-    has_rounds = False #supports variable number of rounds via rounds kwd
+    salt_bytes = 0 #number of effective bytes in salt
 
     @classproperty
     def has_salt(self):
         "whether hash contains a salt"
         return self.salt_bytes > 0
+
+    #---------------------------------------------------------
+    #rounds
+    #---------------------------------------------------------
+    has_rounds = False #supports variable number of rounds via rounds kwd
+    default_rounds = None #default number of rounds to use if none specified (can be name of a preset)
+    round_presets = None #map of preset name -> integer for common rounds ("fast", "medium", "slow") recommended, with "medium" as default
+
+    #---------------------------------------------------------
+    #other
+    #---------------------------------------------------------
+    context_kwds = () #tuple of additional kwds required for any encrypt / verify operations; eg "realm" or "user"
 
     #=========================================================
     #subclass-provided methods
@@ -350,144 +356,10 @@ class CryptAlgorithm(object):
             if presets and value in presets:
                 return presets[value]
             log.warning("unknown round preset %r", value)
-        value = self.default_rounds
+        value = cls.default_rounds
         if isinstance(value, str):
-            value = presets[value]
+            value = cls.round_presets[value]
         return value
-
-    #=========================================================
-    #eoc
-    #=========================================================
-
-#=========================================================
-#
-#=========================================================
-class CryptAlgorithmHelper(CryptAlgorithm):
-    "helper class which provides common code for most algorithms in this library"
-
-    #=========================================================
-    #
-    #=========================================================
-
-    #=========================================================
-    #implementation of CryptAlgorithm frontend
-    #=========================================================
-    @classmethod
-    def identify(cls, hash):
-        #NOTE: default identify() implementation,
-        # uses _parse() method as backend
-        if hash is None:
-            return False
-        self = cls()
-        try:
-            self._parse(hash)
-            return True
-        except ValueError:
-            return False
-
-    @classmethod
-    def encrypt(cls, secret, hash, **kwds):
-        #NOTE: default encrypt() implementation,
-        # uses _parse(), _encrypt(), _render() methods as backend
-        for key in cls._forbid_encrypt_kwds:
-            if key in kwds:
-                raise KeyError, "keyword %r not allowed for encrypt method"
-        self = cls(**kwds)
-        if hash:
-            self._parse(hash)
-        self._prepare()
-        self.checksum = self._encrypt(secret)
-        return self._render()
-
-    @classmethod
-    def verify(cls, secret, hash):
-        #NOTE:
-        if hash is None:
-            return False
-        self = cls()
-        self._parse(hash)
-        if not self.checksum:
-            #XXX: should this be an error? hash lacked checksum
-            return False
-        return self.checksum == self._encrypt(secret)
-
-    #=========================================================
-    #class attrs
-    #=========================================================
-    _forbid_encrypt_kwds = ("salt", "checksum") #don't allow user to override these via encrypt(), must be pulled from hash
-    _repr_attrs = ("ident", "salt", "rounds", "checksum")
-
-    #=========================================================
-    #instance attrs
-    #=========================================================
-    ident = None #identifier portion of hash
-    salt = None #salt portion of hash
-    rounds = None #number of rounds used
-    checksum = None #checksum portion of hash
-
-    #=========================================================
-    #constructor
-    #=========================================================
-    def __init__(self, ident=None, salt=None, rounds=None, checksum=None, **kwds):
-        self.__super = super(CryptAlgorithm, self)
-        self.__super.__init__(**kwds)
-        if ident:
-            self.ident = ident
-        self.checksum = checksum
-        if salt:
-            if not self.has_salt:
-                raise ValueError, "%s algorithm does not use a salt" % (self.name,)
-            self.salt = salt
-        if rounds:
-            if not self.has_rounds:
-                raise ValueError, "%s algorithm does not use rounds" % (self.name,)
-            self.rounds = rounds
-
-    def __repr__(self):
-        tail = ', '.join(
-            "%s=%r" % (key, getattr(self,key))
-            for key in self._repr_attrs
-            if key in self.__dict__
-        )
-        c = self.__class__
-        return "%s.%s(%s)" % (c.__module__,c.__name__, tail)
-
-
-    #=========================================================
-    #SimpleCryptAlgorithm backend
-    #=========================================================
-    @abstractmethod
-    def _parse(self, hash):
-        """parse hash, storing attributes in instance.
-        raises ValueError if hash does not match algorithm format.
-        """
-
-    @abstractmethod
-    def _encrypt(self, secret):
-        "generate checksum for specified secret using settings stored in instance"
-
-    @abstractmethod
-    def _render(self):
-        "render hash instance to string"
-
-    #=========================================================
-    #rounds helpers
-    #=========================================================
-
-    _rounds = None
-
-    def _get_rounds(self):
-        return self._rounds
-
-    def _set_rounds(self, value):
-        if value is None:
-            pass
-        elif not self.has_rounds:
-            raise AttributeError, "algorithm does not support rounds option"
-        else:
-            value = self._resolve_preset_rounds(value)
-        self._rounds = value
-    rounds = property(_get_rounds, _set_rounds)
 
     #=========================================================
     #eoc

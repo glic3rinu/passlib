@@ -46,6 +46,7 @@ class PostgresMd5Crypt(CryptAlgorithm):
     """
     name = "postgres-md5-crypt"
     hash_bytes = 64
+    context_kwds = ("user",)
 
     _pat = re.compile(r"^md5[0-9a-f]{32}$")
 

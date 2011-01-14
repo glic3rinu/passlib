@@ -160,10 +160,11 @@ def enable_suite(name):
         slow_bcrypt     enable extra check for slow bcrypt implementation
         pwgen_dups      enable duplication rate checks for pwgen
     """
-    _flags = [ v.strip()
-              for v
-              in os.environ.get("BPS_TEST_SUITE", "").lower().split(",")
-              ]
+    _flags = [
+        v.strip()
+        for v
+        in os.environ.get("PASSLIB_TESTS", "").lower().split(",")
+        ]
     if 'all' in _flags:
         return True
     if name in _flags:

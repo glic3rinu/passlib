@@ -253,13 +253,13 @@ class _CryptTestCase(TestCase):
         return prefix + secret
 
     def do_encrypt(self, *args, **kwds):
-        return self.alg().encrypt(*args, **kwds)
+        return self.alg.encrypt(*args, **kwds)
 
     def do_verify(self, secret, hash):
-        return self.alg().verify(secret, hash)
+        return self.alg.verify(secret, hash)
 
     def do_identify(self, hash):
-        return self.alg().identify(hash)
+        return self.alg.identify(hash)
 
     #=========================================================
     #eoc
