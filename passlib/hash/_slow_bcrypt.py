@@ -77,7 +77,7 @@ __all__ = [
 # BCrypt parameters
 BCRYPT_SALT_LEN = 16
 BCRYPT_DEFAULT_ROUNDS = 10
-BCRYPT_MIN_ROUNDS = 4
+BCRYPT_MIN_ROUNDS = 10
 BCRYPT_MAX_ROUNDS = 31
 
 # Blowfish parameters

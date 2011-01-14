@@ -38,6 +38,8 @@ class BCrypt(CryptAlgorithm):
     Passlib will use the py-bcrypt package if it is available,
     otherwise it will fall back to a slower builtin pure-python implementation.
 
+    Note that rounds must be >= 10 or an error will be returned.
+
     .. automethod:: encrypt
     """
     #=========================================================
@@ -46,7 +48,7 @@ class BCrypt(CryptAlgorithm):
     name = "bcrypt"
     salt_bytes = 16
     hash_bytes = 24
-    secret_chars = 55
+##    secret_chars = 55
 
     has_rounds = True
     default_rounds = "medium"
@@ -116,6 +118,7 @@ class BCrypt(CryptAlgorithm):
         if not salt:
             salt = H64.randstr(22)
         enc_salt = "$2a$%d$%s" % (rounds, salt)
+        print repr([secret, enc_salt])
         return bcrypt.hashpw(secret, enc_salt)
 
     @classmethod

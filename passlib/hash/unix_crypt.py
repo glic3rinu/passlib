@@ -60,7 +60,6 @@ except ImportError:
 #=========================================================
 #old unix crypt
 #=========================================================
-
 class UnixCrypt(CryptAlgorithm):
     """Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
     This implementation uses the builtin ``crypt`` module when available,
