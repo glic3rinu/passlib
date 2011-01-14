@@ -14,7 +14,7 @@ A quick sample of some of the more frequently used modules:
     * :mod:`bps.host` -- desktop and host resources
     * :mod:`bps.logs` -- enhancements to Python's logging system
     * :mod:`bps.text` -- text parsing and formatting
-    * :mod:`passlib.hash` -- password hashing algorithms
+    * :mod:`passlib` -- password hashing algorithms
 
     ... see the :doc:`library overview <overview>` for a complete list.
 

@@ -1,8 +1,8 @@
 ===================================================================
-:mod:`passlib.hash` - Implementing a Custom Crypt Algorithm
+:mod:`passlib` - Implementing a Custom Crypt Algorithm
 ===================================================================
 
-.. currentmodule:: passlib.hash
+.. currentmodule:: passlib
 
 New password algorithms can be implemented
 by subclassing :class:`CryptAlgorithm`,

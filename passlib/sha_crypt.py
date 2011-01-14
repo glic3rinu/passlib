@@ -1,4 +1,4 @@
-"""passlib.hash.sha_crypt - implements SHA-256-Crypt & SHA-512-Crypt
+"""passlib.sha_crypt - implements SHA-256-Crypt & SHA-512-Crypt
 
 Implementation written based on specification at `<http://www.akkadia.org/drepper/SHA-crypt.txt>`_.
 It should be byte-compatible with unix shadow hashes beginning with ``$5$`` and ``$6%``.
@@ -21,9 +21,9 @@ import time
 import os
 #site
 #libs
-from passlib.hash.base import CryptAlgorithm, register_crypt_algorithm
+from passlib.base import CryptAlgorithm, register_crypt_algorithm
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
-    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_2_offsets
+    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset
 #pkg
 #local
 __all__ = [
@@ -241,7 +241,7 @@ class Sha256Crypt(_ShaCrypt):
     #=========================================================
     #algorithm info
     #=========================================================
-    name='sha-256-crypt'
+    name='sha256-crypt'
     hash_bytes = 32
 
     #=========================================================
@@ -297,7 +297,7 @@ class Sha512Crypt(_ShaCrypt):
 
     Usage Example::
 
-        >>> from passlib.hash import Sha512Crypt
+        >>> from passlib import Sha512Crypt
         >>> crypt = Sha512Crypt()
         >>> #to encrypt a new secret with this algorithm
         >>> hash = crypt.encrypt("forget me not")
@@ -314,7 +314,7 @@ class Sha512Crypt(_ShaCrypt):
     #=========================================================
     #algorithm info
     #=========================================================
-    name='sha-512-crypt'
+    name='sha512-crypt'
     hash_bytes = 64
 
     #=========================================================

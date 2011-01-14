@@ -1,4 +1,4 @@
-"""passlib.hash - password hashing tools"""
+"""passlib - password hashing tools"""
 #=========================================================
 #imports
 #=========================================================

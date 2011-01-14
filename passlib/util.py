@@ -231,7 +231,7 @@ def h64_validate(value):
     "helper to validate salt strings"
     return all(c in H64_CHARS for c in value)
 
-def h64_encode_3_offsets(cls, buffer, o1, o2, o3):
+def h64_encode_3_offsets(buffer, o1, o2, o3):
     "do hash64 encode of three bytes at specified offsets in buffer; returns 4 chars"
     #how 4 char output corresponds to 3 byte input:
     #
@@ -252,7 +252,7 @@ def h64_encode_3_offsets(cls, buffer, o1, o2, o3):
             H64_CHARS[((v3&0x03)<<4) + (v2>>4)] + \
             H64_CHARS[v3>>2]
 
-def h64_encode_2_offsets(cls, buffer, o1, o2):
+def h64_encode_2_offsets(buffer, o1, o2):
     "do hash64 encode of two bytes at specified offsets in buffer; 2 missing msg set null; returns 3 chars"
     v1 = ord(buffer[o1])
     v2 = ord(buffer[o2])
@@ -260,7 +260,7 @@ def h64_encode_2_offsets(cls, buffer, o1, o2):
             H64_CHARS[((v2&0x0F)<<2) + (v1>>6)] + \
             H64_CHARS[(v2>>4)]
 
-def h64_encode_1_offset(cls, buffer, o1):
+def h64_encode_1_offset(buffer, o1):
     "do hash64 encode of single byte at specified offset in buffer; 4 missing msb set null; returns 2 chars"
     v1 = ord(buffer[o1])
     return H64_CHARS[v1&0x3F] + H64_CHARS[v1>>6]

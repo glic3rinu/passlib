@@ -9,7 +9,7 @@ Table Of Contents
     overview
 
     lib/passlib
-    lib/passlib.hash
+    lib/passlib
     lib/passlib.gen
     lib/passlib.util
 

@@ -1,4 +1,4 @@
-"""passlib.hash - implementation of various password hashing functions"""
+"""passlib - implementation of various password hashing functions"""
 #=========================================================
 #imports
 #=========================================================
@@ -14,7 +14,7 @@ import os
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
     HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_1_offset
-from passlib.hash.base import CryptAlgorithm, register_crypt_algorithm
+from passlib.base import CryptAlgorithm, register_crypt_algorithm
 #pkg
 #local
 __all__ = [

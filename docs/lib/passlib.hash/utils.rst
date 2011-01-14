@@ -1,8 +1,8 @@
 =============================================
-:mod:`passlib.hash` - Helper Functions
+:mod:`passlib` - Helper Functions
 =============================================
 
-.. currentmodule:: passlib.hash
+.. currentmodule:: passlib
 
 A couple of utility functions are available,
 mainly useful when writing custom password hash algorithms.

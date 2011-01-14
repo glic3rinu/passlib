@@ -1,8 +1,8 @@
 =============================================
-:mod:`passlib.hash` - Crypt Contexts
+:mod:`passlib` - Crypt Contexts
 =============================================
 
-.. currentmodule:: passlib.hash
+.. currentmodule:: passlib
 
 For more complex deployment scenarios than
 the frontend functions described in :doc:`Quick Start <quickstart>`,

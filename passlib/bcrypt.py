@@ -1,4 +1,4 @@
-"""passlib.hash.bcrypt"""
+"""passlib.bcrypt"""
 #=========================================================
 #imports
 #=========================================================
@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 #site
 #libs
 from passlib.util import HashInfo, h64_gensalt
-from passlib.hash.base import CryptAlgorithm, register_crypt_algorithm
+from passlib.base import CryptAlgorithm, register_crypt_algorithm
 #pkg
 #local
 __all__ = [
@@ -26,7 +26,7 @@ try:
     backend = "pybcrypt"
 except ImportError:
     #fall back to our much slower pure-python implementation
-    import passlib.hash._slow_bcrypt as bcrypt
+    import passlib._slow_bcrypt as bcrypt
     backend = "builtin"
 
 #=========================================================
@@ -118,7 +118,6 @@ class BCrypt(CryptAlgorithm):
         if not salt:
             salt = h64_gensalt(22)
         enc_salt = "$2a$%d$%s" % (rounds, salt)
-        print repr([secret, enc_salt])
         return bcrypt.hashpw(secret, enc_salt)
 
     @classmethod

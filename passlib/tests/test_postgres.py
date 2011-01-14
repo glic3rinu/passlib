@@ -9,10 +9,9 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib import hash as pwhash
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
-import passlib.hash.postgres as mod
+from passlib.tests.test_base import _CryptTestCase as CryptTestCase
+import passlib.postgres as mod
 #module
 log = getLogger(__name__)
 

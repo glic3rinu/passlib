@@ -53,7 +53,7 @@ implementation of OpenBSD's BCrypt algorithm, written by Damien Miller,
 and released under a BSD license.
 
 :mod:`passlib._bcrypt` is a python translation of this code,
-which is used as a fallback backend for :class:`passlib.hash.BCrypt`
+which is used as a fallback backend for :class:`passlib.BCrypt`
 when the external python library `py-bcrypt <http://www.mindrot.org/projects/py-bcrypt/>`_
 is not installed.
 
@@ -75,7 +75,7 @@ This is the license and copyright for jBCrypt::
 
 MD5-Crypt
 ---------
-The class :class:`passlib.hash.Md5Crypt` is a pure-python
+The class :class:`passlib.Md5Crypt` is a pure-python
 implementation of the md5-crypt password hashing algorithm.
 It's derived from the FreeBSD md5-crypt implementation `<http://www.freebsd.org/cgi/cvsweb.cgi/~checkout~/src/lib/libcrypt/crypt.c?rev=1.2>`_,
 which was released under the following license::
@@ -93,7 +93,7 @@ Originally written by Aki Yoshida, and modified by others,
 it was released under a BSD-like license.
 
 :mod:`passlib._unix_crypt` is a python translation of this code,
-which is used as a fallback backend for :class:`passlib.hash.UnixCrypt`
+which is used as a fallback backend for :class:`passlib.UnixCrypt`
 for platforms where stdlib's :mod:`crypt` is not available.
 
 This is the license and copyright for UnixCrypt.java::

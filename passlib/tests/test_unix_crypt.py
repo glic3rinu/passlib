@@ -10,9 +10,9 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.hash._slow_unix_crypt import crypt as builtin_crypt
-import passlib.hash.unix_crypt as mod
-from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
+from passlib._slow_unix_crypt import crypt as builtin_crypt
+import passlib.unix_crypt as mod
+from passlib.tests.test_base import _CryptTestCase as CryptTestCase
 #module
 log = getLogger(__name__)
 
@@ -95,7 +95,7 @@ class UnixCryptBackendTest(TestCase):
         self.assertRaises(ValueError, crypt, "fooey","")
 
         #NOTE: stdlib crypt's behavior is rather bizarre in this case
-        # (see wrapper in passlib.hash.unix_crypt).
+        # (see wrapper in passlib.unix_crypt).
         # passlib wraps stdlib crypt so it raises ValueError
         self.assertRaises(ValueError, crypt, "fooey","f")
 

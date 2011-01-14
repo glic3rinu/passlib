@@ -9,10 +9,9 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib import hash as pwhash
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
-import passlib.hash.sha_crypt as mod
+from passlib.tests.test_base import _CryptTestCase as CryptTestCase
+import passlib.sha_crypt as mod
 #module
 log = getLogger(__name__)
 
@@ -58,6 +57,8 @@ class Sha512BackendTest(TestCase):
         "hLsPuWGsUSklZt58jaTfF4ZEQpyUNGc0dqbpBYYBaHHrsX." ),
     ]
     def test512(self):
+        "verify sha512 passes specification test vectors"
+
         crypt = mod.Sha512Crypt
         for hash, secret, result in self.cases512:
 

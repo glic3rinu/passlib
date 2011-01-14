@@ -9,21 +9,18 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib import hash as pwhash
+from passlib.base import CryptContext
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.hash.unix_crypt import UnixCrypt
-from passlib.hash.sha_crypt import Sha512Crypt
-from passlib.hash.md5_crypt import Md5Crypt
-from passlib.tests.test_hash_base import UnsaltedAlg, SaltedAlg, SampleAlg
+from passlib.unix_crypt import UnixCrypt
+from passlib.sha_crypt import Sha512Crypt
+from passlib.md5_crypt import Md5Crypt
+from passlib.tests.test_base import UnsaltedAlg, SaltedAlg, SampleAlg
 #module
 log = getLogger(__name__)
 
 #=========================================================
 #CryptContext
 #=========================================================
-
-CryptContext = pwhash.CryptContext
-
 class CryptContextTest(TestCase):
     "test CryptContext object's behavior"
 
@@ -36,10 +33,10 @@ class CryptContextTest(TestCase):
         cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
 
         #parse
-        a, b, c = cc
-        self.assertIsInstance(a, UnsaltedAlg)
-        self.assertIsInstance(b, SaltedAlg)
-        self.assertIsInstance(c, SampleAlg)
+        a, b, c = cc._handlers
+        self.assertIs(a, UnsaltedAlg)
+        self.assertIs(b, SaltedAlg)
+        self.assertIs(c, SampleAlg)
 
     def test_01_constructor(self):
         "test CryptContext constructor using instances"
@@ -50,7 +47,7 @@ class CryptContextTest(TestCase):
         cc = CryptContext([a,b,c])
 
         #verify elements
-        self.assertEquals(list(cc), [a, b, c])
+        self.assertEquals(list(cc._handlers), [a, b, c])
 
     #TODO: test constructor using names
 
@@ -356,23 +353,23 @@ class CryptContextTest(TestCase):
     def test_50_lookup(self):
         "test CryptContext.lookup()"
         cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
-        a, b, c = cc
+        a, b, c = cc._handlers
 
         self.assertEquals(cc.lookup('unsalted'), a)
         self.assertEquals(cc.lookup('salted'), b)
         self.assertEquals(cc.lookup('sample'), c)
         self.assertEquals(cc.lookup('md5-crypt'), None)
 
-        self.assertEquals(cc.lookup(['unsalted']), a)
-        self.assertEquals(cc.lookup(['md5-crypt']), None)
-        self.assertEquals(cc.lookup(['unsalted', 'salted', 'md5-crypt']), b)
+        ##self.assertEquals(cc.lookup(['unsalted']), a)
+        ##self.assertEquals(cc.lookup(['md5-crypt']), None)
+        ##self.assertEquals(cc.lookup(['unsalted', 'salted', 'md5-crypt']), b)
 
     #TODO: lookup required=True
 
     def test_51_identify(self):
         "test CryptContext.identify"
         cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
-        a, b, c = cc
+        a, b, c = cc._handlers
 
         for crypt in (a, b, c):
             h = crypt.encrypt("test")
@@ -388,7 +385,7 @@ class CryptContextTest(TestCase):
     def test_52_encrypt_and_verify(self):
         "test CryptContext.encrypt & verify"
         cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
-        a, b, c = cc
+        a, b, c = cc._handlers
 
         #check encrypt/id/verify pass for all algs
         for crypt in (a, b, c):
@@ -408,7 +405,7 @@ class CryptContextTest(TestCase):
     def test_53_encrypt_salting(self):
         "test CryptContext.encrypt salting options"
         cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
-        a, b, c = cc
+        a, b, c = cc._handlers
         self.assert_(c.has_salt)
 
         h = cc.encrypt("test")
@@ -426,7 +423,7 @@ class CryptContextTest(TestCase):
         "test CryptContext.verify allows hash=None"
         cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
         self.assertEquals(cc.verify('xxx', None), False)
-        for crypt in cc:
+        for crypt in cc._handlers:
             self.assertEquals(cc.verify('xxx', None, alg=crypt.name), False)
 
 #XXX: haven't decided if this should be part of protocol

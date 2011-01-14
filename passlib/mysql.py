@@ -1,4 +1,4 @@
-"""passlib.hash - implementation of various password hashing functions"""
+"""passlib - implementation of various password hashing functions"""
 #=========================================================
 #imports
 #=========================================================
@@ -13,7 +13,7 @@ import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom
-from passlib.hash.base import CryptAlgorithm, CryptContext, register_crypt_algorithm
+from passlib.base import CryptAlgorithm, CryptContext, register_crypt_algorithm
 #pkg
 #local
 __all__ = [
@@ -36,7 +36,7 @@ class Mysql10Crypt(CryptAlgorithm):
     and should only be used to verify existing password hashes.
 
     """
-    name = "mysql-1.0-crypt"
+    name = "mysql-10-crypt"
     hash_bytes = 32
 
     _pat = re.compile(r"^[0-9a-f]{16}$", re.I)
@@ -78,7 +78,7 @@ class Mysql41Crypt(CryptAlgorithm):
 
     Description taken from http://dev.mysql.com/doc/refman/6.0/en/password-hashing.html
     """
-    name = "mysql-4.1-crypt"
+    name = "mysql-41-crypt"
     hash_bytes = 80
 
     _pat = re.compile(r"^\*[0-9A-F]{40}$", re.I)

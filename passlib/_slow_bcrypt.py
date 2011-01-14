@@ -1,4 +1,4 @@
-"""passlib.hash._slow_bcrypt - fallback pure-python bcrypt implementation
+"""passlib._slow_bcrypt - fallback pure-python bcrypt implementation
 
 History
 ==========

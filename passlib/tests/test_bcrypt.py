@@ -26,9 +26,9 @@ except ImportError:
     pybcrypt = None
 #pkg
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.hash import _slow_bcrypt as slow_bcrypt
-from passlib.tests.test_hash_base import _CryptTestCase as CryptTestCase
-import passlib.hash.bcrypt as mod
+from passlib import _slow_bcrypt as slow_bcrypt
+from passlib.tests.test_base import _CryptTestCase as CryptTestCase
+import passlib.bcrypt as mod
 
 #=========================================================
 #test slow_bcrypt backend

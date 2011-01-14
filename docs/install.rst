@@ -19,7 +19,7 @@ The following libraries will be used if present, but they are not required:
 
     * If installed, `py-bcrypt <http://www.mindrot.org/projects/py-bcrypt/>`_ will be
       used instead of PassLib's slower pure-python bcrypt implementation.
-      (see :class:`passlib.hash.BCrypt`).
+      (see :class:`passlib.BCrypt`).
 
 Installing
 ==========

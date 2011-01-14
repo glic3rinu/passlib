@@ -1,4 +1,4 @@
-"""passlib.hash - implementation of various password hashing functions"""
+"""passlib - implementation of various password hashing functions"""
 #=========================================================
 #imports
 #=========================================================
@@ -235,7 +235,7 @@ class CryptAlgorithm(object):
 
         Usage Example::
 
-            >>> from passlib.hash.md5_crypt import Md5Crypt
+            >>> from passlib.md5_crypt import Md5Crypt
             >>> #encrypt a secret, creating a new hash
             >>> hash = Md5Crypt.encrypt("it's a secret")
             >>> hash
@@ -367,7 +367,7 @@ class CryptContext(object):
         'bcrypt'
         >>> #or just return the CryptAlgorithm instance directly
         >>> myctx.identify(hash1, resolve=True)
-        <passlib.hash.BCrypt object, name="bcrypt">
+        <passlib.BCrypt object, name="bcrypt">
 
         >>> #you can get a list of algs...
         >>> myctx.keys()
@@ -376,7 +376,7 @@ class CryptContext(object):
         >>> #and get the CryptAlgorithm object by name
         >>> bc = myctx['bcrypt']
         >>> bc
-        <passlib.hash.BCrypt object, name="bcrypt">
+        <passlib.BCrypt object, name="bcrypt">
     """
 
     def __init__(self, handlers):
@@ -384,7 +384,7 @@ class CryptContext(object):
 
     def _norm_handler(self, handler):
         if isinstance(handler, str):
-            handler = get_crypto_algorithm(handler)
+            handler = get_crypt_algorithm(handler)
         if not is_crypt_alg(handler):
             raise TypeError, "handler must be CryptAlgorithm class or name: %r" % (handler,)
         return handler
@@ -412,7 +412,7 @@ class CryptContext(object):
                 if name in handler.aliases:
                     return handler
         else:
-            return self._args[-1]
+            return self._handlers[-1]
         if required:
             raise KeyError, "no crypt algorithm by that name in context: %r" % (name,)
         return None
@@ -442,7 +442,7 @@ class CryptContext(object):
         # also so if handler 0 is a legacy "plaintext" handler or some such,
         # it doesn't match *everything* that's passed into this function.
         for handler in reversed(self._handlers):
-            if handlers.identify(hash):
+            if handler.identify(hash):
                 if name:
                     return handler.name
                 else:
@@ -501,7 +501,7 @@ class CryptContext(object):
             handler = self.lookup(alg, required=True)
         else:
             handler = self.identify(hash, required=True)
-        return crypt.verify(secret, hash, **kwds)
+        return handler.verify(secret, hash, **kwds)
 
 def is_crypt_context(obj):
     "check if obj following CryptContext protocol"

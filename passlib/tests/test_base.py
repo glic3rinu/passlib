@@ -9,7 +9,7 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib.hash.base import CryptAlgorithm
+from passlib.base import CryptAlgorithm
 from passlib.tests.utils import TestCase, enable_suite
 from passlib.util import h64_gensalt
 #module

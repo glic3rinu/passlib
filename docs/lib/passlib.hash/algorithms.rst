@@ -1,8 +1,8 @@
 =============================================
-:mod:`passlib.hash` - Crypt Algorithms
+:mod:`passlib` - Crypt Algorithms
 =============================================
 
-.. currentmodule:: passlib.hash
+.. currentmodule:: passlib
 
 All of the crypt algorithms must inherit from :class:`CryptAlgorithm`,
 which defines a common interface all algorithms must support.

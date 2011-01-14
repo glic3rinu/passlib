@@ -1,8 +1,8 @@
 ========================================
-:mod:`passlib.hash` - Quick Start
+:mod:`passlib` - Quick Start
 ========================================
 
-.. currentmodule:: passlib.hash
+.. currentmodule:: passlib
 
 Usage Example
 =============
