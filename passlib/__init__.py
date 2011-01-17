@@ -1,6 +1,6 @@
 """passlib - suite of password hashing & generation routinges"""
 
-__version__ = "1.1"
+__version__ = "1.2"
 
 from passlib.base import CryptContext
 import passlib.unix_crypt
