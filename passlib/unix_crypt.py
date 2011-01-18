@@ -1,4 +1,9 @@
-"""passlib - implementation of various password hashing functions"""
+"""passlib - implementation of various password hashing functions
+
+http://www.phpbuilder.com/manual/function.crypt.php
+
+http://dropsafe.crypticide.com/article/1389
+"""
 #=========================================================
 #imports
 #=========================================================
@@ -12,8 +17,8 @@ import time
 import os
 #site
 #pkg
-from passlib.base import CryptAlgorithm, register_crypt_algorithm
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, h64_gensalt, h64_validate
+from passlib.base import CryptAlgorithmHelper, register_crypt_handler
+from passlib.util import classproperty, abstractmethod, is_seq, srandom, validate_h64_salt, generate_h64_salt
 #local
 __all__ = [
     'UnixCrypt',
@@ -60,15 +65,25 @@ except ImportError:
 #=========================================================
 #old unix crypt
 #=========================================================
-class UnixCrypt(CryptAlgorithm):
+class UnixCrypt(CryptAlgorithmHelper):
     """Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
     This implementation uses the builtin ``crypt`` module when available,
     but contains a pure-python fallback so that this algorithm can always be used.
     """
+    #=========================================================
+    #crypt information
+    #=========================================================
     name = "unix-crypt"
+
+    setting_kwds = ()
+
     salt_bytes = 6*2/8.0
-    hash_bytes = 6*11/8.0
+    checksum_bytes = 6*11/8.0
     secret_chars = 8
+
+    #=========================================================
+    #frontend
+    #=========================================================
 
     #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
     _pat = re.compile(r"""
@@ -78,22 +93,38 @@ class UnixCrypt(CryptAlgorithm):
         $""", re.X|re.I)
 
     @classmethod
-    def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False):
-        if hash and keep_salt:
-            salt = hash[:2]
+    def parse(cls, hash):
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "not a unix-crypt hash"
+        return dict(
+            salt=m.group("salt"),
+            checksum=m.group("chk")
+        )
+
+    @classmethod
+    def encrypt(cls, secret, salt=None):
+        if salt:
+            validate_h64_salt(salt, 2)
         else:
-            salt = h64_gensalt(2)
+            salt = generate_h64_salt(2)
         return crypt(secret, salt)
 
-    #default verify implementation used
+    @classmethod
+    def verify(cls, secret, hash):
+        if not cls.identify(hash):
+            raise ValueError, "not a unix-crypt hash"
+        return hash == crypt(secret, hash)
 
-register_crypt_algorithm(UnixCrypt)
+    #=========================================================
+    #eoc
+    #=========================================================
+
+register_crypt_handler(UnixCrypt)
 
 #=========================================================
 # eof

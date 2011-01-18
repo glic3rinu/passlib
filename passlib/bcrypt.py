@@ -8,8 +8,8 @@ import re
 import logging; log = logging.getLogger(__name__)
 #site
 #libs
-from passlib.util import HashInfo, h64_gensalt
-from passlib.base import CryptAlgorithm, register_crypt_algorithm
+from passlib.util import HashInfo, validate_h64_salt, generate_h64_salt
+from passlib.base import CryptAlgorithmHelper, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -32,7 +32,7 @@ except ImportError:
 #=========================================================
 #OpenBSD's BCrypt
 #=========================================================
-class BCrypt(CryptAlgorithm):
+class BCrypt(CryptAlgorithmHelper):
     """Implementation of OpenBSD's BCrypt algorithm.
 
     Passlib will use the py-bcrypt package if it is available,
@@ -46,20 +46,16 @@ class BCrypt(CryptAlgorithm):
     #algorithm info
     #=========================================================
     name = "bcrypt"
+    
+    setting_kwds = ("salt", "rounds")
+
     salt_bytes = 16
-    hash_bytes = 24
-##    secret_chars = 55
+    checksum_bytes = 24
+    secret_chars = 72
 
-    has_rounds = True
-    default_rounds = "medium"
-
-    #current recommended default rounds for blowfish
-    # last updated 2009-7-6 on a 2ghz system
-    round_presets = dict(
-        fast = 12, # ~0.25s
-        medium = 13, # ~0.82s
-        slow = 14, # ~ 1.58s
-    )
+    default_rounds = 12
+    min_rounds = 10 # pybcrypt won't take less than this
+    max_rounds = 31 # 32-bit limitation on 1<<rounds
 
     #=========================================================
     #helpers
@@ -73,15 +69,6 @@ class BCrypt(CryptAlgorithm):
         $
         """, re.X)
 
-    @classmethod
-    def _parse(cls, hash):
-        "helper used to parse bcrypt hash into HashInfo object"
-        m = cls._pat.match(hash)
-        if not m:
-            raise ValueError, "invalid bcrypt hash"
-        ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
-        return HashInfo(ident, salt, chk, rounds=int(rounds), source=hash)
-
     #=========================================================
     #frontend
     #=========================================================
@@ -92,7 +79,21 @@ class BCrypt(CryptAlgorithm):
         return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(cls, secret, hash=None, keep_salt=False, rounds=None):
+    def parse(cls, hash):
+        "helper used to parse bcrypt hash into HashInfo object"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid bcrypt hash"
+        ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
+        return dict(
+            ident=ident,
+            rounds=int(rounds),
+            salt=salt,
+            checksum=chk,
+        )
+
+    @classmethod
+    def encrypt(cls, secret, salt=None, rounds=None):
         """encrypt using bcrypt.
 
         In addition to the normal options that :meth:`CryptAlgorithm.encrypt` takes,
@@ -107,29 +108,26 @@ class BCrypt(CryptAlgorithm):
             See :attr:`CryptAlgorithm.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
-        salt = None
-        if hash:
-            info = cls._parse(hash)
-            if rounds is None:
-                rounds = info.rounds
-            if keep_salt:
-                salt = info.salt
-        rounds = cls._resolve_preset_rounds(rounds)
-        if not salt:
-            salt = h64_gensalt(22)
-        enc_salt = "$2a$%d$%s" % (rounds, salt)
-        return bcrypt.hashpw(secret, enc_salt)
+        if salt:
+            validate_h64_salt(salt, 22)
+        else:
+            salt = generate_h64_salt(22)
+        rounds = cls._norm_rounds(rounds)
+        config = "$2a$%d$%s" % (rounds, salt)
+        return bcrypt.hashpw(secret, config)
 
     @classmethod
     def verify(cls, secret, hash):
         "verify bcrypt hash"
-        return bool(hash) and bcrypt.hashpw(secret, hash) == hash
+        if not cls.identify(hash):
+            raise ValueError, "not a bcrypt hash"
+        return bcrypt.hashpw(secret, hash) == hash
 
     #=========================================================
     #eoc
     #=========================================================
 
-register_crypt_algorithm(BCrypt)
+register_crypt_handler(BCrypt)
 
 #=========================================================
 # eof

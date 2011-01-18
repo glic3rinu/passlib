@@ -197,13 +197,13 @@ class _CryptTestCase(TestCase):
             hash2 = self.do_encrypt(secret, hash)
             self.assertNotEqual(hash, hash2)
 
-    def test_31_encrypt_keep_salt(self):
-        "test encrypt() honors keep_salt keyword"
-        if not self.alg.has_salt:
-            return
-        for secret, hash in self.positive_knowns:
-            hash2 = self.do_encrypt(secret, hash, keep_salt=True)
-            self.assertEqual(hash, hash2)
+    ##def test_31_encrypt_keep_salt(self):
+    ##    "test encrypt() honors keep_salt keyword"
+    ##    if not self.alg.has_salt:
+    ##        return
+    ##    for secret, hash in self.positive_knowns:
+    ##        hash2 = self.do_encrypt(secret, hash, keep_salt=True)
+    ##        self.assertEqual(hash, hash2)
 
     def check_encrypt(self, secret):
         "check encrypt() behavior for a given secret"

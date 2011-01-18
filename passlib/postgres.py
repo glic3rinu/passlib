@@ -13,7 +13,7 @@ import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom
-from passlib.base import CryptAlgorithm, CryptContext, register_crypt_algorithm
+from passlib.base import CryptAlgorithmHelper, CryptContext, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -22,7 +22,7 @@ __all__ = [
 #=========================================================
 #sql database hashes
 #=========================================================
-class PostgresMd5Crypt(CryptAlgorithm):
+class PostgresMd5Crypt(CryptAlgorithmHelper):
     """This implements the md5-based hash algorithm used by Postgres to store
     passwords in the pg_shadow table.
 
@@ -44,35 +44,42 @@ class PostgresMd5Crypt(CryptAlgorithm):
         >>> crypt.verify("mypass", 'md55fba2ea04fd36069d2574ea71c8efe9d', user="postgres")
         True
     """
+    #=========================================================
+    #crypt information
+    #=========================================================
     name = "postgres-md5"
-    hash_bytes = 64
+
+    setting_kwds = ()
     context_kwds = ("user",)
 
+    hash_bytes = 64
+
+    #=========================================================
+    #frontend
+    #=========================================================
     _pat = re.compile(r"^md5[0-9a-f]{32}$")
 
     @classmethod
-    def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False, user=None):
-        if isinstance(secret, tuple):
-            if user:
-                raise TypeError, "user specified in secret & in kwd"
-            secret, user = secret
+    def encrypt(cls, secret, user):
         if not user:
             raise ValueError, "user keyword must be specified for this algorithm"
         return "md5" + hashlib.md5(secret + user).hexdigest().lower()
 
     @classmethod
-    def verify(self, secret, hash, user=None):
-        if hash is None:
-            return False
-        return hash == self.encrypt(secret, user=user)
+    def verify(cls, secret, hash, user):
+        if not cls.identify(hash):
+            raise ValueError, "invalid postgres-md5 hash"
+        return hash == cls.encrypt(secret, user)
 
-register_crypt_algorithm(PostgresMd5Crypt)
+    #=========================================================
+    #eoc
+    #=========================================================
+
+register_crypt_handler(PostgresMd5Crypt)
 
 #=========================================================
 #db contexts

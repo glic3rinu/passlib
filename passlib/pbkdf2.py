@@ -29,20 +29,63 @@ __all__ = [
 #=================================================================================
 MAX_BLOCKS = 0xffffffffL #2**32-1
 
-def pbkdf2(secret, salt, rounds, keylen, digest="sha1", hmac_const=hmac.new):
+def _resolve_prf(prf):
+    "resolve prf string or callable -> func & digest_size"    
+    if isinstance(prf, str):
+        
+        if prf.startswith("hmac-"):
+            digest = prf[5:]
+
+            #check if m2crypto is present and supports requested digest
+            if _EVP:
+                try:
+                    result = _EVP.hmac('x', 'y', digest)
+                except ValueError:
+                    pass
+                else:
+                    #it does. so use M2Crypto's hmac & digest code
+                    hmac_const = _EVP.hmac
+                    def encode_block(key, msg):
+                        return hmac_const(key, msg, digest)
+                    digest_size = len(result)
+                    return encode_block, digest_size
+
+            #fall back to stdlib implementation
+            digest_const = getattr(hashlib, digest, None)
+            if not digest_const:
+                raise ValueError, "unknown hash algorithm: %r" % (digest,)
+            digest_size = digest_const().digest_size
+            hmac_const = hmac.new
+            def encode_block(key, msg):
+                return hmac_const(key, msg, digest_const).digest()
+            return encode_block, digest_size
+                
+        else:
+            raise ValueError, "unknown prf algorithm: %r" % (prf,)
+        
+    elif callable(prf):
+        #assume it's a callable, use it directly
+        digest_size = len(prf('',''))
+        return prf, digest_size
+
+    else:
+        raise TypeError, "prf must be string or callable"
+
+def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
     """pkcs#5 password-based key derivation v2.0
 
     :arg secret: passphrase to use to generate key
     :arg salt: salt string to use when generating key
     :param rounds: number of rounds to use to generate key
     :arg keylen: number of bytes to generate
-    :param digest:
-        hash function to use with HMAC.
-        should be a string (eg "sha1", "sha256", etc)
-        which is recognized by :func:`M2Crypto.EVP.hmac` (if present),
+    :param prf:
+        psuedo-random function to use for key strengthening.
+        should be a callable of the form ``prf(secret, plaintext) -> ciphertext``,
+        or a string ``hmac-xxx`` where ``xxx`` is the name
+        of a hash function recognized by :func:`M2Crypto.EVP.hmac` (if present),
         or :func:`hashlib.new`.
-        can also be a hash module (eg ``sha``) or hash constructor
-        (eg ``hashlib.sha256``).
+        Defaults to ``hmac-sha1``, the only prf defined
+        by the PBKDF2 specification.
 
     This function attempts to use M2Crypto as a backend
     if available and if the digest is a string supported
@@ -70,67 +113,33 @@ def pbkdf2(secret, salt, rounds, keylen, digest="sha1", hmac_const=hmac.new):
     if rounds < 1:
         raise ValueError("rounds must be at least 1")
 
-    #setup prf (may be overridden when digest is parsed)
-    def prf(key, msg):
-        return hmac_const(key, msg, digest_const).digest()
-
-    #parse digest into digest_const & digest_size
-    digest_const = None
-    if isinstance(digest, str):
-        #check if m2crypto is installed
-        if _EVP:
-            #can do this directly from m2crypto
-            if digest == "sha1":
-                try:
-                    return _EVP.pbkdf2(secret, salt, rounds, keylen)
-                except OverflowError:
-                    raise ValueError, "key length too long"
-            #check if _EVP.hmac supports specified algorithm
-            try:
-                result = _EVP.hmac('x', 'y', digest)
-            except ValueError:
-                pass
-            else:
-                #it does. so use M2Crypto's hmac & digest code
-                hmac_const = _EVP.hmac
-                digest_const = True #signal that this is not needed
-                digest_size = len(result)
-                def prf(key, msg):
-                    return hmac_const(key, msg, digest)
-
-        #fallback to hashlib & hmac
-        if not digest_const:
-            digest_const = getattr(hashlib, digest, None)
-            if not digest_const:
-                raise ValueError, "unknown digest: %r" % (digest,)
-            digest_size = digest_const().digest_size
-
-    elif hasattr(digest, "new"):
-        #it's a module, eg "sha"
-        digest_const = digest.new
-        digest_size = digest.digest_size
-
-    else:
-        #it's a constructor, eg "hashlib.sha1" or "sha.new"
-        digest_const = digest
-        digest_size = digest_const().digest_size
-
+    #special case for m2crypto + hmac-sha1
+    if prf == "hmac-sha1" and _EVP:
+        try:
+            return _EVP.pbkdf2(secret, salt, rounds, keylen)
+        except OverflowError:
+            raise ValueError, "key length too long"
+        
+    #resolve prf
+    encode_block, digest_size = _resolve_prf(prf)
+        
     #figure out how many blocks we'll need
     bcount = (keylen+digest_size-1)//digest_size
-    if bcount > MAX_BLOCKS:
+    if bcount >= MAX_BLOCKS:
         raise ValueError, "key length to long"
 
     #build up key from blocks
     out = StringIO()
     write = out.write
     for i in xrange(1,bcount+1):
-        block = tmp = prf(secret, salt + pack(">L", i))
+        block = tmp = encode_block(secret, salt + pack(">L", i))
         #NOTE: could potentially unroll this loop somewhat for speed,
         # or find some faster way to accumulate & xor tmp values together
         for j in xrange(rounds-1):
-            tmp = prf(secret, tmp)
+            tmp = encode_block(secret, tmp)
             block = xor_bytes(block, tmp)
         write(block)
+        
     #and done
     return out.getvalue()[:keylen]
 

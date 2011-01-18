@@ -18,7 +18,7 @@ from passlib.util import classproperty, abstractmethod, abstract_class_method, \
 #local
 __all__ = [
     #crypt algorithms
-    'register_crypt_algorithm',
+    'register_crypt_handler',
     'get_crypt_algorithm',
     'list_crypt_algorithms'
     'is_crypt_algorithm',
@@ -135,37 +135,24 @@ class CryptAlgorithm(object):
     #---------------------------------------------------------
     #registry
     #---------------------------------------------------------
-    name = None #globally unique name to identify algorithm. should be lower case, no hypens or underscores
+    name = None #globally unique name to identify algorithm. should be lower case and hyphens only
     aliases = () #optional list of aliases (other names) this hash should be recognized by
-
-    #---------------------------------------------------------
-    #general information
-    #---------------------------------------------------------
-    hash_bytes = 0 #number of effective bits in hash
-    secret_chars = -1 #max number of chars of secret that are used in hash. -1 if all chars used.
-
-    #---------------------------------------------------------
-    #salt
-    #---------------------------------------------------------
-    salt_bytes = 0 #number of effective bytes in salt
-
-    @classproperty
-    def has_salt(self):
-        "whether hash contains a salt"
-        return self.salt_bytes > 0
-
-    #---------------------------------------------------------
-    #rounds
-    #---------------------------------------------------------
-    has_rounds = False #supports variable number of rounds via rounds kwd
-    default_rounds = None #default number of rounds to use if none specified (can be name of a preset)
-    ##XXX: min_rounds ?
-    round_presets = None #map of preset name -> integer for common rounds ("fast", "medium", "slow") recommended, with "medium" as default
-
-    #---------------------------------------------------------
-    #other
-    #---------------------------------------------------------
     context_kwds = () #tuple of additional kwds required for any encrypt / verify operations; eg "realm" or "user"
+    setting_kwds = () #tuple of additional kwds that encrypt accepts for configuration algorithm; eg "salt" or "rounds"
+
+    #---------------------------------------------------------
+    #optional informational attributes
+    #---------------------------------------------------------
+    secret_chars = -1 #max number of chars of secret that are used in hash. -1 if all chars used.
+    salt_bytes = 0 #number of effective bytes in salt
+    checksum_bytes = 0 #number of effective bits in hash
+
+    #---------------------------------------------------------
+    #algorithm rounds information
+    #---------------------------------------------------------
+    default_rounds = None #default number of rounds to use if none specified (can be name of a preset)
+    min_rounds = None #minimum number of rounds (smaller values silently ignored)
+    max_rounds = None #maximum number of rounds (larger values silently ignored)
 
     #=========================================================
     #subclass-provided methods
@@ -184,7 +171,7 @@ class CryptAlgorithm(object):
         """
 
     @abstract_class_method
-    def encrypt(self, secret, hash=None, keep_salt=False):
+    def encrypt(self, secret):
         """encrypt secret, returning resulting hash string.
 
         :arg secret:
@@ -192,28 +179,6 @@ class CryptAlgorithm(object):
             Unicode behavior is specified on a per-hash basis,
             but the common case is to encode into utf-8
             before processing.
-
-        :arg hash:
-            Optional hash string, containing a salt and other
-            configuration parameters (rounds, etc). If a salt is not specified,
-            a new salt should be generated with default configuration
-            parameters set.
-
-        :type keep_salt: bool
-        :param keep_salt:
-            *This option is rarely needed by end users,
-            you can safely ignore it if you are not writing a hash algorithm.*
-
-            By default (``keep_salt=False``), a new salt will
-            be generated for each call to encrypt, for added security.
-            If a salt string is provided, only the configuration
-            parameters (number of rounds, etc) should be preserved.
-
-            However, it is sometimes useful to preserve the original salt
-            bytes, instead of generating new ones (such as when verifying
-            the hash of an existing password). In that case,
-            set ``keep_salt=True``. Note that most end-users will want
-            to call ``self.verify(secret,hash)`` instead of using this flag.
 
         .. note::
             Various password algorithms may accept addition keyword
@@ -253,11 +218,8 @@ class CryptAlgorithm(object):
             False
         """
 
-    #=========================================================
-    #methods which subclass can override, but whose defaults are sufficient
-    #=========================================================
-    @classmethod
-    def verify(cls, secret, hash, **kwds):
+    @abstract_class_method
+    def verify(cls, secret, hash):
         """verify a secret against an existing hash.
 
         This checks if a secret matches against the one stored
@@ -283,28 +245,16 @@ class CryptAlgorithm(object):
             such as multiple possible encodings for the same
             salt + secret.
         """
-        assert all(k in cls.context_kwds for k in kwds), "default verify kwds must be one of context_kwds"
-        if hash is None:
-            return False
-        return hash == cls.encrypt(secret, hash, keep_salt=True, **kwds)
 
     #=========================================================
-    #helpers
+    #
     #=========================================================
-    @classmethod
-    def _resolve_preset_rounds(cls, value):
-        "helper to resolve preset round names"
-        if isinstance(value, int):
-            return value
-        if value is not None:
-            presets = cls.round_presets
-            if presets and value in presets:
-                return presets[value]
-            log.warning("unknown round preset %r", value)
-        value = cls.default_rounds
-        if isinstance(value, str):
-            value = cls.round_presets[value]
-        return value
+
+    #def parse(cls, hash):
+    #  optional method which parses hash into components, or raises ValueError
+
+    #def render(cls, **parse_kwds):
+    #  optional inverse of parse()
 
     #=========================================================
     #eoc
@@ -317,6 +267,41 @@ def is_crypt_alg(obj):
     return all(hasattr(obj, name) for name in (
         "name", "verify", "encrypt", "identify",
         ))
+
+#=========================================================
+#helpers
+#=========================================================
+class CryptAlgorithmHelper(CryptAlgorithm):
+    "helper class used internally to implement crypt algorithms"
+
+    @class_property
+    def setting_kwds(cls):
+        "auto-implements 3 common cases for setting_kwds, by autodetecting from other informational attributes"
+        if cls.salt_bytes > 0:
+            if cls.default_rounds:
+                return ("salt", "rounds")
+            return ("salt",)
+        elif cls.default_rounds:
+            return ("rounds",)
+        else:
+            return ()
+
+    @classmethod
+    def _norm_rounds(cls, rounds):
+        "provide default rounds if needed, and clip rounds to boundary"
+        if not rounds:
+            rounds = cls.default_rounds
+            if not rounds:
+                raise ValueError, "rounds must be specified explicitly"
+        mx = cls.max_rounds
+        if mx and rounds > mx:
+            warn("%s algorithm does not allow more than %d rounds: %d", mx, rounds)
+            rounds = mx
+        mn = cls.min_rounds
+        if mn and rounds < mn:
+            warn("%s algorithm does not allow less than %d rounds: %d", mn, rounds)
+            rounds = mn
+        return rounds
 
 #=========================================================
 #
@@ -517,7 +502,7 @@ def is_crypt_context(obj):
 _alg_map = {} #dict mapping names & aliases -> crypt algorithm instances
 _name_set = set() #list of keys in _alg_map which are names not aliases
 
-def register_crypt_algorithm(obj):
+def register_crypt_handler(obj):
     "register CryptAlgorithm handler"
     global _alg_map, _name_set
 

@@ -4,19 +4,21 @@
 #=================================================================================
 #core
 from functools import update_wrapper
+from hashlib import sha256
 import logging; log = logging.getLogger(__name__)
 import os
 import sys
 import random
+import time
 import warnings
 #site
 #pkg
-from passlib.rng import srandom, getrandstr
 #local
 __all__ = [
     #decorators
     "classproperty",
     "abstractmethod",
+    "abstract_class_property",
 
     #tests
     "is_seq",
@@ -26,7 +28,10 @@ __all__ = [
     "bytes_to_list",
     "list_to_bytes",
     "xor_bytes",
-    "srandom",
+
+    #hash64 encoding
+    'h64_gensalt',
+    'h64_validate',
 ]
 #=================================================================================
 #decorators
@@ -203,6 +208,82 @@ class HashInfo(object):
         self.rounds = rounds
         self.source = source
 
+def norm_rounds(value, default, presets):
+    """helper for validating & normalizing hash 'rounds' parameter
+    """
+    assert isinstance(default, int)
+    if isinstance(value, int):
+        return value
+    if value is not None:
+        if value in presets:
+            return presets[value]
+        log.warning("unknown preset round name: %r", value)
+    return default
+
+#=================================================================================
+#randomness
+#=================================================================================
+
+#NOTE:
+# generating salts (eg h64_gensalt, below) doesn't require cryptographically
+# strong randomness. it just requires enough range of possible outputs
+# that making a rainbow table is too costly.
+# so python's builtin merseen twister prng is used, but seeded each time
+# this module is imported, using a couple of minor entropy sources.
+
+try:
+    os.urandom(1)
+    has_urandom = True
+except NotImplementedError:
+    has_urandom = False
+
+def genseed(value=None):
+    "generate prng seed value from system resources"
+    text = "%s %s %s %.15f %s" % (
+        value,
+            #if user specified a seed value (eg current rng state), mix it in
+
+        os.getpid(),
+            #add current process id
+
+        id(object()),
+            #id of a freshly created object.
+            #(at least 2 bytes of which are hard to predict)
+
+        time.time(),
+            #the current time, to whatever precision os uses
+
+        os.urandom(16) if has_urandom else 0,
+            #if urandom available, might as well mix some bytes in.
+        )
+    #hash it all up and return it as int
+    return long(sha256(text).hexdigest(), 16)
+
+salt_rng = random.Random(genseed())
+
+#NOTE: to reseed rng: salt_rng.seed(genseed(salt_rng.getrandbits(32*8)))
+
+def getrandstr(rng, alphabet, count):
+    """return string of *size* number of chars, whose elements are drawn from specified alphabet"""
+    #check alphabet & count
+    if count < 0:
+        raise ValueError, "count must be >= 0"
+    letters = len(alphabet)
+    if letters == 0:
+        raise ValueError, "alphabet must not be empty"
+    if letters == 1:
+        return alphabet * count
+
+    #get random value, and write out to buffer
+    #XXX: break into chunks for large number of letters?
+    value = rng.randrange(0, letters**count)
+    buf = StringIO()
+    for i in xrange(count):
+        buf.write(alphabet[value % letters])
+        value //= letters
+    assert value == 0
+    return buf.getvalue()
+
 #=================================================================================
 # "hash64" encoding helpers
 #
@@ -223,9 +304,27 @@ class HashInfo(object):
 
 H64_CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-def h64_gensalt(count, rng=srandom):
+def generate_h64_salt(count):
     "return base64 salt containing specified number of characters"
-    return getrandstr(rng, H64_CHARS, count)
+    return getrandstr(salt_rng, H64_CHARS, count)
+
+h64_gensalt = gen_h64_salt
+
+def validate_h64_salt(value, count):
+    "validate base64 encoded salt is of right size & charset"
+    if len(value) != count:
+        raise ValueError, "salt must have %d chars: %r" % (count, value)
+    for c in value:
+        if c not in H64_CHARS:
+            raise ValueError, "invalid %r character in salt: %r" % (c, value)
+    return True
+
+def norm_h64_salt(value, count):
+    "validate salt if provided, generate one if not provided"
+    if value:
+        validate_h64_salt(value, count)
+        return value
+    return generate_h64_salt(count)
 
 def h64_validate(value):
     "helper to validate salt strings"

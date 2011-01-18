@@ -223,7 +223,7 @@ def getrandstr(rng, alphabet, count):
         return alphabet * count
 
     #get random value, and write out to buffer
-    #XXX: break into chunks for large number of bits?
+    #XXX: break into chunks for large number of letters?
     value = rng.randrange(0, letters**count)
     buf = StringIO()
     for i in xrange(count):

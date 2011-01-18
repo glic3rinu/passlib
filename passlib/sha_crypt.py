@@ -21,9 +21,9 @@ import time
 import os
 #site
 #libs
-from passlib.base import CryptAlgorithm, register_crypt_algorithm
+from passlib.base import CryptAlgorithmHelper, register_crypt_handler
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
-    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset
+    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
 #pkg
 #local
 __all__ = [
@@ -36,52 +36,49 @@ __all__ = [
 #algorithm defined on this page:
 #   http://people.redhat.com/drepper/SHA-crypt.txt
 #=========================================================
-class _ShaCrypt(CryptAlgorithm):
+class _ShaCrypt(CryptAlgorithmHelper):
     "common code for used by Sha(256|512)Crypt Classes"
     #=========================================================
-    #algorithm info
+    #crypt info
     #=========================================================
-    #hash_bytes & name filled in for subclass
+
+    #name - provided by subclass
+    setting_kwds = ("salt", "rounds")
+
+    secret_chars = -1
     salt_bytes = 12
-    has_rounds = True
+    #checksum_bytes - provided by subclass
 
-    #tuning the round aliases
-    default_rounds = "medium"
-    _rounds_per_second = 156000 #last tuned 2009-7-6 on a 2gz system
-    round_presets = dict(
-        fast = int(_rounds_per_second * .25),
-        medium = int(_rounds_per_second * .75),
-        slow = int(_rounds_per_second * 1.5),
-    )
+    default_rounds = 40000
+    min_rounds = 1000
+    max_rounds = 999999999
 
     #=========================================================
-    #internals required from subclass
+    #backend
     #=========================================================
-    _key = None #alg id (5, 6) of specific sha alg
+
+    #------------------------------------------------
+    #provided by subclass
+    #------------------------------------------------
     _hash = None #callable to use for hashing
     _chunk_size = None #bytes at a time to input secret
     _hash_size = None #bytes in hash
     _pat = None #regexp for sha variant
+    _ident = None #identifier for specific subclass
 
     @abstractmethod
     def _encode(self, result):
         "encode raw result into h64 style"
 
-    #=========================================================
-    #core sha crypt algorithm
-    #=========================================================
+    #------------------------------------------------
+    #common code
+    #------------------------------------------------
     @classmethod
-    def _sha_crypt_raw(self, rounds, salt, secret):
+    def _raw_encrypt(cls, secret, salt, rounds):
         "perform sha crypt, returning just the checksum"
         #setup alg-specific parameters
-        hash = self._hash
-        chunk_size = self._chunk_size
-
-        #init salt
-        if salt is None:
-            salt = h64_gensalt(16)
-        elif len(salt) > 16:
-            salt = salt[:16] #spec says to use up to first chars 16 only
+        hash = cls._hash
+        chunk_size = cls._chunk_size
 
         #handle unicode
         #FIXME: can't find definitive policy on how sha-crypt handles non-ascii.
@@ -89,30 +86,24 @@ class _ShaCrypt(CryptAlgorithm):
             secret = secret.encode("utf-8")
 
         #init rounds
-        if rounds == -1:
-            real_rounds = 5000
-        else:
-            if rounds < 1000:
-                rounds = 1000
-            if rounds > 999999999:
-                rounds = 999999999
-            real_rounds = rounds
+        if rounds < 1000:
+            rounds = 1000
+        if rounds > 999999999:
+            rounds = 999999999
 
         def extend(source, size_ref):
             size = len(size_ref)
             return source * int(size/chunk_size) + source[:size % chunk_size]
 
         #calc digest B
-        b = hash()
-        b.update(secret)
+        b = hash(secret)
+        a = b.copy()
         b.update(salt)
         b.update(secret)
         b_result = b.digest()
         b_extend = extend(b_result, secret)
 
         #begin digest A
-        a = hash()
-        a.update(secret)
         a.update(salt)
         a.update(b_extend)
 
@@ -129,8 +120,7 @@ class _ShaCrypt(CryptAlgorithm):
         a_result = a.digest()
 
         #calc DP
-        dp = hash()
-        dp.update(secret * len(secret))
+        dp = hash(secret * len(secret))
         dp_result = extend(dp.digest(), secret)
 
         #calc DS
@@ -141,12 +131,11 @@ class _ShaCrypt(CryptAlgorithm):
 
         #calc digest C
         last_result = a_result
-        for i in xrange(0, real_rounds):
-            c = hash()
+        for i in xrange(0, rounds):
             if i % 2:
-                c.update(dp_result)
+                c = hash(dp_result)
             else:
-                c.update(last_result)
+                c = hash(last_result)
             if i % 3:
                 c.update(ds_result)
             if i % 7:
@@ -158,9 +147,8 @@ class _ShaCrypt(CryptAlgorithm):
             last_result = c.digest()
 
         #encode result using 256/512 specific func
-        out = self._encode(last_result)
-        assert len(out) == self._hash_size, "wrong length: %r" % (out,)
-        return HashInfo(self._key, salt, out, rounds=rounds)
+        out = cls._encode(last_result)
+        return HashInfo(cls._key, salt, out, rounds=rounds)
 
     @classmethod
     def _sha_crypt(self, rounds, salt, secret):
@@ -174,28 +162,28 @@ class _ShaCrypt(CryptAlgorithm):
     #frontend helpers
     #=========================================================
     @classmethod
-    def identify(self, hash):
+    def identify(cls, hash):
         "identify bcrypt hash"
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def _parse(self, hash):
+    def parse(cls, hash):
         "parse bcrypt hash"
-        m = self._pat.match(hash)
+        if not hash:
+            raise ValueError, "invalid sha hash/salt"
+        m = cls._pat.match(hash)
         if not m:
             raise ValueError, "invalid sha hash/salt"
-        alg, rounds, salt, chk = m.group("alg", "rounds", "salt", "chk")
-        if rounds is None:
-            rounds = -1 #indicate we're using the default mode
-        else:
-            rounds = int(rounds)
-        assert alg == self._key
-        return HashInfo(alg, salt, chk, rounds=rounds, source=hash)
+        rounds, salt, chk = m.group("rounds", "salt", "chk")
+        assert m.group("ident") == cls._ident
+        return dict(
+            rounds = int(rounds) if rounds else 5000,
+            salt=salt,
+            checksum=checksum,
+        )
 
     @classmethod
-    def encrypt(self, secret, hash=None, rounds=None, keep_salt=False):
+    def encrypt(cls, secret, salt=None, rounds=None):
         """encrypt using sha256/512-crypt.
 
         In addition to the normal options that :meth:`CryptAlgorithm.encrypt` takes,
@@ -209,23 +197,22 @@ class _ShaCrypt(CryptAlgorithm):
             See :attr:`CryptAlgorithm.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
-        salt = None
-        if hash:
-            rec = self._parse(hash)
-            if keep_salt:
-                salt = rec.salt
-            if rounds is None:
-                rounds = rec.rounds
-        rounds = self._resolve_preset_rounds(rounds)
-        return self._sha_crypt(rounds, salt, secret)
+        if salt:
+            validate_h64_salt(salt, 16)
+        else:
+            salt = generate_h64_salt(16)
+        rounds = cls._norm_rounds(rounds)
+        checksum = self._raw_encrypt(secret, salt, rounds)
+        if rounds == 5000:
+            return "$%s$%s$%s" % (cls._ident, salt, checksum)
+        else:
+            return "$%s$rounds=%d$%s$%s" % (cls._ident, rounds, salt, checksum)
 
     @classmethod
-    def verify(self, secret, hash):
-        if hash is None:
-            return False
-        rec = self._parse(hash)
-        other = self._sha_crypt_raw(rec.rounds, rec.salt, secret)
-        return other.checksum == rec.checksum
+    def verify(cls, secret, hash):
+        info = cls.parse(hash)
+        checksum = cls._raw_encrypt(secret, info['salt'], info['rounds'])
+        return checksum == info['checksum']
 
     #=========================================================
     #eoc
@@ -245,12 +232,20 @@ class Sha256Crypt(_ShaCrypt):
     hash_bytes = 32
 
     #=========================================================
-    #internals
+    #backend
     #=========================================================
+    _ident = '5'
     _hash = hashlib.sha256
-    _key = '5'
     _chunk_size = 32
-    _hash_size = 43
+
+    _pat = re.compile(r"""
+        ^
+        \$(?P<alg>5)
+        (\$rounds=(?P<rounds>\d+))?
+        \$(?P<salt>[A-Za-z0-9./]+)
+        (\$(?P<chk>[A-Za-z0-9./]+))?
+        $
+        """, re.X)
 
     @classmethod
     def _encode(self, result):
@@ -261,25 +256,14 @@ class Sha256Crypt(_ShaCrypt):
             a, b, c = c+1, a+1, b+1
         assert a == 30, "loop went to far: %r" % (a,)
         out += h64_encode_2_offsets(result, 30, 31)
+        assert len(out) == 43, "wrong length: %r" % (out,)
         return out
-
-    #=========================================================
-    #frontend
-    #=========================================================
-    _pat = re.compile(r"""
-        ^
-        \$(?P<alg>5)
-        (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]+)
-        (\$(?P<chk>[A-Za-z0-9./]+))?
-        $
-        """, re.X)
 
     #=========================================================
     #eof
     #=========================================================
 
-register_crypt_algorithm(Sha256Crypt)
+register_crypt_handler(Sha256Crypt)
 
 class Sha512Crypt(_ShaCrypt):
     """This class implements the SHA-512 Crypt Algorithm,
@@ -312,33 +296,17 @@ class Sha512Crypt(_ShaCrypt):
     .. automethod:: encrypt
     """
     #=========================================================
-    #algorithm info
+    #crypt info
     #=========================================================
     name='sha512-crypt'
     hash_bytes = 64
 
     #=========================================================
-    #internals
+    #backend
     #=========================================================
+    _ident = '6'
     _hash = hashlib.sha512
-    _key = '6'
     _chunk_size = 64
-    _hash_size = 86
-
-    @classmethod
-    def _encode(self, result):
-        out = ''
-        a, b, c = 0, 21, 42
-        while c < 63:
-            out += h64_encode_3_offsets(result, c, b, a)
-            a, b, c = b+1, c+1, a+1
-        assert c == 63, "loop to far: %r" % (c,)
-        out += h64_encode_1_offset(result, 63)
-        return out
-
-    #=========================================================
-    #frontend
-    #=========================================================
 
     _pat = re.compile(r"""
         ^
@@ -349,11 +317,23 @@ class Sha512Crypt(_ShaCrypt):
         $
         """, re.X)
 
+    @classmethod
+    def _encode(self, result):
+        out = ''
+        a, b, c = 0, 21, 42
+        while c < 63:
+            out += h64_encode_3_offsets(result, c, b, a)
+            a, b, c = b+1, c+1, a+1
+        assert c == 63, "loop to far: %r" % (c,)
+        out += h64_encode_1_offset(result, 63)
+        assert len(out) == 86, "wrong length: %r" % (out,)
+        return out
+
     #=========================================================
     #eof
     #=========================================================
 
-register_crypt_algorithm(Sha512Crypt)
+register_crypt_handler(Sha512Crypt)
 
 #=========================================================
 # eof

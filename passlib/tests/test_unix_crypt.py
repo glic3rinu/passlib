@@ -13,6 +13,7 @@ from passlib.tests.utils import TestCase, enable_suite
 from passlib._slow_unix_crypt import crypt as builtin_crypt
 import passlib.unix_crypt as mod
 from passlib.tests.test_base import _CryptTestCase as CryptTestCase
+from passlib.hash import unix_crypt as uc
 #module
 log = getLogger(__name__)
 
@@ -21,7 +22,7 @@ log = getLogger(__name__)
 #=========================================================
 class UnixCryptTest(CryptTestCase):
     "test UnixCrypt algorithm"
-    alg = mod.UnixCrypt
+    alg = uc
     positive_knowns = (
         #secret, example hash which matches secret
         ('', 'OgAwTx2l6NADI'),

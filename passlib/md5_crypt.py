@@ -1,4 +1,7 @@
-"""passlib - implementation of various password hashing functions"""
+"""passlib - implementation of various password hashing functions
+
+http://unix.derkeiler.com/Newsgroups/comp.unix.solaris/2004-04/0199.html
+"""
 #=========================================================
 #imports
 #=========================================================
@@ -6,15 +9,15 @@ from __future__ import with_statement
 #core
 import inspect
 import re
-import hashlib
+from hashlib import md5
 import logging; log = logging.getLogger(__name__)
 import time
 import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
-    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_1_offset
-from passlib.base import CryptAlgorithm, register_crypt_algorithm
+    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
+from passlib.base import CryptAlgorithmHelper, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -29,45 +32,46 @@ __all__ = [
 # md5-crypt which supports rounds, format supposedly something like
 # "$md5,rounds=XXX$salt$chk" , could add support under SunMd5Crypt()
 
-class Md5Crypt(CryptAlgorithm):
+class Md5Crypt(CryptAlgorithmHelper):
     """This provides the MD5-crypt algorithm, used in many 1990's era unix systems.
     It should be byte compatible with unix shadow hashes beginning with ``$1$``.
     """
+    #=========================================================
+    #crypt info
+    #=========================================================
     name = 'md5-crypt'
+    
+    setting_kwds = ("salt",)
+
+    secret_chars = -1
     salt_bytes = 6
-    hash_bytes = 12
-    has_rounds = False
+    checksum_bytes = 12
 
     #=========================================================
     #backend
     #=========================================================
     @classmethod
-    def _md5_crypt_raw(self, secret, salt):
-        #init salt
-        if not salt:
-            salt = h64_gensalt(8)
-        assert len(salt) == 8
+    def _raw_encrypt(cls, secret, salt):
+        "given secret & salt, return encoded md5-crypt checksum"
+        assert len(salt) == 8, "invalid salt length: %r" % (salt,)
 
         #handle unicode
         #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
 
-        h = hashlib.md5()
-        assert h.digestsize == 16
-        h.update(secret)
-        h.update(salt)
-        h.update(secret)
-        tmp_digest = h.digest()
+        h = md5(secret)
+        t = h.copy()
+        t.update(salt)
+        t.update(secret)
+        hash = t.digest()
 
-        h = hashlib.md5()
-        h.update(secret)
         h.update("$1$")
         h.update(salt)
 
         idx = len(secret)
         while idx > 0:
-            h.update(tmp_digest[0:min(16, idx)])
+            h.update(hash[0:min(16, idx)])
             idx -= 16
 
         idx = len(secret)
@@ -77,15 +81,14 @@ class Md5Crypt(CryptAlgorithm):
             else:
                 h.update(secret[0])
             idx >>= 1
-
         hash = h.digest()
+
+        hs = md5(secret)
         for idx in xrange(1000):
-            assert len(hash) == 16
-            h = hashlib.md5()
             if idx & 1:
-                h.update(secret)
+                h = hs.copy()
             else:
-                h.update(hash)
+                h = md5(hash)
             if idx % 3:
                 h.update(salt)
             if idx % 7:
@@ -104,52 +107,60 @@ class Md5Crypt(CryptAlgorithm):
             )
             for idx in xrange(5)
             ) + h64_encode_1_offset(hash, 11)
-        return HashInfo('1', salt, out)
+        return out
 
     _pat = re.compile(r"""
         ^
-        \$(?P<alg>1)
+        \$(?P<ident>1)
         \$(?P<salt>[A-Za-z0-9./]+)
         (\$(?P<chk>[A-Za-z0-9./]+))?
         $
         """, re.X)
 
+    #=========================================================
+    #frontend
+    #=========================================================
     @classmethod
-    def identify(self, hash):
+    def identify(cls, hash):
         "identify md5-crypt hash"
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def _parse(self, hash):
+    def parse(cls, hash):
         "parse an md5-crypt hash"
-        m = self._pat.match(hash)
+        if not hash:
+            raise ValueError, "invalid md5-crypt hash"
+        m = cls._pat.match(hash)
         if not m:
-            raise ValueError, "invalid md5 salt"
-        return HashInfo(m.group("alg"), m.group("salt"), m.group("chk"))
+            raise ValueError, "invalid md5-crypt hash"
+        salt, chk = m.group("salt", "chk")
+        return dict(
+            salt=salt,
+            checksum=chk,
+        )
 
     @classmethod
-    def encrypt(self, secret, salt=None, keep_salt=False):
+    def encrypt(cls, secret, salt=None):
         "encrypt an md5-crypt hash"
-        real_salt = None
         if salt:
-            rec = self._parse(salt)
-            if keep_salt:
-                real_salt = rec.salt
-        rec = self._md5_crypt_raw(secret, real_salt)
-        return "$1$%s$%s" % (rec.salt, rec.checksum)
+            validate_h64_salt(salt, 8)
+        else:
+            salt = generate_h64_salt(8)
+        checksum = cls._raw_encrypt(secret, salt)
+        return "$1$%s$%s" % (salt, checksum)
 
     @classmethod
-    def verify(self, secret, hash):
+    def verify(cls, secret, hash):
         "verify an md5-crypt hash"
-        if hash is None:
-            return False
-        rec = self._parse(hash)
-        other = self._md5_crypt_raw(secret, rec.salt)
-        return other.checksum == rec.checksum
+        info = cls.parse(hash)
+        checksum = cls._raw_encrypt(secret, info['salt'])
+        return checksum == info['checksum']
 
-register_crypt_algorithm(Md5Crypt)
+    #=========================================================
+    #eoc
+    #=========================================================
+
+register_crypt_handler(Md5Crypt)
 
 #=========================================================
 # eof

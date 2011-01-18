@@ -13,7 +13,7 @@ import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom
-from passlib.base import CryptAlgorithm, CryptContext, register_crypt_algorithm
+from passlib.base import CryptAlgorithmHelper, CryptContext, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -27,7 +27,7 @@ __all__ = [
 #=========================================================
 #sql database hashes
 #=========================================================
-class Mysql10Crypt(CryptAlgorithm):
+class Mysql10Crypt(CryptAlgorithmHelper):
     """This implements Mysql's OLD_PASSWORD algorithm, used prior to version 4.1.
 
     See :class:`Mysql41Crypt` for the new algorithm was put in place in version 4.1
@@ -36,19 +36,26 @@ class Mysql10Crypt(CryptAlgorithm):
     and should only be used to verify existing password hashes.
 
     """
+    #=========================================================
+    #crypt information
+    #=========================================================
     name = "mysql-10"
+
+    setting_kwds = ()
+
     hash_bytes = 32
 
+    #=========================================================
+    #frontend
+    #=========================================================
     _pat = re.compile(r"^[0-9a-f]{16}$", re.I)
 
     @classmethod
     def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False):
+    def encrypt(cls, secret):
         nr1 = 1345345333
         nr2 = 0x12345671
         add = 7
@@ -62,14 +69,17 @@ class Mysql10Crypt(CryptAlgorithm):
         return "%08x%08x" % (nr1 & 0x7fffffff, nr2 & 0x7fffffff)
 
     @classmethod
-    def verify(self, secret, hash):
-        if hash is None:
-            return False
-        return hash.lower() == self.encrypt(secret)
+    def verify(cls, secret, hash):
+        if not cls.identify(hash):
+            raise ValueError, "not a mysql-10 hash"
+        return hash.lower() == cls.encrypt(secret)
 
-register_crypt_algorithm(Mysql10Crypt)
+    #=========================================================
+    #eoc
+    #=========================================================
+register_crypt_handler(Mysql10Crypt)
 
-class Mysql41Crypt(CryptAlgorithm):
+class Mysql41Crypt(CryptAlgorithmHelper):
     """This implements Mysql new PASSWORD algorithm, introduced in version 4.1.
 
     This function is unsalted, and therefore not very secure against rainbow attacks.
@@ -78,28 +88,37 @@ class Mysql41Crypt(CryptAlgorithm):
 
     Description taken from http://dev.mysql.com/doc/refman/6.0/en/password-hashing.html
     """
+    #=========================================================
+    #crypt information
+    #=========================================================
     name = "mysql-41"
+    setting_kwds = ()
     hash_bytes = 80
 
+    #=========================================================
+    #frontend
+    #=========================================================
     _pat = re.compile(r"^\*[0-9A-F]{40}$", re.I)
 
     @classmethod
-    def identify(self, hash):
-        if hash is None:
-            return False
-        return self._pat.match(hash) is not None
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(self, secret, hash=None, keep_salt=False):
+    def encrypt(cls, secret):
         return '*' + hashlib.sha1(hashlib.sha1(secret).digest()).hexdigest().upper()
 
     @classmethod
-    def verify(self, secret, hash):
-        if hash is None:
-            return False
-        return hash.upper() == self.encrypt(secret)
+    def verify(cls, secret, hash):
+        if not cls.identify(hash):
+            raise ValueError, "not a mysql-41 hash"
+        return hash.upper() == cls.encrypt(secret)
 
-register_crypt_algorithm(Mysql41Crypt)
+    #=========================================================
+    #eoc
+    #=========================================================
+
+register_crypt_handler(Mysql41Crypt)
 
 #=========================================================
 #some db context helpers
