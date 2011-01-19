@@ -59,13 +59,13 @@ except ImportError:
     #TODO: need to reconcile our implementation's behavior
     # with the stdlib's behavior so error types, messages, and limitations
     # are the same. (eg: handling of None and unicode chars)
-    from passlib._slow_unix_crypt import crypt
+    from passlib.utils._slow_des_crypt import crypt
     backend = "builtin"
 
 #=========================================================
 #old unix crypt
 #=========================================================
-class UnixCrypt(CryptAlgorithmHelper):
+class DesCrypt(CryptAlgorithmHelper):
     """Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
     This implementation uses the builtin ``crypt`` module when available,
     but contains a pure-python fallback so that this algorithm can always be used.
@@ -73,7 +73,7 @@ class UnixCrypt(CryptAlgorithmHelper):
     #=========================================================
     #crypt information
     #=========================================================
-    name = "unix-crypt"
+    name = "des-crypt"
 
     setting_kwds = ()
 
@@ -124,7 +124,7 @@ class UnixCrypt(CryptAlgorithmHelper):
     #eoc
     #=========================================================
 
-register_crypt_handler(UnixCrypt)
+register_crypt_handler(DesCrypt)
 
 #=========================================================
 # eof

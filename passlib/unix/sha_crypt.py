@@ -147,16 +147,7 @@ class _ShaCrypt(CryptAlgorithmHelper):
             last_result = c.digest()
 
         #encode result using 256/512 specific func
-        out = cls._encode(last_result)
-        return HashInfo(cls._key, salt, out, rounds=rounds)
-
-    @classmethod
-    def _sha_crypt(self, rounds, salt, secret):
-        rec = self._sha_crypt_raw(rounds, salt, secret)
-        if rec.rounds == -1:
-            return "$%s$%s$%s" % (rec.ident, rec.salt, rec.checksum)
-        else:
-            return "$%s$rounds=%d$%s$%s" % (rec.ident, rec.rounds, rec.salt, rec.checksum)
+        return cls._encode(last_result)
 
     #=========================================================
     #frontend helpers

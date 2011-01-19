@@ -26,7 +26,7 @@ try:
     backend = "pybcrypt"
 except ImportError:
     #fall back to our much slower pure-python implementation
-    import passlib._slow_bcrypt as bcrypt
+    import passlib.utils._slow_bcrypt as bcrypt
     backend = "builtin"
 
 #=========================================================
@@ -46,7 +46,7 @@ class BCrypt(CryptAlgorithmHelper):
     #algorithm info
     #=========================================================
     name = "bcrypt"
-    
+
     setting_kwds = ("salt", "rounds")
 
     salt_bytes = 16

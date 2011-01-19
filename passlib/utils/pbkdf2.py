@@ -30,9 +30,9 @@ __all__ = [
 MAX_BLOCKS = 0xffffffffL #2**32-1
 
 def _resolve_prf(prf):
-    "resolve prf string or callable -> func & digest_size"    
+    "resolve prf string or callable -> func & digest_size"
     if isinstance(prf, str):
-        
+
         if prf.startswith("hmac-"):
             digest = prf[5:]
 
@@ -59,10 +59,10 @@ def _resolve_prf(prf):
             def encode_block(key, msg):
                 return hmac_const(key, msg, digest_const).digest()
             return encode_block, digest_size
-                
+
         else:
             raise ValueError, "unknown prf algorithm: %r" % (prf,)
-        
+
     elif callable(prf):
         #assume it's a callable, use it directly
         digest_size = len(prf('',''))
@@ -119,10 +119,10 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
             return _EVP.pbkdf2(secret, salt, rounds, keylen)
         except OverflowError:
             raise ValueError, "key length too long"
-        
+
     #resolve prf
     encode_block, digest_size = _resolve_prf(prf)
-        
+
     #figure out how many blocks we'll need
     bcount = (keylen+digest_size-1)//digest_size
     if bcount >= MAX_BLOCKS:
@@ -139,7 +139,7 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
             tmp = encode_block(secret, tmp)
             block = xor_bytes(block, tmp)
         write(block)
-        
+
     #and done
     return out.getvalue()[:keylen]
 
