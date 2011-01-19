@@ -67,6 +67,8 @@ except ImportError:
     from passlib.utils._slow_des_crypt import crypt
     backend = "builtin"
 
+##from passlib.utils._slow_des_crypt import raw_ext_crypt
+
 #=========================================================
 #old unix crypt
 #=========================================================
@@ -130,6 +132,71 @@ class DesCrypt(CryptHandlerHelper):
     #=========================================================
 
 register_crypt_handler(DesCrypt)
+
+#=========================================================
+#
+#=========================================================
+#TODO: find a source for this algorithm, and convert it to python.
+# also need to find some test sources.
+
+##class ExtDesCrypt(CryptHandlerHelper):
+##    """extended des crypt (3des based)
+##
+##    this algorithm was used on some systems
+##    during the time between the original crypt()
+##    and the development of md5-crypt and the modular crypt format.
+##
+##    thus, it doesn't follow the normal format.
+##    """
+##
+##    #=========================================================
+##    #crypt information
+##    #=========================================================
+##    name = "ext-des-crypt"
+##
+##    setting_kwds = ()
+##
+##    salt_bytes = 6*8/8.0
+##    checksum_bytes = 6*11/8.0
+##    secret_chars = -1 # ???
+##
+##    salt_chars = 8
+##
+##    #=========================================================
+##    #frontend
+##    #=========================================================
+##
+##    #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
+##    _pat = re.compile(r"""
+##        ^
+##        _
+##        (?P<salt>[./a-z0-9]{8})
+##        (?P<chk>[./a-z0-9]{11})
+##        $""", re.X|re.I)
+##
+##    @classmethod
+##    def identify(cls, hash):
+##        return bool(hash and cls._pat.match(hash))
+##
+##    @classmethod
+##    def parse(cls, hash):
+##        m = cls._pat.match(hash)
+##        if not m:
+##            raise ValueError, "not a ext-des-crypt hash"
+##        return dict(
+##            salt=m.group("salt"),
+##            checksum=m.group("chk")
+##        )
+##
+##    @classmethod
+##    def encrypt(cls, secret, salt=None):
+##        salt = cls._norm_salt(salt)
+##        return ext_crypt(secret, salt)
+##
+##    @classmethod
+##    def verify(cls, secret, hash):
+##        info = cls.parse(hash)
+##        return info['checksum'] == raw_ext_crypt(secret, info['salt'])
 
 #=========================================================
 # eof

@@ -36,6 +36,13 @@ class DesCryptTest(_HandlerTestCase):
         '!gAwTx2l6NADI',
         )
 
+##class ExtDesCryptTest(_HandlerTestCase):
+##    "test ExtDesCrypt algorithm"
+##    handler = mod.ExtDesCrypt
+##    known_correct = (
+##        ("my socrates note", "_J9..rajmAJffsmIgxRo"),
+##    )
+
 #=========================================================
 #test activate backend (stored in mod._crypt)
 #=========================================================

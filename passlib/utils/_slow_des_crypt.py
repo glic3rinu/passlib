@@ -636,6 +636,7 @@ def crypt(key, salt):
     #parse salt into bytes
     if not salt or len(salt) < 2:
         raise ValueError, "invalid salt"
+
     sa, sb = salt[0:2]
     try:
         salt_value = (b64_decode(sb) << 6) + b64_decode(sa)
