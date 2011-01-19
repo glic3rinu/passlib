@@ -8,7 +8,7 @@ import re
 import logging; log = logging.getLogger(__name__)
 #site
 #libs
-from passlib.util import validate_h64_salt, generate_h64_salt
+from passlib.utils import validate_h64_salt, generate_h64_salt
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local

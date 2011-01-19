@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, abstract_class_method
+from passlib.utils import abstract_class_method, classproperty
 #pkg
 #local
 __all__ = [
@@ -322,7 +322,7 @@ class CryptHandler(object):
 class CryptHandlerHelper(CryptHandler):
     "class providing some helpful methods for implementing a crypt algorithm"
 
-    @class_property
+    @classproperty
     def setting_kwds(cls):
         "auto-calculates setting_kwds for the 3 most common cases, autodetecting via other informational attributes"
         if cls.salt_bytes > 0:

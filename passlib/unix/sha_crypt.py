@@ -22,7 +22,7 @@ import os
 #site
 #libs
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
-from passlib.util import classproperty, abstractmethod, \
+from passlib.utils import abstract_class_method, \
     h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
 #pkg
 #local
@@ -66,8 +66,8 @@ class _ShaCrypt(CryptHandlerHelper):
     _pat = None #regexp for sha variant
     _ident = None #identifier for specific subclass
 
-    @abstractmethod
-    def _encode(self, result):
+    @abstract_class_method
+    def _encode(cls, result):
         "encode raw result into h64 style"
 
     #------------------------------------------------

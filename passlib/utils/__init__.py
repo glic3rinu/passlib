@@ -26,7 +26,8 @@ __all__ = [
     "xor_bytes",
 
     #hash64 encoding
-    'h64_validate',
+    'generate_h64_salt',
+    'validate_h64_salt',
 ]
 #=================================================================================
 #decorators
@@ -72,7 +73,7 @@ Undef = object() #singleton used as default kwd value in some functions
 #numeric helpers
 #=================================================================================
 
-#XXX: rename 'bytes' kwd for py30 compat purposes
+#TODO: rename 'bytes' kwd for py30 compat purposes
 
 def list_to_bytes(value, bytes=None, order="big"):
     """Returns a multi-character string corresponding to a list of byte values.
@@ -171,21 +172,6 @@ _join = "".join
 def xor_bytes(left, right):
     "bitwise-xor two byte-strings together"
     return _join(chr(ord(l) ^ ord(r)) for l, r in zip(left, right))
-
-#=================================================================================
-#misc
-#=================================================================================
-def norm_rounds(value, default, presets):
-    """helper for validating & normalizing hash 'rounds' parameter
-    """
-    assert isinstance(default, int)
-    if isinstance(value, int):
-        return value
-    if value is not None:
-        if value in presets:
-            return presets[value]
-        log.warning("unknown preset round name: %r", value)
-    return default
 
 #=================================================================================
 #randomness
@@ -351,102 +337,6 @@ def h64_encode_1_offset(buffer, o1):
     "do hash64 encode of single byte at specified offset in buffer; 4 missing msb set null; returns 2 chars"
     v1 = ord(buffer[o1])
     return H64_CHARS[v1&0x3F] + H64_CHARS[v1>>6]
-
-#old code, not used anymore...
-###reverse map of char -> value
-##CHARIDX = dict( (c,i) for i,c in enumerate(CHARS))
-##def _enc64(value, offset=0, num=False):
-##    if num:
-##        x, y, z = value[offset], value[offset+1], value[offset+2]
-##    else:
-##        x, y, z = ord(value[offset]), ord(value[offset+1]), ord(value[offset+2])
-##    #xxxxxx xxyyyy yyyyzz zzzzzz
-##    #aaaaaa bbbbbb cccccc dddddd
-##    a = (x >> 2) # x [8..3]
-##    b = ((x & 0x3) << 4) + (y>>4) # x[2..1] + y [8..5]
-##    c = ((y & 0xf) << 2) + (z>>6) #y[4..1] + d[8..7]
-##    d = z & 0x3f
-##    return CHARS[a] + CHARS[b] + CHARS[c] + CHARS[d]
-##
-##def _dec64(value, offset=0, num=False):
-##    a, b, c, d = CHARIDX[value[offset]], CHARIDX[value[offset+1]], \
-##        CHARIDX[value[offset+2]], CHARIDX[value[offset+3]]
-##    #aaaaaabb bbbbcccc ccdddddd
-##    #xxxxxxxx yyyyyyyy zzzzzzzz
-##    x = (a<<2) + (b >> 4) #a[6..1] + b[6..5]
-##    y = ((b & 0xf) << 4) + (c >> 2) #b[4..1] + c[6..3]
-##    z = ((c & 0x3) << 6) + d #c[2..1] + d[6..1]
-##    if num:
-##        return x, y, z
-##    return chr(x) + chr(y) + chr(z)
-##
-##def h64_encode(value, pad=False, num=False):
-##    "encode string of bytes into hash64 format"
-##    if num:
-##        value = list(value)
-##    #pad value to align w/ 3 byte chunks
-##    x = len(value) % 3
-##    if x == 2:
-##        if num:
-##            value += [0]
-##        else:
-##            value += "\x00"
-##        p = 1
-##    elif x == 1:
-##        if num:
-##            value += [0, 0]
-##        else:
-##            value += "\x00\x00"
-##        p = 2
-##    else:
-##        p = 0
-##    assert len(value) % 3 == 0
-##    out = "".join( _enc64(value, offset, num=num) for offset in xrange(0, len(value), 3))
-##    assert len(out) % 4 == 0
-##    if p:
-##        if pad:
-##            out = out[:-p] + "=" * p
-##        else:
-##            out = out[:-p]
-##    return out
-##
-##def h64_decode(value, pad=False, num=False):
-##    "decode string of bytes from hash64 format"
-##    if value.endswith("="):
-##        assert len(value) % 4 == 0, value
-##        if value.endswith('=='):
-##            p = 2
-##            value = value[:-2] + '..'
-##        else:
-##            p = 1
-##            value = value[:-1] + '.'
-##    else:
-##        #else add padding if needed
-##        x = len(value) % 4
-##        if x == 0:
-##            p = 0
-##        elif pad:
-##            raise ValueError, "size must be multiple of 4"
-##        elif x == 3:
-##            p = 1
-##            value += "."
-##        elif x == 2:
-##            p = 2
-##            value += ".."
-##        elif x == 1:
-##            p = 3
-##            value += "..."
-##    assert len(value) % 4 == 0, value
-##    if num:
-##        out = []
-##        for offset in xrange(0, len(value), 4):
-##            out.extend(_dec64(value, offset, num=True))
-##    else:
-##        out = "".join( _dec64(value, offset) for offset in xrange(0, len(value), 4))
-##    assert len(out) % 3 == 0
-##    if p: #strip out garbage chars
-##        out = out[:-p]
-##    return out
 
 #=================================================================================
 #eof

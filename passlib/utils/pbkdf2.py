@@ -18,7 +18,7 @@ try:
 except ImportError:
     _EVP = None
 #pkg
-from passlib.util import xor_bytes
+from passlib.utils import xor_bytes
 #local
 __all__ = [
     "pbkdf2",

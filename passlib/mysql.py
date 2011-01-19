@@ -13,7 +13,6 @@ import os
 #site
 #libs
 from passlib.context import CryptContext
-from passlib.util import classproperty, abstractmethod
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local

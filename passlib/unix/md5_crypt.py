@@ -15,8 +15,7 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, \
-    h64_encode_3_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
+from passlib.utils import h64_encode_3_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local

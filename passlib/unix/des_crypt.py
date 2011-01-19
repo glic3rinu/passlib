@@ -18,7 +18,7 @@ import os
 #site
 #pkg
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
-from passlib.util import classproperty, abstractmethod, validate_h64_salt, generate_h64_salt
+from passlib.utils import validate_h64_salt, generate_h64_salt
 #local
 __all__ = [
     'UnixCrypt',

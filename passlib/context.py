@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, abstract_class_method, Undef
+from passlib.utils import abstract_class_method, Undef
 #pkg
 #local
 __all__ = [
