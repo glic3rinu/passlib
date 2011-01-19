@@ -9,7 +9,7 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib.base import CryptContext
+from passlib.context import CryptContext
 from passlib.tests.utils import TestCase, enable_suite
 from passlib.unix_crypt import UnixCrypt
 from passlib.sha_crypt import Sha512Crypt

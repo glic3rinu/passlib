@@ -17,7 +17,7 @@ import os
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
     h64_encode_3_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
-from passlib.base import CryptAlgorithmHelper, register_crypt_handler
+from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -32,7 +32,7 @@ __all__ = [
 # md5-crypt which supports rounds, format supposedly something like
 # "$md5,rounds=XXX$salt$chk" , could add support under SunMd5Crypt()
 
-class Md5Crypt(CryptAlgorithmHelper):
+class Md5Crypt(CryptHandlerHelper):
     """This provides the MD5-crypt algorithm, used in many 1990's era unix systems.
     It should be byte compatible with unix shadow hashes beginning with ``$1$``.
     """

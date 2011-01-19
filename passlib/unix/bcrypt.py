@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 #site
 #libs
 from passlib.util import validate_h64_salt, generate_h64_salt
-from passlib.base import CryptAlgorithmHelper, register_crypt_handler
+from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -32,7 +32,7 @@ except ImportError:
 #=========================================================
 #OpenBSD's BCrypt
 #=========================================================
-class BCrypt(CryptAlgorithmHelper):
+class BCrypt(CryptHandlerHelper):
     """Implementation of OpenBSD's BCrypt algorithm.
 
     Passlib will use the py-bcrypt package if it is available,
@@ -95,7 +95,7 @@ class BCrypt(CryptAlgorithmHelper):
     def encrypt(cls, secret, salt=None, rounds=None):
         """encrypt using bcrypt.
 
-        In addition to the normal options that :meth:`CryptAlgorithm.encrypt` takes,
+        In addition to the normal options that :meth:`CryptHandler.encrypt` takes,
         this function also accepts the following:
 
         :param rounds:
@@ -104,7 +104,7 @@ class BCrypt(CryptAlgorithmHelper):
             This can be one of "fast", "medium", "slow",
             or an integer in the range 4..31.
 
-            See :attr:`CryptAlgorithm.has_named_rounds` for details
+            See :attr:`CryptHandler.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
         if salt:

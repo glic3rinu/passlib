@@ -17,7 +17,7 @@ import time
 import os
 #site
 #pkg
-from passlib.base import CryptAlgorithmHelper, register_crypt_handler
+from passlib.handler import CryptHandlerHelper, register_crypt_handler
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, validate_h64_salt, generate_h64_salt
 #local
 __all__ = [
@@ -65,7 +65,7 @@ except ImportError:
 #=========================================================
 #old unix crypt
 #=========================================================
-class DesCrypt(CryptAlgorithmHelper):
+class DesCrypt(CryptHandlerHelper):
     """Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
     This implementation uses the builtin ``crypt`` module when available,
     but contains a pure-python fallback so that this algorithm can always be used.

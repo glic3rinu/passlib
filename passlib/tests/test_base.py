@@ -9,7 +9,7 @@ import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib.base import CryptAlgorithm
+from passlib.handler import CryptHandler
 from passlib.tests.utils import TestCase, enable_suite
 from passlib.utils import generate_h64_salt as h64_gensalt
 #module
@@ -19,7 +19,7 @@ log = getLogger(__name__)
 #helper password algorithms - these serve both as simple
 # examples, and are used in the unittests
 #=========================================================
-class UnsaltedAlg(CryptAlgorithm):
+class UnsaltedAlg(CryptHandler):
     "example algorithm usuing constant-salt hash"
     name = "unsalted"
 
@@ -40,7 +40,7 @@ class UnsaltedAlg(CryptAlgorithm):
         #NOTE: that salt / _keep_salt are simply ignored
         return hashlib.sha1("boblious" + secret).hexdigest()
 
-class SaltedAlg(CryptAlgorithm):
+class SaltedAlg(CryptHandler):
     """example naive salted algorithm which never obeys keep_salt
     (note that the default verify() is implemented in this case)
     """
@@ -70,7 +70,7 @@ class SaltedAlg(CryptAlgorithm):
         salt = hash[5:7]
         return self._raw(secret, salt) == hash
 
-class SampleAlg(CryptAlgorithm):
+class SampleAlg(CryptHandler):
     "example salted algorithm w/ keep_salt support"
     name = "sample"
     salt_bytes = 6*2/8.0
@@ -108,7 +108,7 @@ SECRETS = [
     ]
 
 class _CryptTestCase(TestCase):
-    "base class for CryptAlgorithm subclass testing"
+    "base class for CryptHandler subclass testing"
 
     #=========================================================
     #subclass attrs
@@ -287,7 +287,7 @@ class UtilsTest(TestCase):
     "test util funcs and core class behavior"
 
     def test_has_salt(self):
-        "check CryptAlgorithm.has_salt property works"
+        "check CryptHandler.has_salt property works"
 
         #make sure property function works at class level, not instance level
         self.assertEqual(UnsaltedAlg.has_salt, False)

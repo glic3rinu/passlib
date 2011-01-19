@@ -2,7 +2,7 @@
 
 __version__ = "1.2"
 
-from passlib.base import CryptContext
+from passlib.context import CryptContext
 import passlib.unix_crypt
 import passlib.md5_crypt
 import passlib.bcrypt

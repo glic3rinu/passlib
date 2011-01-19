@@ -21,7 +21,7 @@ import time
 import os
 #site
 #libs
-from passlib.base import CryptAlgorithmHelper, register_crypt_handler
+from passlib.handler import CryptHandlerHelper, register_crypt_handler
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
     h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
 #pkg
@@ -36,7 +36,7 @@ __all__ = [
 #algorithm defined on this page:
 #   http://people.redhat.com/drepper/SHA-crypt.txt
 #=========================================================
-class _ShaCrypt(CryptAlgorithmHelper):
+class _ShaCrypt(CryptHandlerHelper):
     "common code for used by Sha(256|512)Crypt Classes"
     #=========================================================
     #crypt info
@@ -177,7 +177,7 @@ class _ShaCrypt(CryptAlgorithmHelper):
     def encrypt(cls, secret, salt=None, rounds=None):
         """encrypt using sha256/512-crypt.
 
-        In addition to the normal options that :meth:`CryptAlgorithm.encrypt` takes,
+        In addition to the normal options that :meth:`CryptHandler.encrypt` takes,
         this function also accepts the following:
 
         :param rounds:
@@ -185,7 +185,7 @@ class _ShaCrypt(CryptAlgorithmHelper):
             This can be one of "fast", "medium", "slow",
             or an integer in the range 1000...999999999.
 
-            See :attr:`CryptAlgorithm.has_named_rounds` for details
+            See :attr:`CryptHandler.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
         if salt:

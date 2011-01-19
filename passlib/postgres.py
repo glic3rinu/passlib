@@ -12,8 +12,9 @@ import time
 import os
 #site
 #libs
+from passlib.context import CryptContext
 from passlib.util import classproperty, abstractmethod, is_seq, srandom
-from passlib.base import CryptAlgorithmHelper, CryptContext, register_crypt_handler
+from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -22,7 +23,7 @@ __all__ = [
 #=========================================================
 #sql database hashes
 #=========================================================
-class PostgresMd5Crypt(CryptAlgorithmHelper):
+class PostgresMd5Crypt(CryptHandlerHelper):
     """This implements the md5-based hash algorithm used by Postgres to store
     passwords in the pg_shadow table.
 
