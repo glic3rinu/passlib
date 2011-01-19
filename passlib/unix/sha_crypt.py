@@ -23,7 +23,7 @@ import os
 #libs
 from passlib.base import CryptAlgorithmHelper, register_crypt_handler
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
-    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
+    h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
 #pkg
 #local
 __all__ = [

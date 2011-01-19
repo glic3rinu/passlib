@@ -8,7 +8,7 @@ import re
 import logging; log = logging.getLogger(__name__)
 #site
 #libs
-from passlib.util import HashInfo, validate_h64_salt, generate_h64_salt
+from passlib.util import validate_h64_salt, generate_h64_salt
 from passlib.base import CryptAlgorithmHelper, register_crypt_handler
 #pkg
 #local
@@ -80,7 +80,6 @@ class BCrypt(CryptAlgorithmHelper):
 
     @classmethod
     def parse(cls, hash):
-        "helper used to parse bcrypt hash into HashInfo object"
         m = cls._pat.match(hash)
         if not m:
             raise ValueError, "invalid bcrypt hash"

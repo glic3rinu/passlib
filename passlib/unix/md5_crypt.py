@@ -16,7 +16,7 @@ import os
 #site
 #libs
 from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
-    HashInfo, h64_gensalt, h64_encode_3_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
+    h64_encode_3_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
 from passlib.base import CryptAlgorithmHelper, register_crypt_handler
 #pkg
 #local
@@ -40,7 +40,7 @@ class Md5Crypt(CryptAlgorithmHelper):
     #crypt info
     #=========================================================
     name = 'md5-crypt'
-    
+
     setting_kwds = ("salt",)
 
     secret_chars = -1

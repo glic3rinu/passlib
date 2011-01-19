@@ -30,7 +30,6 @@ __all__ = [
     "xor_bytes",
 
     #hash64 encoding
-    'h64_gensalt',
     'h64_validate',
 ]
 #=================================================================================
@@ -193,21 +192,6 @@ def xor_bytes(left, right):
 #=================================================================================
 #misc
 #=================================================================================
-class HashInfo(object):
-    "helper used internally by various CryptAlgorithm implementations to store parsed results"
-    ident = None #identifier portion of hash
-    salt = None #salt portion of hash
-    checksum = None #checksum (result of hashing salt & password according to alg)
-    rounds = None #number of rounds, if known & applicable
-    source = None #source above information was parsed from, if available
-
-    def __init__(self, ident, salt, checksum=None, rounds=None, source=None):
-        self.ident = ident
-        self.salt = salt
-        self.checksum = checksum
-        self.rounds = rounds
-        self.source = source
-
 def norm_rounds(value, default, presets):
     """helper for validating & normalizing hash 'rounds' parameter
     """
@@ -307,8 +291,6 @@ H64_CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 def generate_h64_salt(count):
     "return base64 salt containing specified number of characters"
     return getrandstr(salt_rng, H64_CHARS, count)
-
-h64_gensalt = gen_h64_salt
 
 def validate_h64_salt(value, count):
     "validate base64 encoded salt is of right size & charset"

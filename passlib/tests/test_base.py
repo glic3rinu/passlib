@@ -11,7 +11,7 @@ from logging import getLogger
 #pkg
 from passlib.base import CryptAlgorithm
 from passlib.tests.utils import TestCase, enable_suite
-from passlib.util import h64_gensalt
+from passlib.utils import generate_h64_salt as h64_gensalt
 #module
 log = getLogger(__name__)
 
