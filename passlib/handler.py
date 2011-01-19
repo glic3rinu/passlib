@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstract_class_method, classproperty
+from passlib.utils import abstract_class_method, classproperty, H64_CHARS, generate_h64_salt
 #pkg
 #local
 __all__ = [
@@ -322,6 +322,8 @@ class CryptHandler(object):
 class CryptHandlerHelper(CryptHandler):
     "class providing some helpful methods for implementing a crypt algorithm"
 
+    salt_chars = None #fill in with minimum number of salt chars required, and _norm_salt() will handle truncating etc
+
     @classproperty
     def setting_kwds(cls):
         "auto-calculates setting_kwds for the 3 most common cases, autodetecting via other informational attributes"
@@ -350,6 +352,23 @@ class CryptHandlerHelper(CryptHandler):
             warn("%s algorithm does not allow less than %d rounds: %d", mn, rounds)
             rounds = mn
         return rounds
+
+    @classmethod
+    def _norm_salt(cls, salt):
+        count = cls.salt_chars
+        assert count, "cls.salt_chars not set"
+        if not salt:
+            return generate_h64_salt(count)
+        for c in salt:
+            if c not in H64_CHARS:
+                raise ValueError, "invalid character in %s salt: %r"  % (cls.name, c)
+        if len(salt) < count:
+            raise ValueError, "%s salt must be at least %d chars" % (cls.name, count)
+        elif len(salt) > count:
+            #automatically clip things to specified number of chars
+            return salt[:count]
+        else:
+            return salt
 
 #=========================================================
 # eof

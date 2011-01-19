@@ -23,7 +23,7 @@ import os
 #libs
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
 from passlib.utils import abstract_class_method, \
-    h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
+    h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset
 #pkg
 #local
 __all__ = [
@@ -48,6 +48,8 @@ class _ShaCrypt(CryptHandlerHelper):
     secret_chars = -1
     salt_bytes = 12
     #checksum_bytes - provided by subclass
+
+    salt_chars = 16
 
     default_rounds = 40000
     min_rounds = 1000
@@ -188,10 +190,7 @@ class _ShaCrypt(CryptHandlerHelper):
             See :attr:`CryptHandler.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
-        if salt:
-            validate_h64_salt(salt, 16)
-        else:
-            salt = generate_h64_salt(16)
+        salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
         checksum = self._raw_encrypt(secret, salt, rounds)
         if rounds == 5000:
@@ -233,8 +232,8 @@ class Sha256Crypt(_ShaCrypt):
         ^
         \$(?P<alg>5)
         (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]+)
-        (\$(?P<chk>[A-Za-z0-9./]+))?
+        \$(?P<salt>[A-Za-z0-9./]{16})
+        \$(?P<chk>[A-Za-z0-9./]{43})
         $
         """, re.X)
 
@@ -303,8 +302,8 @@ class Sha512Crypt(_ShaCrypt):
         ^
         \$(?P<alg>6)
         (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]+)
-        (\$(?P<chk>[A-Za-z0-9./]+))?
+        \$(?P<salt>[A-Za-z0-9./]{16})
+        \$(?P<chk>[A-Za-z0-9./]{86})
         $
         """, re.X)
 

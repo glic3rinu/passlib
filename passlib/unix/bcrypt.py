@@ -8,7 +8,6 @@ import re
 import logging; log = logging.getLogger(__name__)
 #site
 #libs
-from passlib.utils import validate_h64_salt, generate_h64_salt
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local
@@ -52,6 +51,8 @@ class BCrypt(CryptHandlerHelper):
     salt_bytes = 16
     checksum_bytes = 24
     secret_chars = 72
+
+    salt_chars = 22
 
     default_rounds = 12
     min_rounds = 10 # pybcrypt won't take less than this
@@ -107,10 +108,7 @@ class BCrypt(CryptHandlerHelper):
             See :attr:`CryptHandler.has_named_rounds` for details
             on the meaning of "fast", "medium" and "slow".
         """
-        if salt:
-            validate_h64_salt(salt, 22)
-        else:
-            salt = generate_h64_salt(22)
+        salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
         config = "$2a$%d$%s" % (rounds, salt)
         return bcrypt.hashpw(secret, config)

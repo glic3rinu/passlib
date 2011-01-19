@@ -18,10 +18,9 @@ import os
 #site
 #pkg
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
-from passlib.utils import validate_h64_salt, generate_h64_salt
 #local
 __all__ = [
-    'UnixCrypt',
+    'DesCrypt',
 ##    'crypt', 'backend'
 ]
 
@@ -78,6 +77,8 @@ class DesCrypt(CryptHandlerHelper):
     checksum_bytes = 6*11/8.0
     secret_chars = 8
 
+    salt_chars = 2
+
     #=========================================================
     #frontend
     #=========================================================
@@ -105,10 +106,7 @@ class DesCrypt(CryptHandlerHelper):
 
     @classmethod
     def encrypt(cls, secret, salt=None):
-        if salt:
-            validate_h64_salt(salt, 2)
-        else:
-            salt = generate_h64_salt(2)
+        salt = cls._norm_salt(salt)
         return crypt(secret, salt)
 
     @classmethod

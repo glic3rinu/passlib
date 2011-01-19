@@ -15,7 +15,7 @@ import time
 import os
 #site
 #libs
-from passlib.utils import h64_encode_3_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
+from passlib.utils import h64_encode_3_offsets, h64_encode_1_offset
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #pkg
 #local
@@ -45,6 +45,8 @@ class Md5Crypt(CryptHandlerHelper):
     secret_chars = -1
     salt_bytes = 6
     checksum_bytes = 12
+
+    salt_chars = 8
 
     #=========================================================
     #backend
@@ -111,8 +113,8 @@ class Md5Crypt(CryptHandlerHelper):
     _pat = re.compile(r"""
         ^
         \$(?P<ident>1)
-        \$(?P<salt>[A-Za-z0-9./]+)
-        (\$(?P<chk>[A-Za-z0-9./]+))?
+        \$(?P<salt>[A-Za-z0-9./]{16})
+        $(?P<chk>[A-Za-z0-9./]{16})
         $
         """, re.X)
 
@@ -141,10 +143,7 @@ class Md5Crypt(CryptHandlerHelper):
     @classmethod
     def encrypt(cls, secret, salt=None):
         "encrypt an md5-crypt hash"
-        if salt:
-            validate_h64_salt(salt, 8)
-        else:
-            salt = generate_h64_salt(8)
+        salt = cls._norm_salt(salt)
         checksum = cls._raw_encrypt(secret, salt)
         return "$1$%s$%s" % (salt, checksum)
 

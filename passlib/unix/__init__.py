@@ -4,6 +4,14 @@
 #import standard hash algorithms
 #=========================================================
 import passlib.unix.des_crypt #registers "des-crypt" handler
+
+#TODO: breifly used "extended des crypt" algorithm.
+# http://fuse4bsd.creo.hu/localcgi/man-cgi.cgi?crypt+3
+
+#TODO: sun-md5-crypt, precursor to md5_crypt
+# http://dropsafe.crypticide.com/article/1389
+# http://www.cuddletech.com/blog/pivot/entry.php?id=778
+
 import passlib.unix.md5_crypt #registers "md5-crypt" handler
 import passlib.unix.bcrypt #registers "bcrypt" handler
 import passlib.unix.sha_crypt #registers "sha256-crypt" and "sha512-crypt" handlers

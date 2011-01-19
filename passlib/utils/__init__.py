@@ -297,13 +297,6 @@ def validate_h64_salt(value, count):
             raise ValueError, "invalid %r character in salt: %r" % (c, value)
     return True
 
-##def norm_h64_salt(value, count):
-##    "validate salt if provided, generate one if not provided"
-##    if value:
-##        validate_h64_salt(value, count)
-##        return value
-##    return generate_h64_salt(count)
-
 def h64_encode_3_offsets(buffer, o1, o2, o3):
     "do hash64 encode of three bytes at specified offsets in buffer; returns 4 chars"
     #how 4 char output corresponds to 3 byte input:
