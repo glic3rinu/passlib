@@ -63,8 +63,7 @@ is not available::
 #core
 from cStringIO import StringIO
 #pkg
-from passlib.util import bytes_to_list, list_to_bytes
-from passlib.rng import getrandbytes, srandom
+from passlib.util import bytes_to_list, list_to_bytes, rng, getrandbytes
 #local
 __all__ = [
     'hashpw',
@@ -700,20 +699,17 @@ def hashpw(password, salt):
         minor = ''
     return encode_hash(minor, rounds, saltb, chk)
 
-def gensalt(log_rounds=BCRYPT_DEFAULT_ROUNDS, random=srandom):
+def gensalt(log_rounds=BCRYPT_DEFAULT_ROUNDS):
     """Generate a salt for use with the BCrypt.hashpw() method.
 
     :param log_rounds:
         the log2 of the number of rounds of
         hashing to apply - the work factor therefore increases as
         2**log_rounds.
-    :param random:
-        An random.Random compatible RNG instance to use,
-        by default uses ``passlib.util.srandom``.
     :returns:
         the encoded random salt value
     """
-    salt = getrandbytes(random, BCRYPT_SALT_LEN)
+    salt = getrandbytes(rng, BCRYPT_SALT_LEN)
     if log_rounds < BCRYPT_MIN_ROUNDS:
         log_rounds = BCRYPT_MIN_ROUNDS
     elif log_rounds > BCRYPT_MAX_ROUNDS:

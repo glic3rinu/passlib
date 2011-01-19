@@ -12,8 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.util import classproperty, abstractmethod, abstract_class_method, \
-    is_seq, srandom, Undef
+from passlib.util import classproperty, abstractmethod, abstract_class_method
 #pkg
 #local
 __all__ = [
@@ -182,11 +181,6 @@ class CryptHandler(object):
     You must also specify :attr:``name``.
     Optionally, you may override :meth:`verify`
     and set various informational attributes.
-
-    .. note::
-        It is recommended to use ``from passlib.rng import srandom``
-        as your random number generator, since it should (hopefully)
-        be the strongest rng passlib can find on your system.
 
     """
 

@@ -22,7 +22,7 @@ import os
 #site
 #libs
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, \
+from passlib.util import classproperty, abstractmethod, \
     h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset, generate_h64_salt, validate_h64_salt
 #pkg
 #local

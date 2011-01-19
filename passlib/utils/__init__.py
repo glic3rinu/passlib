@@ -20,10 +20,6 @@ __all__ = [
     "abstractmethod",
     "abstract_class_property",
 
-    #tests
-    "is_seq",
-    "is_num",
-
     #byte manipulation
     "bytes_to_list",
     "list_to_bytes",
@@ -71,19 +67,6 @@ def abstract_class_method(func):
     return classmethod(wrapper)
 
 Undef = object() #singleton used as default kwd value in some functions
-
-#=================================================================================
-#tests
-#=================================================================================
-SequenceTypes = (list,tuple,set)
-def is_seq(obj):
-    "tests if *obj* is a known heterogenous sequence type"
-    return isinstance(obj, SequenceTypes)
-
-NumericTypes = (int, float, long) #XXX: add decimal?
-def is_num(obj):
-    "tests if *obj* is a known numeric type"
-    return isinstance(obj, NumericTypes)
 
 #=================================================================================
 #numeric helpers
@@ -208,6 +191,10 @@ def norm_rounds(value, default, presets):
 #randomness
 #=================================================================================
 
+#-----------------------------------------------------------------------
+# setup rng for generating salts
+#-----------------------------------------------------------------------
+
 #NOTE:
 # generating salts (eg h64_gensalt, below) doesn't require cryptographically
 # strong randomness. it just requires enough range of possible outputs
@@ -243,9 +230,30 @@ def genseed(value=None):
     #hash it all up and return it as int
     return long(sha256(text).hexdigest(), 16)
 
-salt_rng = random.Random(genseed())
+rng = random.Random(genseed())
 
-#NOTE: to reseed rng: salt_rng.seed(genseed(salt_rng.getrandbits(32*8)))
+#NOTE: to reseed rng: rng.seed(genseed(rng.getrandbits(32*8)))
+
+#-----------------------------------------------------------------------
+# some rng helpers
+#-----------------------------------------------------------------------
+
+def getrandbytes(rng, count):
+    """return string of *count* number of random bytes, using specified rng"""
+    #NOTE: would be nice if this was present in stdlib Random class
+
+    ###just in case rng provides this (eg our SystemRandom subclass above)...
+    ##meth = getattr(rng, "getrandbytes", None)
+    ##if meth:
+    ##    return meth(count)
+
+    #XXX: break into chunks for large number of bits?
+    value = rng.getrandbits(count<<3)
+    buf = StringIO()
+    for i in xrange(count):
+        buf.write(chr(value & 0xff))
+        value //= 0xff
+    return buf.getvalue()
 
 def getrandstr(rng, alphabet, count):
     """return string of *size* number of chars, whose elements are drawn from specified alphabet"""
@@ -290,10 +298,12 @@ H64_CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 def generate_h64_salt(count):
     "return base64 salt containing specified number of characters"
-    return getrandstr(salt_rng, H64_CHARS, count)
+    return getrandstr(rng, H64_CHARS, count)
 
 def validate_h64_salt(value, count):
     "validate base64 encoded salt is of right size & charset"
+    if not value:
+        raise ValueError, "no salt specified"
     if len(value) != count:
         raise ValueError, "salt must have %d chars: %r" % (count, value)
     for c in value:
@@ -301,16 +311,12 @@ def validate_h64_salt(value, count):
             raise ValueError, "invalid %r character in salt: %r" % (c, value)
     return True
 
-def norm_h64_salt(value, count):
-    "validate salt if provided, generate one if not provided"
-    if value:
-        validate_h64_salt(value, count)
-        return value
-    return generate_h64_salt(count)
-
-def h64_validate(value):
-    "helper to validate salt strings"
-    return all(c in H64_CHARS for c in value)
+##def norm_h64_salt(value, count):
+##    "validate salt if provided, generate one if not provided"
+##    if value:
+##        validate_h64_salt(value, count)
+##        return value
+##    return generate_h64_salt(count)
 
 def h64_encode_3_offsets(buffer, o1, o2, o3):
     "do hash64 encode of three bytes at specified offsets in buffer; returns 4 chars"

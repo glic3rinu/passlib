@@ -18,7 +18,7 @@ import os
 #site
 #pkg
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
-from passlib.util import classproperty, abstractmethod, is_seq, srandom, validate_h64_salt, generate_h64_salt
+from passlib.util import classproperty, abstractmethod, validate_h64_salt, generate_h64_salt
 #local
 __all__ = [
     'UnixCrypt',
@@ -48,10 +48,7 @@ try:
             raise ValueError, "null char in key"
         if isinstance(key, unicode):
             key = key.encode("utf-8")
-        if not salt or len(salt) < 2:
-            raise ValueError, "invalid salt"
-        elif not h64_validate(salt):
-            raise ValueError, "invalid salt"
+        validate_h64_salt(salt, 2)
         return _crypt(key, salt)
 
     backend = "stdlib"
