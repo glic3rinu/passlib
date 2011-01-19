@@ -1,6 +1,6 @@
 """passlib - suite of password hashing & generation routinges"""
 
-__version__ = "1.2"
+__version__ = "1.3"
 
 #=========================================================
 #
@@ -26,7 +26,7 @@ def identify(hash, name=True):
         =================== ================================================
         Name                Description
         ------------------- ------------------------------------------------
-        ``"unix-crypt"``    the historical unix-crypt algorithm
+        ``"des-crypt"``    the historical unix crypt algorithm based on DES
 
         ``"md5-crypt"``     the md5-crypt algorithm, usually identified
                             by the prefix ``$1$`` in unix shadow files.
@@ -53,19 +53,12 @@ def identify(hash, name=True):
     """
     return default_context.identify(hash, name=name)
 
-def encrypt(secret, hash=None, alg=None, **kwds):
+def encrypt(secret, alg=None, **kwds):
     """Encrypt secret using a password hash algorithm.
 
     :type secret: str
     :arg secret:
         String containing the secret to encrypt
-
-    :type hash: str|None
-    :arg hash:
-        Optional previously existing hash string which
-        will be used to provide default value for the salt, rounds,
-        or other algorithm-specific options.
-        If not specified, algorithm-chosen defaults will be used.
 
     :type alg: str|None
     :param alg:
@@ -77,20 +70,6 @@ def encrypt(secret, hash=None, alg=None, **kwds):
 
     All other keywords are passed on to the specific password algorithm
     being used to encrypt the secret.
-
-    :type keep_salt: bool
-    :param keep_salt:
-        This option is accepted by all of the builtin algorithms.
-
-        By default, a new salt value generated each time
-        a secret is encrypted. However, if this keyword
-        is set to ``True``, and a previous hash string is provided,
-        the salt from that string will be used instead.
-
-        .. note::
-            This is generally only useful when verifying an existing hash
-            (see :func:`verify`). Other than that, this option should be
-            avoided, as re-using a salt will needlessly decrease security.
 
     :type rounds: int
     :param rounds:
@@ -109,7 +88,7 @@ def encrypt(secret, hash=None, alg=None, **kwds):
     :returns:
         The secret as encoded by the specified algorithm and options.
     """
-    return default_context.encrypt(secret, hash=hash, alg=alg, **kwds)
+    return default_context.encrypt(secret, alg=alg, **kwds)
 
 def verify(secret, hash, alg=None):
     """verify a secret against an existing hash.

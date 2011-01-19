@@ -3,6 +3,7 @@
 #imports
 #=================================================================================
 #core
+from cStringIO import StringIO
 from functools import update_wrapper
 from hashlib import sha256
 import logging; log = logging.getLogger(__name__)
@@ -10,7 +11,6 @@ import os
 import sys
 import random
 import time
-import warnings
 #site
 #pkg
 #local

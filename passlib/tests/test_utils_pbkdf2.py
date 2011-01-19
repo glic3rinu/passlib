@@ -6,50 +6,21 @@ from __future__ import with_statement
 #core
 from binascii import unhexlify
 import hashlib
-import warnings
+import hmac
 from logging import getLogger
 #site
 #pkg
-from passlib.tests.utils import TestCase, enable_suite
-import passlib.pbkdf2 as mod
-from passlib.tests.test_base import _CryptTestCase as CryptTestCase
+from passlib.tests.utils import TestCase, enable_test
+import passlib.utils.pbkdf2 as mod
 #module
 log = getLogger(__name__)
-
-###=========================================================
-###test frontend class
-###=========================================================
-##class UnixCryptTest(CryptTestCase):
-##    "test UnixCrypt algorithm"
-##    alg = mod.UnixCrypt
-##    positive_knowns = (
-##        #secret, example hash which matches secret
-##        ('', 'OgAwTx2l6NADI'),
-##        (' ', '/Hk.VPuwQTXbc'),
-##        ('test', 'N1tQbOFcM5fpg'),
-##        ('Compl3X AlphaNu3meric', 'um.Wguz3eVCx2'),
-##        ('4lpHa N|_|M3r1K W/ Cur5Es: #$%(*)(*%#', 'sNYqfOyauIyic'),
-##        ('AlOtBsOl', 'cEpWz5IUCShqM'),
-##        (u'hell\u00D6', 'saykDgk3BPZ9E'),
-##        )
-##    invalid_identify = (
-##        #bad char in otherwise correctly formatted hash
-##        '!gAwTx2l6NADI',
-##        )
-##    negative_identify = (
-##        #hashes using other algs, which shouldn't match this algorithm
-##        '$6$rounds=123456$asaltof16chars..$BtCwjqMJGx5hrJhZywWvt0RLE8uZ4oPwc',
-##        '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'
-##        )
 
 #=========================================================
 #test activate backend (stored in mod._crypt)
 #=========================================================
-class Pbkdf2BackendTest(TestCase):
+class _Pbkdf2BackendTest(TestCase):
     "test builtin unix crypt backend"
-    case_prefix = "builtin pbkdf2() backend"
-
-    disable_m2crypto = True
+    disable_m2crypto = False
 
     def setUp(self):
         #disable m2crypto support so we'll run fully in software mode
@@ -126,12 +97,15 @@ class Pbkdf2BackendTest(TestCase):
                unhexlify("887CFF169EA8335235D8004242AA7D6187A41E3187DF0CE14E256D85ED97A97357AAA8FF0A3871AB9EEFF458392F462F495487387F685B7472FC6C29E293F0A0"),
                "hello",
                unhexlify("9290F727ED06C38BA4549EF7DE25CF5642659211B7FC076F2D28FEFD71784BB8D8F6FB244A8CC5C06240631B97008565A120764C0EE9C2CB0073994D79080136"),
-               10000, 64, "sha512"
+               10000, 64, "hmac-sha512"
             ),
         ])
 
     def test_sha512_function(self):
-        "test alternate digest function (sha512)"
+        "test custom digest function"
+        def prf(key, msg):
+            return hmac.new(key, msg, hashlib.sha512).digest()
+
         self.assertFunctionResults(mod.pbkdf2, [
             # result, secret, salt, rounds, keylen, digest="sha1"
 
@@ -140,13 +114,18 @@ class Pbkdf2BackendTest(TestCase):
                unhexlify("887CFF169EA8335235D8004242AA7D6187A41E3187DF0CE14E256D85ED97A97357AAA8FF0A3871AB9EEFF458392F462F495487387F685B7472FC6C29E293F0A0"),
                "hello",
                unhexlify("9290F727ED06C38BA4549EF7DE25CF5642659211B7FC076F2D28FEFD71784BB8D8F6FB244A8CC5C06240631B97008565A120764C0EE9C2CB0073994D79080136"),
-               10000, 64, hashlib.sha512
+               10000, 64, prf,
             ),
         ])
 
-if mod._EVP:
-    class M2Crypto_Pbkdf2BackendTest(Pbkdf2BackendTest):
-        disable_m2crypto = False
+if enable_test("fallback-backends" if mod._EVP else "backends"):
+    class Builtin_Pbkdf2BackendTest(_Pbkdf2BackendTest):
+        case_prefix = "builtin pbkdf2() backend"
+        disable_m2crypto = True
+
+if mod._EVP and enable_test("backends"):
+
+    class M2Crypto_Pbkdf2BackendTest(_Pbkdf2BackendTest):
         case_prefix = "m2crypto pbkdf2() backend"
 
 #=========================================================

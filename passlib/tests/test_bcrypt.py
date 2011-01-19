@@ -25,10 +25,10 @@ try:
 except ImportError:
     pybcrypt = None
 #pkg
-from passlib.tests.utils import TestCase, enable_suite
-from passlib import _slow_bcrypt as slow_bcrypt
-from passlib.tests.test_base import _CryptTestCase as CryptTestCase
-import passlib.bcrypt as mod
+from passlib.tests.utils import TestCase, enable_test
+from passlib.utils import _slow_bcrypt as slow_bcrypt
+from passlib.tests.handler_utils import _HandlerTestCase
+import passlib.unix.bcrypt as mod
 
 #=========================================================
 #test slow_bcrypt backend
@@ -77,6 +77,7 @@ class _BCryptTestBase(TestCase):
         [ "",
         "$2a$12$k42ZFHFWqBp3vWli.nIn8u",
         "$2a$12$k42ZFHFWqBp3vWli.nIn8uYyIkbvYRvodzbfbK18SSsY.CsIQPlxO" ],
+
         [ "a",
         "$2a$06$m0CrhHm10qJ3lXRY.5zDGO",
         "$2a$06$m0CrhHm10qJ3lXRY.5zDGO3rS2KdeeWLuGmsfGlMfOxih58VYVfxe" ],
@@ -89,6 +90,7 @@ class _BCryptTestBase(TestCase):
         [ "a",
         "$2a$12$8NJH3LsPrANStV6XtBakCe",
         "$2a$12$8NJH3LsPrANStV6XtBakCez0cKHXVxmvxIlcz785vxAIZrihHZpeS" ],
+
         [ "abc",
         "$2a$06$If6bvum7DFjUnE9p2uDeDu",
         "$2a$06$If6bvum7DFjUnE9p2uDeDu0YHzrHM6tf.iqN8.yx.jNN1ILEf7h0i" ],
@@ -101,6 +103,7 @@ class _BCryptTestBase(TestCase):
         [ "abc",
         "$2a$12$EXRkfkdmXn2gzds2SSitu.",
         "$2a$12$EXRkfkdmXn2gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q" ],
+
         [ "abcdefghijklmnopqrstuvwxyz",
         "$2a$06$.rCVZVOThsIa97pEDOxvGu",
         "$2a$06$.rCVZVOThsIa97pEDOxvGuRRgzG64bvtJ0938xuqzv18d3ZpQhstC" ],
@@ -113,6 +116,7 @@ class _BCryptTestBase(TestCase):
         [ "abcdefghijklmnopqrstuvwxyz",
         "$2a$12$D4G5f18o7aMMfwasBL7Gpu",
         "$2a$12$D4G5f18o7aMMfwasBL7GpuQWuP3pkrZrOAnqP.bmezbMng.QwJ/pG" ],
+
         [ "~!@#$%^&*()      ~!@#$%^&*()PNBFRD",
         "$2a$06$fPIsBO8qRqkjj273rfaOI.",
         "$2a$06$fPIsBO8qRqkjj273rfaOI.HtSV9jLDpTbZn782DC6/t7qT67P6FfO" ],
@@ -196,13 +200,13 @@ class _BCryptTestBase(TestCase):
     #eoc
     #=========================================================
 
-if enable_suite("slow_bcrypt") or (not pybcrypt and enable_suite("bcrypt")):
+if enable_test("slow") and enable_test("fallback-backends" if pybcrypt else "backends"):
     class SlowBcryptTest(_BCryptTestBase):
         "test slow bcrypt module"
         case_prefix = "builtin bcrypt() backend"
         mod = slow_bcrypt
 
-if pybcrypt and enable_suite("bcrypt"):
+if pybcrypt and enable_test("backends"):
     #if pybcrypt is installed, run our unitest on them too,
     #just to ensure slow_bcrypt's interface is compatible.
     class PyBcryptTest(_BCryptTestBase):
@@ -214,48 +218,24 @@ if pybcrypt and enable_suite("bcrypt"):
 #=========================================================
 #test frontend bcrypt algorithm
 #=========================================================
-if enable_suite("bcrypt"):
-    class BCryptTest(CryptTestCase):
-        alg = mod.BCrypt
-        positive_knowns = (
-            #test cases taken from bcrypt spec
-                #NOTE: as of newer bcrypts, rounds < 10 result in error ("invalid salt"),
-                #so commented those out
-##            ('', '$2a$06$DCq7YPn5Rq63x1Lad4cll.TV4S6ytwfsfvkgY8jIucDrjc8deX1s.'),
-##            ('', '$2a$08$HqWuK6/Ng6sg9gQzbLrgb.Tl.ZHfXLhvt/SgVyWhQqgqcZ7ZuUtye'),
-            ('', '$2a$10$k1wbIrmNyFAPwPVPSVa/zecw2BCEnBwVS2GbrmgzxFUOqW9dk4TCW'),
-            ('', '$2a$12$k42ZFHFWqBp3vWli.nIn8uYyIkbvYRvodzbfbK18SSsY.CsIQPlxO'),
-            ##('a', '$2a$06$m0CrhHm10qJ3lXRY.5zDGO3rS2KdeeWLuGmsfGlMfOxih58VYVfxe'),
-            ##('a', '$2a$08$cfcvVd2aQ8CMvoMpP2EBfeodLEkkFJ9umNEfPD18.hUF62qqlC/V.'),
-            ('a', '$2a$10$k87L/MF28Q673VKh8/cPi.SUl7MU/rWuSiIDDFayrKk/1tBsSQu4u'),
-            ('a', '$2a$12$8NJH3LsPrANStV6XtBakCez0cKHXVxmvxIlcz785vxAIZrihHZpeS'),
-            ##('abc', '$2a$06$If6bvum7DFjUnE9p2uDeDu0YHzrHM6tf.iqN8.yx.jNN1ILEf7h0i'),
-            ##('abc', '$2a$08$Ro0CUfOqk6cXEKf3dyaM7OhSCvnwM9s4wIX9JeLapehKK5YdLxKcm'),
-            ('abc', '$2a$10$WvvTPHKwdBJ3uk0Z37EMR.hLA2W6N9AEBhEgrAOljy2Ae5MtaSIUi'),
-            ('abc', '$2a$12$EXRkfkdmXn2gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q'),
-            ##('abcdefghijklmnopqrstuvwxyz', '$2a$06$.rCVZVOThsIa97pEDOxvGuRRgzG64bvtJ0938xuqzv18d3ZpQhstC'),
-            ##('abcdefghijklmnopqrstuvwxyz', '$2a$08$aTsUwsyowQuzRrDqFflhgekJ8d9/7Z3GV3UcgvzQW3J5zMyrTvlz.'),
-            ('abcdefghijklmnopqrstuvwxyz', '$2a$10$fVH8e28OQRj9tqiDXs1e1uxpsjN0c7II7YPKXua2NAKYvM6iQk7dq'),
-            ('abcdefghijklmnopqrstuvwxyz', '$2a$12$D4G5f18o7aMMfwasBL7GpuQWuP3pkrZrOAnqP.bmezbMng.QwJ/pG'),
-            ##('~!@#$%^&*()      ~!@#$%^&*()PNBFRD', '$2a$06$fPIsBO8qRqkjj273rfaOI.HtSV9jLDpTbZn782DC6/t7qT67P6FfO'),
-            ##('~!@#$%^&*()      ~!@#$%^&*()PNBFRD', '$2a$08$Eq2r4G/76Wv39MzSX262huzPz612MZiYHVUJe/OcOql2jo4.9UxTW'),
-            ('~!@#$%^&*()      ~!@#$%^&*()PNBFRD', '$2a$10$LgfYWkbzEvQ4JakH7rOvHe0y8pHKF9OaFgwUZ2q7W2FFZmZzJYlfS'),
-            ('~!@#$%^&*()      ~!@#$%^&*()PNBFRD', '$2a$12$WApznUOJfkEGSmYRfnkrPOr466oFDCaj4b6HY3EXGvfxm43seyhgC'),
-            )
-        negative_identify = (
-            #other hashes
-            '!gAwTx2l6NADI',
-            '$6$rounds=123456$asaltof16chars..$BtCwjqMJGx5hrJhZywWvt0RLE8uZ4oPwc',
-            '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6ox',
-            )
-        invalid_identify = (
-            #unsupported version
-            "$2b$12$EXRkfkdmXn!gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q",
-            #bad char in otherwise correct hash
-            "$2a$12$EXRkfkdmXn!gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q",
-            )
-else:
-    BCryptTest = None
+class BCryptTest(_HandlerTestCase):
+    handler = mod.BCrypt
+
+    known_correct = (
+        #selected subset of backend test vectors (see above)
+        ('', '$2a$06$DCq7YPn5Rq63x1Lad4cll.TV4S6ytwfsfvkgY8jIucDrjc8deX1s.'),
+        ('a', '$2a$10$k87L/MF28Q673VKh8/cPi.SUl7MU/rWuSiIDDFayrKk/1tBsSQu4u'),
+        ('abc', '$2a$10$WvvTPHKwdBJ3uk0Z37EMR.hLA2W6N9AEBhEgrAOljy2Ae5MtaSIUi'),
+        ('abcdefghijklmnopqrstuvwxyz', '$2a$10$fVH8e28OQRj9tqiDXs1e1uxpsjN0c7II7YPKXua2NAKYvM6iQk7dq'),
+        ('~!@#$%^&*()      ~!@#$%^&*()PNBFRD', '$2a$10$LgfYWkbzEvQ4JakH7rOvHe0y8pHKF9OaFgwUZ2q7W2FFZmZzJYlfS'),
+        )
+
+    known_invalid = (
+        #unsupported version
+        "$2b$12$EXRkfkdmXn!gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q",
+        #bad char in otherwise correct hash
+        "$2a$12$EXRkfkdmXn!gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q",
+        )
 
 #=========================================================
 #eof

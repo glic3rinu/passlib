@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstract_class_method, classproperty, H64_CHARS, generate_h64_salt
+from passlib.utils import abstract_class_method, classproperty, H64_CHARS, generate_h64_salt, Undef
 #pkg
 #local
 __all__ = [
@@ -56,7 +56,7 @@ def register_crypt_handler(obj):
         if alias not in _name_set:
             _handler_map[alias] = obj
 
-    log.info("registered crypt algorithm: cls=%r name=%r aliases=%r", obj, obj.name, obj.aliases)
+    log.info("registered crypt handler: obj=%r name=%r aliases=%r", obj, obj.name, obj.aliases)
 
 def _validate_name(name):
     "validate crypt algorithm name"
@@ -81,6 +81,9 @@ def list_crypt_handlerss():
     global _name_set
     return sorted(_name_set)
 
+#==========================================================
+#other helpers
+#==========================================================
 def is_crypt_handler(obj):
     "check if obj following CryptHandler protocol"
     #NOTE: this isn't an exhaustive check of all required attrs,
@@ -88,6 +91,14 @@ def is_crypt_handler(obj):
     return all(hasattr(obj, name) for name in (
         "name", "verify", "encrypt", "identify",
         ))
+
+def parse_settings(handler, hash):
+    "attempt to parse setting kwds from hash"
+    return dict(
+        (k,v)
+        for k,v in handler.parse(hash).iteritems()
+        if k in handler.setting_kwds
+    )
 
 #==========================================================
 #base interface for all the crypt algorithm implementations
@@ -322,7 +333,12 @@ class CryptHandler(object):
 class CryptHandlerHelper(CryptHandler):
     "class providing some helpful methods for implementing a crypt algorithm"
 
-    salt_chars = None #fill in with minimum number of salt chars required, and _norm_salt() will handle truncating etc
+    salt_chars = None #fill in with (maxium) number of salt chars required, and _norm_salt() will handle truncating etc
+
+    #override w/ minimum number of salt chars (if different from maximum)
+    @classproperty
+    def min_salt_chars(cls):
+        return cls.salt_chars
 
     @classproperty
     def setting_kwds(cls):
@@ -355,18 +371,20 @@ class CryptHandlerHelper(CryptHandler):
 
     @classmethod
     def _norm_salt(cls, salt):
-        count = cls.salt_chars
-        assert count, "cls.salt_chars not set"
+        mx = cls.salt_chars
+        assert mx, "cls.salt_chars not set"
+        mn = cls.min_salt_chars
+        assert mn, "cls.min_salt_chars not set"
         if not salt:
-            return generate_h64_salt(count)
+            return generate_h64_salt(mx)
         for c in salt:
             if c not in H64_CHARS:
                 raise ValueError, "invalid character in %s salt: %r"  % (cls.name, c)
-        if len(salt) < count:
-            raise ValueError, "%s salt must be at least %d chars" % (cls.name, count)
-        elif len(salt) > count:
+        if len(salt) < mn:
+            raise ValueError, "%s salt must be at least %d chars" % (cls.name, mn)
+        elif len(salt) > mx:
             #automatically clip things to specified number of chars
-            return salt[:count]
+            return salt[:mx]
         else:
             return salt
 

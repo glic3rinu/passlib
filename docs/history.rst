@@ -13,7 +13,7 @@ Release History
     * added password generation helpers
 
 2008-10-02 -- version 0.6
-    * CryptContext & CryptAlgorithm framework
+    * CryptContext & CryptHandler framework
     * added unit tests
     * added Unix-Crypt support and pure-python fallback
 

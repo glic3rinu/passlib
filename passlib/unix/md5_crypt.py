@@ -113,8 +113,8 @@ class Md5Crypt(CryptHandlerHelper):
     _pat = re.compile(r"""
         ^
         \$(?P<ident>1)
-        \$(?P<salt>[A-Za-z0-9./]{16})
-        $(?P<chk>[A-Za-z0-9./]{16})
+        \$(?P<salt>[A-Za-z0-9./]{8})
+        \$(?P<chk>[A-Za-z0-9./]{22})
         $
         """, re.X)
 

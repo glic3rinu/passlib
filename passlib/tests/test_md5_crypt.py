@@ -5,22 +5,21 @@
 from __future__ import with_statement
 #core
 import hashlib
-import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib.tests.utils import TestCase, enable_suite
-from passlib.tests.test_base import _CryptTestCase as CryptTestCase
-import passlib.md5_crypt as mod
+from passlib.tests.handler_utils import _HandlerTestCase
+import passlib.unix.md5_crypt as mod
 #module
 log = getLogger(__name__)
 
 #=========================================================
 #hash alg
 #=========================================================
-class Md5CryptTest(CryptTestCase):
-    alg = mod.Md5Crypt
-    positive_knowns = (
+class Md5CryptTest(_HandlerTestCase):
+    handler = mod.Md5Crypt
+
+    known_correct = (
         ('', '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
         (' ', '$1$m/5ee7ol$bZn0kIBFipq39e.KDXX8I0'),
         ('test', '$1$ec6XvcoW$ghEtNK2U1MC5l.Dwgi3020'),
@@ -28,14 +27,10 @@ class Md5CryptTest(CryptTestCase):
         ('4lpHa N|_|M3r1K W/ Cur5Es: #$%(*)(*%#', '$1$jQS7o98J$V6iTcr71CGgwW2laf17pi1'),
         ('test', '$1$SuMrG47N$ymvzYjr7QcEQjaK5m1PGx1'),
         )
-    invalid_identify = (
+
+    known_invalid = (
         #bad char in otherwise correct hash
         '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o!',
-        )
-    negative_identify = (
-        #other hashes
-        '!gAwTx2l6NADI',
-        '$6$rounds=123456$asaltof16chars..$BtCwjqMJGx5hrJhZywWvt0RLE8uZ4oPwc',
         )
 
 #=========================================================

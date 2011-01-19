@@ -13,6 +13,7 @@ import os
 #site
 #libs
 from passlib.utils import abstract_class_method, Undef
+from passlib.handler import get_crypt_handler, is_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -153,16 +154,11 @@ class CryptContext(object):
             raise ValueError, "hash could not be identified"
         return None
 
-    def encrypt(self, secret, hash=None, alg=None, **kwds):
+    def encrypt(self, secret, alg=None, **kwds):
         """encrypt secret, returning resulting hash.
 
         :arg secret:
             String containing the secret to encrypt
-
-        :arg hash:
-            Optional hash string previously returned by encrypt (or compatible source).
-            If specified, this string will be used to provide default
-            value for the salt, rounds, or other algorithm-specific options.
 
         :param alg:
             Optionally specify the name of the algorithm to use.
@@ -179,11 +175,8 @@ class CryptContext(object):
         """
         if not self:
             raise ValueError, "no algorithms registered"
-        if alg or not hash:
-            handler = self.lookup(alg, required=True)
-        else:
-            handler = self.identify(hash, required=True)
-        return handler.encrypt(secret, hash, **kwds)
+        handler = self.lookup(alg, required=True)
+        return handler.encrypt(secret, **kwds)
 
     def verify(self, secret, hash, alg=None, **kwds):
         """verify secret against specified hash

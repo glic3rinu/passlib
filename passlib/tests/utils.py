@@ -11,7 +11,7 @@ import logging; log = logging.getLogger(__name__)
 __all__ = [
     'TestCase',
     'Param',
-    'enable_suite',
+    'enable_test',
 ]
 
 #=========================================================
@@ -67,9 +67,11 @@ class TestCase(unittest.TestCase):
             if callable(prefix):
                 prefix = prefix()
             for attr in dir(self):
-                if not attr.startswith("test_"):
+                if not attr.startswith("test"):
                     continue
                 v = getattr(self, attr)
+                if not hasattr(v, "im_func"):
+                    continue
                 d = v.im_func.__doc__ or v.im_func.__name__
                 idx = d.find(": ")
                 if idx > -1:
@@ -152,24 +154,25 @@ class TestCase(unittest.TestCase):
 #helper funcs
 #=========================================================
 
-def enable_suite(name):
+DEFAULT_TESTS = "backends"
+
+tests = [
+    v.strip()
+    for v
+    in os.environ.get("PASSLIB_TESTS", DEFAULT_TESTS).lower().split(",")
+    ]
+
+def enable_test(*names):
     """check if a given test should be included based on the env var.
 
     test flags:
-        bcrypt          enable basic bcrypt tests
-        slow_bcrypt     enable extra check for slow bcrypt implementation
-        pwgen_dups      enable duplication rate checks for pwgen
+        all                 run ALL tests
+        backends            test active backends
+        fallback-backends   test inactive backends
+
+        slow                required to enable really slow tests (eg builtin bcrypt backend)
     """
-    _flags = [
-        v.strip()
-        for v
-        in os.environ.get("PASSLIB_TESTS", "").lower().split(",")
-        ]
-    if 'all' in _flags:
-        return True
-    if name in _flags:
-        return True
-    return False
+    return 'all' in tests or any(name in tests for name in names)
 
 #=========================================================
 #EOF

@@ -5,25 +5,23 @@
 from __future__ import with_statement
 #core
 import hashlib
-import warnings
 from logging import getLogger
 #site
 #pkg
-from passlib.tests.utils import TestCase, enable_suite
-from passlib._slow_unix_crypt import crypt as builtin_crypt
-import passlib.unix_crypt as mod
-from passlib.tests.test_base import _CryptTestCase as CryptTestCase
-from passlib.hash import unix_crypt as uc
+from passlib.tests.utils import TestCase, enable_test
+from passlib.tests.handler_utils import _HandlerTestCase
+from passlib.utils._slow_des_crypt import crypt as builtin_crypt
+import passlib.unix.des_crypt as mod
 #module
 log = getLogger(__name__)
 
 #=========================================================
 #test frontend class
 #=========================================================
-class UnixCryptTest(CryptTestCase):
-    "test UnixCrypt algorithm"
-    alg = uc
-    positive_knowns = (
+class DesCryptTest(_HandlerTestCase):
+    "test DesCrypt algorithm"
+    handler = mod.DesCrypt
+    known_correct = (
         #secret, example hash which matches secret
         ('', 'OgAwTx2l6NADI'),
         (' ', '/Hk.VPuwQTXbc'),
@@ -33,32 +31,26 @@ class UnixCryptTest(CryptTestCase):
         ('AlOtBsOl', 'cEpWz5IUCShqM'),
         (u'hell\u00D6', 'saykDgk3BPZ9E'),
         )
-    invalid_identify = (
+    known_invalid = (
         #bad char in otherwise correctly formatted hash
         '!gAwTx2l6NADI',
-        )
-    negative_identify = (
-        #hashes using other algs, which shouldn't match this algorithm
-        '$6$rounds=123456$asaltof16chars..$BtCwjqMJGx5hrJhZywWvt0RLE8uZ4oPwc',
-        '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'
         )
 
 #=========================================================
 #test activate backend (stored in mod._crypt)
 #=========================================================
-class UnixCryptBackendTest(TestCase):
+class _DesCryptBackendTest(TestCase):
     "test builtin unix crypt backend"
-    case_prefix = "builtin crypt() backend"
 
     def get_crypt(self):
-        return builtin_crypt
+        raise NotImplementedError
 
-    positive_knowns = UnixCryptTest.positive_knowns
+    known_correct = DesCryptTest.known_correct
 
     def test_knowns(self):
         "test known crypt results"
         crypt = self.get_crypt()
-        for secret, result in self.positive_knowns:
+        for secret, result in self.known_correct:
 
             #make sure crypt verifies preserving just salt
             out = crypt(secret, result[:2])
@@ -106,11 +98,19 @@ class UnixCryptBackendTest(TestCase):
         # until then, passlib wraps stdlib crypt so this causes ValueError
         self.assertRaises(ValueError, crypt, "fooey", "a@")
 
-if mod.backend != "builtin":
+if mod.backend != "builtin" and enable_test("fallback-backend"):
+    class BuiltinDesCryptBackendTest(_DesCryptBackendTest):
+        "test builtin des-crypt backend"
+        case_prefix = "builtin crypt() backend"
+
+        def get_crypt(self):
+            return builtin_crypt
+
+if enable_test("backends"):
     #NOTE: this will generally be the stdlib implementation,
     #which of course is correct, so doing this more to detect deviations in builtin implementation
-    class ActiveUnixCryptBackendTest(UnixCryptBackendTest):
-        "test active unix crypt backend"
+    class ActiveDesCryptBackendTest(_DesCryptBackendTest):
+        "test active des-crypt backend"
         case_prefix = mod.backend + " crypt() backend"
 
         def get_crypt(self):

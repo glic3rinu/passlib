@@ -49,6 +49,8 @@ class _ShaCrypt(CryptHandlerHelper):
     salt_bytes = 12
     #checksum_bytes - provided by subclass
 
+    #NOTE: spec seems to allow shorter salts. not sure *how* short
+    min_salt_chars = 1
     salt_chars = 16
 
     default_rounds = 40000
@@ -92,6 +94,9 @@ class _ShaCrypt(CryptHandlerHelper):
             rounds = 1000
         if rounds > 999999999:
             rounds = 999999999
+
+        if len(salt) > 16:
+            salt = salt[:16]
 
         def extend(source, size_ref):
             size = len(size_ref)
@@ -149,7 +154,29 @@ class _ShaCrypt(CryptHandlerHelper):
             last_result = c.digest()
 
         #encode result using 256/512 specific func
-        return cls._encode(last_result)
+        return cls._encode(last_result), salt, rounds
+
+    @classmethod
+    def parse_config(cls, config):
+        "parse partial hash containing just salt+rounds, with salt potentially too large"
+        if not config:
+            raise ValueError, "invalid sha hash/salt"
+        m = re.search(r"""
+            ^
+            \$(?P<ident>""" + cls._ident + r""")
+            (\$rounds=(?P<rounds>\d+))?
+            \$(?P<salt>[A-Za-z0-9./]+)
+            $
+            """, config, re.X)
+        if not m:
+            raise ValueError, "invalid sha hash/salt"
+        ident, rounds, salt = m.group("ident", "rounds", "salt")
+        return dict(
+            implicit_rounds = not rounds,
+            ident = ident,
+            rounds = int(rounds) if rounds else 5000,
+            salt = salt,
+        )
 
     #=========================================================
     #frontend helpers
@@ -170,10 +197,18 @@ class _ShaCrypt(CryptHandlerHelper):
         rounds, salt, chk = m.group("rounds", "salt", "chk")
         assert m.group("ident") == cls._ident
         return dict(
+            implicit_rounds = not rounds,
             rounds = int(rounds) if rounds else 5000,
             salt=salt,
-            checksum=checksum,
+            checksum=chk,
         )
+
+    @classmethod
+    def render(cls, rounds, salt, checksum, implicit_rounds=False):
+        if rounds == 5000 and implicit_rounds:
+            return "$%s$%s$%s" % (cls._ident, salt, checksum)
+        else:
+            return "$%s$rounds=%d$%s$%s" % (cls._ident, rounds, salt, checksum)
 
     @classmethod
     def encrypt(cls, secret, salt=None, rounds=None):
@@ -192,16 +227,13 @@ class _ShaCrypt(CryptHandlerHelper):
         """
         salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
-        checksum = self._raw_encrypt(secret, salt, rounds)
-        if rounds == 5000:
-            return "$%s$%s$%s" % (cls._ident, salt, checksum)
-        else:
-            return "$%s$rounds=%d$%s$%s" % (cls._ident, rounds, salt, checksum)
+        checksum, salt, rounds = cls._raw_encrypt(secret, salt, rounds)
+        return cls.render(rounds, salt, checksum)
 
     @classmethod
     def verify(cls, secret, hash):
         info = cls.parse(hash)
-        checksum = cls._raw_encrypt(secret, info['salt'], info['rounds'])
+        checksum, _, _ = cls._raw_encrypt(secret, info['salt'], info['rounds'])
         return checksum == info['checksum']
 
     #=========================================================
@@ -219,7 +251,7 @@ class Sha256Crypt(_ShaCrypt):
     #algorithm info
     #=========================================================
     name='sha256-crypt'
-    hash_bytes = 32
+    checksum_bytes = 32
 
     #=========================================================
     #backend
@@ -230,9 +262,9 @@ class Sha256Crypt(_ShaCrypt):
 
     _pat = re.compile(r"""
         ^
-        \$(?P<alg>5)
+        \$(?P<ident>5)
         (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]{16})
+        \$(?P<salt>[A-Za-z0-9./]{1,16})
         \$(?P<chk>[A-Za-z0-9./]{43})
         $
         """, re.X)
@@ -289,7 +321,7 @@ class Sha512Crypt(_ShaCrypt):
     #crypt info
     #=========================================================
     name='sha512-crypt'
-    hash_bytes = 64
+    checksum_bytes = 64
 
     #=========================================================
     #backend
@@ -300,9 +332,9 @@ class Sha512Crypt(_ShaCrypt):
 
     _pat = re.compile(r"""
         ^
-        \$(?P<alg>6)
+        \$(?P<ident>6)
         (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]{16})
+        \$(?P<salt>[A-Za-z0-9./]{1,16})
         \$(?P<chk>[A-Za-z0-9./]{86})
         $
         """, re.X)

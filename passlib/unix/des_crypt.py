@@ -17,6 +17,7 @@ import time
 import os
 #site
 #pkg
+from passlib.utils import H64_CHARS
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
 #local
 __all__ = [
@@ -47,7 +48,15 @@ try:
             raise ValueError, "null char in key"
         if isinstance(key, unicode):
             key = key.encode("utf-8")
-        validate_h64_salt(salt, 2)
+        if not salt:
+            raise ValueError, "no salt specified"
+        if len(salt) < 2:
+            raise ValueError, "salt must have 2 chars"
+        elif len(salt) > 2:
+            salt = salt[:2]
+        for c in salt:
+            if c not in H64_CHARS:
+                raise ValueError, "invalid char in salt"
         return _crypt(key, salt)
 
     backend = "stdlib"
@@ -70,6 +79,7 @@ class DesCrypt(CryptHandlerHelper):
     #crypt information
     #=========================================================
     name = "des-crypt"
+    aliases = ("unix-crypt",)
 
     setting_kwds = ()
 
@@ -98,7 +108,7 @@ class DesCrypt(CryptHandlerHelper):
     def parse(cls, hash):
         m = cls._pat.match(hash)
         if not m:
-            raise ValueError, "not a unix-crypt hash"
+            raise ValueError, "not a des-crypt hash"
         return dict(
             salt=m.group("salt"),
             checksum=m.group("chk")
@@ -112,7 +122,7 @@ class DesCrypt(CryptHandlerHelper):
     @classmethod
     def verify(cls, secret, hash):
         if not cls.identify(hash):
-            raise ValueError, "not a unix-crypt hash"
+            raise ValueError, "not a des-crypt hash"
         return hash == crypt(secret, hash)
 
     #=========================================================

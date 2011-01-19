@@ -16,4 +16,4 @@ of the standard unix hash algorithms.
 .. autofunction:: h64_gen_salt
 
 .. autofunction:: is_crypt_context
-.. autofunction:: is_crypt_alg
+.. autofunction:: is_crypt_handler

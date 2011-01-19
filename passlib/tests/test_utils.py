@@ -8,7 +8,7 @@ import random
 #site
 #pkg
 #module
-from passlib import util
+from passlib import utils
 from passlib.tests.utils import TestCase, Params as ak
 #=========================================================
 #byte funcs
@@ -16,7 +16,7 @@ from passlib.tests.utils import TestCase, Params as ak
 class BytesTest(TestCase):
 
     def test_list_to_bytes(self):
-        self.assertFunctionResults(util.list_to_bytes, [
+        self.assertFunctionResults(utils.list_to_bytes, [
             #standard big endian
             ak('\x00', [0], 1),
             ak('\x01', [1], 1),
@@ -44,20 +44,20 @@ class BytesTest(TestCase):
             ])
 
         #check bytes size check
-        self.assertRaises(ValueError, util.list_to_bytes, [])
-        self.assertRaises(ValueError, util.list_to_bytes, [0, 0], bytes=1)
+        self.assertRaises(ValueError, utils.list_to_bytes, [])
+        self.assertRaises(ValueError, utils.list_to_bytes, [0, 0], bytes=1)
 
         #check bytes bound check
-        self.assertRaises(ValueError, util.list_to_bytes, [256], bytes=1)
+        self.assertRaises(ValueError, utils.list_to_bytes, [256], bytes=1)
 
         #quick check native mode works right
         if sys.byteorder == "little":
-            self.assertEqual(util.list_to_bytes([1], 3, order="native"), '\x01\x00\x00')
+            self.assertEqual(utils.list_to_bytes([1], 3, order="native"), '\x01\x00\x00')
         else:
-            self.assertEqual(util.list_to_bytes([1], 3, order="native"), '\x00\x00\x01')
+            self.assertEqual(utils.list_to_bytes([1], 3, order="native"), '\x00\x00\x01')
 
     def test_bytes_to_list(self):
-        self.assertFunctionResults(util.bytes_to_list, [
+        self.assertFunctionResults(utils.bytes_to_list, [
 
             #standard big endian
             ak([1], '\x01'),
@@ -83,9 +83,9 @@ class BytesTest(TestCase):
 
         #quick check native mode works right
         if sys.byteorder == "little":
-            self.assertEqual(util.bytes_to_list('\x01\x00\x00', order="native"), [0, 0, 1])
+            self.assertEqual(utils.bytes_to_list('\x01\x00\x00', order="native"), [0, 0, 1])
         else:
-            self.assertEqual(util.bytes_to_list('\x00\x00\x01', order="native"), [0, 0, 1])
+            self.assertEqual(utils.bytes_to_list('\x00\x00\x01', order="native"), [0, 0, 1])
 
 #=========================================================
 #hash64
@@ -95,20 +95,20 @@ class Test_H64(TestCase):
     case_prefix = "H64 codec"
 
     def test_encode_1_offset(self):
-        self.assertFunctionResults(util.h64_encode_1_offset,[
+        self.assertFunctionResults(utils.h64_encode_1_offset,[
             ("z1", "\xff", 0),
             ("..", "\x00", 0),
         ])
 
     def test_encode_2_offsets(self):
-        self.assertFunctionResults(util.h64_encode_2_offsets,[
+        self.assertFunctionResults(utils.h64_encode_2_offsets,[
             (".wD", "\x00\xff", 0, 1),
             ("z1.", "\xff\x00", 0, 1),
             ("z1.", "\x00\xff", 1, 0),
         ])
 
     def test_encode_3_offsets(self):
-        self.assertFunctionResults(util.h64_encode_3_offsets,[
+        self.assertFunctionResults(utils.h64_encode_3_offsets,[
             #move through each byte, keep offsets
             ("..kz", "\x00\x00\xff", 0, 1, 2),
             (".wD.", "\x00\xff\x00", 0, 1, 2),

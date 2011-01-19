@@ -43,7 +43,7 @@ class Mysql10Crypt(CryptHandlerHelper):
 
     setting_kwds = ()
 
-    hash_bytes = 32
+    checksum_bytes = 32
 
     #=========================================================
     #frontend
@@ -51,7 +51,7 @@ class Mysql10Crypt(CryptHandlerHelper):
     _pat = re.compile(r"^[0-9a-f]{16}$", re.I)
 
     @classmethod
-    def identify(self, hash):
+    def identify(cls, hash):
         return bool(hash and cls._pat.match(hash))
 
     @classmethod
@@ -93,7 +93,7 @@ class Mysql41Crypt(CryptHandlerHelper):
     #=========================================================
     name = "mysql-41"
     setting_kwds = ()
-    hash_bytes = 80
+    checksum_bytes = 80
 
     #=========================================================
     #frontend

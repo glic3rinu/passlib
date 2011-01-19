@@ -5,16 +5,16 @@
 from __future__ import with_statement
 #core
 import hashlib
-import warnings
 from logging import getLogger
 #site
 #pkg
+from passlib.handler import parse_settings
 from passlib.context import CryptContext
-from passlib.tests.utils import TestCase, enable_suite
-from passlib.unix_crypt import UnixCrypt
-from passlib.sha_crypt import Sha512Crypt
-from passlib.md5_crypt import Md5Crypt
-from passlib.tests.test_base import UnsaltedAlg, SaltedAlg, SampleAlg
+from passlib.tests.utils import TestCase
+##from passlib.unix.des_crypt import DesCrypt
+##from passlib.unix.sha_crypt import Sha512Crypt
+from passlib.unix.md5_crypt import Md5Crypt as AnotherHash
+from passlib.tests.test_handler import UnsaltedHash, SaltedHash
 #module
 log = getLogger(__name__)
 
@@ -30,20 +30,20 @@ class CryptContextTest(TestCase):
     def test_00_constructor(self):
         "test CryptContext constructor using classes"
         #create crypt context
-        cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+        cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
 
         #parse
         a, b, c = cc._handlers
-        self.assertIs(a, UnsaltedAlg)
-        self.assertIs(b, SaltedAlg)
-        self.assertIs(c, SampleAlg)
+        self.assertIs(a, UnsaltedHash)
+        self.assertIs(b, SaltedHash)
+        self.assertIs(c, AnotherHash)
 
     def test_01_constructor(self):
         "test CryptContext constructor using instances"
         #create crypt context
-        a = UnsaltedAlg()
-        b = SaltedAlg()
-        c = SampleAlg()
+        a = UnsaltedHash()
+        b = SaltedHash()
+        c = AnotherHash()
         cc = CryptContext([a,b,c])
 
         #verify elements
@@ -57,7 +57,7 @@ class CryptContextTest(TestCase):
     ##def test_10_getitem(self):
     ##    "test CryptContext.__getitem__[idx]"
     ##    #create crypt context
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
     ##
     ##    #verify len
@@ -73,9 +73,9 @@ class CryptContextTest(TestCase):
     ##def test_11_index(self):
     ##    "test CryptContext.index(elem)"
     ##    #create crypt context
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
-    ##    d = SampleAlg()
+    ##    d = AnotherHash()
     ##
     ##    self.assertEquals(cc.index(a), 0)
     ##    self.assertEquals(cc.index(b), 1)
@@ -85,9 +85,9 @@ class CryptContextTest(TestCase):
     ##def test_12_contains(self):
     ##    "test CryptContext.__contains__(elem)"
     ##    #create crypt context
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
-    ##    d = SampleAlg()
+    ##    d = AnotherHash()
     ##
     ##    self.assertEquals(a in cc, True)
     ##    self.assertEquals(b in cc, True)
@@ -99,16 +99,16 @@ class CryptContextTest(TestCase):
     #=========================================================
     ##def test_20_setitem(self):
     ##    "test CryptContext.__setitem__"
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
-    ##    d = SampleAlg()
+    ##    d = AnotherHash()
     ##    self.assertIsNot(c, d)
     ##    e = pwhash.Md5Crypt()
     ##
     ##    #check baseline
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
-    ##    #replace 0 w/ d should raise error (SampleAlg already in list)
+    ##    #replace 0 w/ d should raise error (AnotherHash already in list)
     ##    self.assertRaises(KeyError, cc.__setitem__, 0, d)
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
@@ -130,11 +130,11 @@ class CryptContextTest(TestCase):
 
     ##def test_21_append(self):
     ##    "test CryptContext.__setitem__"
-    ##    cc = CryptContext([UnsaltedAlg])
+    ##    cc = CryptContext([UnsaltedHash])
     ##    a, = cc
-    ##    b = SaltedAlg()
-    ##    c = SampleAlg()
-    ##    d = SampleAlg()
+    ##    b = SaltedHash()
+    ##    c = AnotherHash()
+    ##    d = AnotherHash()
     ##
     ##    self.assertEquals(list(cc), [a])
     ##
@@ -152,9 +152,9 @@ class CryptContextTest(TestCase):
 
     ##def test_20_insert(self):
     ##    "test CryptContext.insert"
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
-    ##    d = SampleAlg()
+    ##    d = AnotherHash()
     ##    self.assertIsNot(c, d)
     ##    e = pwhash.Md5Crypt()
     ##    f = pwhash.Sha512Crypt()
@@ -163,7 +163,7 @@ class CryptContextTest(TestCase):
     ##    #check baseline
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
-    ##    #inserting d at 0 should raise error (SampleAlg already in list)
+    ##    #inserting d at 0 should raise error (AnotherHash already in list)
     ##    self.assertRaises(KeyError, cc.insert, 0, d)
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
@@ -183,9 +183,9 @@ class CryptContextTest(TestCase):
     #3 list dellers
     #=========================================================
     ##def test_30_remove(self):
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
-    ##    d = SampleAlg()
+    ##    d = AnotherHash()
     ##    self.assertIsNot(c, d)
     ##
     ##    self.assertEquals(list(cc), [a, b, c])
@@ -200,9 +200,9 @@ class CryptContextTest(TestCase):
     ##    self.assertEquals(list(cc), [b, c])
 
     ##def test_31_discard(self):
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
-    ##    d = SampleAlg()
+    ##    d = AnotherHash()
     ##    self.assertIsNot(c, d)
     ##
     ##    self.assertEquals(list(cc), [a, b, c])
@@ -223,9 +223,9 @@ class CryptContextTest(TestCase):
     ##def test_40_add(self, lsc=False):
     ##    "test CryptContext + list"
     ##    #build and join cc to list
-    ##    a = UnsaltedAlg()
-    ##    b = SaltedAlg()
-    ##    c = SampleAlg()
+    ##    a = UnsaltedHash()
+    ##    b = SaltedHash()
+    ##    c = AnotherHash()
     ##    cc = CryptContext([a, b, c])
     ##    ls = [pwhash.Md5Crypt, pwhash.Sha512Crypt]
     ##    if lsc:
@@ -244,9 +244,9 @@ class CryptContextTest(TestCase):
     ##
     ##    #verify cc
     ##    a, b, c = cc
-    ##    self.assertIsInstance(a, UnsaltedAlg)
-    ##    self.assertIsInstance(b, SaltedAlg)
-    ##    self.assertIsInstance(c, SampleAlg)
+    ##    self.assertIsInstance(a, UnsaltedHash)
+    ##    self.assertIsInstance(b, SaltedHash)
+    ##    self.assertIsInstance(c, AnotherHash)
     ##
     ##    #verify ls
     ##    d, e = ls
@@ -276,9 +276,9 @@ class CryptContextTest(TestCase):
     ##def test_42_iadd(self, lsc=False):
     ##    "test CryptContext += list"
     ##    #build and join cc to list
-    ##    a = UnsaltedAlg()
-    ##    b = SaltedAlg()
-    ##    c = SampleAlg()
+    ##    a = UnsaltedHash()
+    ##    b = SaltedHash()
+    ##    c = AnotherHash()
     ##    cc = CryptContext([a, b, c])
     ##    ls = [Md5Crypt, Sha512Crypt]
     ##    if lsc:
@@ -329,9 +329,9 @@ class CryptContextTest(TestCase):
     ##    self.test_42_iadd(lsc=True)
 
     ##def test_44_extend(self):
-    ##    a = UnsaltedAlg()
-    ##    b = SaltedAlg()
-    ##    c = SampleAlg()
+    ##    a = UnsaltedHash()
+    ##    b = SaltedHash()
+    ##    c = AnotherHash()
     ##    cc = CryptContext([a, b, c])
     ##    ls = [Md5Crypt, Sha512Crypt]
     ##
@@ -352,13 +352,13 @@ class CryptContextTest(TestCase):
     #=========================================================
     def test_50_lookup(self):
         "test CryptContext.lookup()"
-        cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+        cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
         a, b, c = cc._handlers
 
-        self.assertEquals(cc.lookup('unsalted'), a)
-        self.assertEquals(cc.lookup('salted'), b)
-        self.assertEquals(cc.lookup('sample'), c)
-        self.assertEquals(cc.lookup('md5-crypt'), None)
+        self.assertEquals(cc.lookup('unsalted-example'), a)
+        self.assertEquals(cc.lookup('salted-example'), b)
+        self.assertEquals(cc.lookup('md5-crypt'), c)
+        self.assertEquals(cc.lookup('des-crypt'), None)
 
         ##self.assertEquals(cc.lookup(['unsalted']), a)
         ##self.assertEquals(cc.lookup(['md5-crypt']), None)
@@ -368,7 +368,7 @@ class CryptContextTest(TestCase):
 
     def test_51_identify(self):
         "test CryptContext.identify"
-        cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+        cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
         a, b, c = cc._handlers
 
         for crypt in (a, b, c):
@@ -384,7 +384,7 @@ class CryptContextTest(TestCase):
 
     def test_52_encrypt_and_verify(self):
         "test CryptContext.encrypt & verify"
-        cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+        cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
         a, b, c = cc._handlers
 
         #check encrypt/id/verify pass for all algs
@@ -399,29 +399,33 @@ class CryptContextTest(TestCase):
         self.assertEquals(cc.identify(h), c)
 
         #check verify using algs
-        self.assertEquals(cc.verify('test', h, alg='sample'), True)
-        self.assertEquals(cc.verify('test', h, alg='salted'), False)
+        self.assertEquals(cc.verify('test', h, alg='md5-crypt'), True)
+        self.assertRaises(ValueError, cc.verify, 'test', h, alg='salted-example')
 
     def test_53_encrypt_salting(self):
         "test CryptContext.encrypt salting options"
-        cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+        cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
         a, b, c = cc._handlers
-        self.assert_(c.has_salt)
+        self.assert_(c.salt_bytes > 0)
 
         h = cc.encrypt("test")
         self.assertEquals(cc.identify(h), c)
 
-        h2 = cc.encrypt("test", h)
+        s = parse_settings(c, h)
+        if 'salt' in s:
+            del s['salt']
+        h2 = cc.encrypt("test", **s)
         self.assertEquals(cc.identify(h2), c)
         self.assertNotEquals(h2, h)
 
-        h3 = cc.encrypt("test", h, keep_salt=True)
+        s = parse_settings(c, h)
+        h3 = cc.encrypt("test", **s)
         self.assertEquals(cc.identify(h3), c)
         self.assertEquals(h3, h)
 
     def test_54_verify_empty(self):
         "test CryptContext.verify allows hash=None"
-        cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+        cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
         self.assertEquals(cc.verify('xxx', None), False)
         for crypt in cc._handlers:
             self.assertEquals(cc.verify('xxx', None, alg=crypt.name), False)
@@ -429,7 +433,7 @@ class CryptContextTest(TestCase):
 #XXX: haven't decided if this should be part of protocol
 ##    def test_55_verify_empty_secret(self):
 ##        "test CryptContext.verify allows secret=None"
-##        cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+##        cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
 ##        h = cc.encrypt("test")
 ##        self.assertEquals(cc.verify(None,h), False)
 
@@ -439,7 +443,7 @@ class CryptContextTest(TestCase):
     ##def test_60_getitem(self):
     ##    "test CryptContext.__getitem__[algname]"
     ##    #create crypt context
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
     ##
     ##    #verify getitem
@@ -451,7 +455,7 @@ class CryptContextTest(TestCase):
     ##def test_61_get(self):
     ##    "test CryptContext.get(algname)"
     ##    #create crypt context
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
     ##
     ##    #verify getitem
@@ -463,7 +467,7 @@ class CryptContextTest(TestCase):
     ##def test_62_index(self):
     ##    "test CryptContext.index(algname)"
     ##    #create crypt context
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##
     ##    #verify getitem
     ##    self.assertEquals(cc.index('unsalted'), 0)
@@ -474,7 +478,7 @@ class CryptContextTest(TestCase):
     ##def test_63_contains(self):
     ##    "test CryptContext.__contains__(algname)"
     ##    #create crypt context
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    self.assertEquals('salted' in cc, True)
     ##    self.assertEquals('unsalted' in cc, True)
     ##    self.assertEquals('sample' in cc, True)
@@ -482,11 +486,11 @@ class CryptContextTest(TestCase):
 
     ##def test_64_keys(self):
     ##    "test CryptContext.keys()"
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    self.assertEquals(cc.keys(), ['unsalted', 'salted', 'sample'])
 
     ##def test_65_remove(self):
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
     ##
     ##    self.assertEquals(list(cc), [a, b, c])
@@ -501,7 +505,7 @@ class CryptContextTest(TestCase):
     ##    self.assertEquals(list(cc), [b, c])
 
     ##def test_66_discard(self):
-    ##    cc = CryptContext([UnsaltedAlg, SaltedAlg, SampleAlg])
+    ##    cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
     ##    a, b, c = cc
     ##
     ##    self.assertEquals(list(cc), [a, b, c])

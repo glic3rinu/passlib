@@ -4,7 +4,7 @@
 
 .. currentmodule:: passlib
 
-All of the crypt algorithms must inherit from :class:`CryptAlgorithm`,
+All of the crypt algorithms must inherit from :class:`CryptHandler`,
 which defines a common interface all algorithms must support.
 You may use the algorithms directly, by creating
 an instance and calling it as described in :doc:`Implementing a Crypt Algorithm <implementation>`.

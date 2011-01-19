@@ -52,7 +52,7 @@ class PostgresMd5Crypt(CryptHandlerHelper):
     setting_kwds = ()
     context_kwds = ("user",)
 
-    hash_bytes = 64
+    checksum_bytes = 64
 
     #=========================================================
     #frontend

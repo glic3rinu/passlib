@@ -6,6 +6,7 @@ from __future__ import with_statement, absolute_import
 #core
 import re
 import logging; log = logging.getLogger(__name__)
+from warnings import warn
 #site
 #libs
 from passlib.handler import CryptHandlerHelper, register_crypt_handler
@@ -27,6 +28,8 @@ except ImportError:
     #fall back to our much slower pure-python implementation
     import passlib.utils._slow_bcrypt as bcrypt
     backend = "builtin"
+
+#XXX: should issue warning when _slow_bcrypt is first used.
 
 #=========================================================
 #OpenBSD's BCrypt
@@ -55,7 +58,7 @@ class BCrypt(CryptHandlerHelper):
     salt_chars = 22
 
     default_rounds = 12
-    min_rounds = 10 # pybcrypt won't take less than this
+    min_rounds = 4 # pybcrypt won't take less than this
     max_rounds = 31 # 32-bit limitation on 1<<rounds
 
     #=========================================================
