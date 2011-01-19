@@ -2,18 +2,15 @@
 
 __version__ = "1.2"
 
+#=========================================================
+#
+#=========================================================
 from passlib.context import CryptContext
-import passlib.unix_crypt
-import passlib.md5_crypt
-import passlib.bcrypt
-import passlib.sha_crypt
 
 #=========================================================
-#build up the standard context objects
+#quickstart interface
 #=========================================================
-
-#default context for quick use.. recognizes common algorithms, uses SHA-512 as default
-default_context = CryptContext(["unix-crypt", "md5-crypt", "bcrypt", "sha256-crypt", "sha512-crypt"])
+from passlib.unix import default_context
 
 def identify(hash, name=True):
     """Identify algorithm which generated a password hash.
@@ -142,10 +139,6 @@ def verify(secret, hash, alg=None):
         ``True`` if the secret matches, otherwise ``False``.
     """
     return default_context.verify(secret, hash, alg=alg)
-
-#some general os-context helpers (these may not match your os policy exactly, but are generally useful)
-linux_context = CryptContext([ "unix-crypt", "md5-crypt", "sha256-crypt", "sha512-crypt" ])
-bsd_context = CryptContext([ "unix-crypt", "md5-crypt", "bcrypt" ])
 
 #=========================================================
 #eof
