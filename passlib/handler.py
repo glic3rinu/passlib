@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstract_class_method, classproperty, H64_CHARS, generate_h64_salt, Undef
+from passlib.utils import abstract_class_method, classproperty, H64_CHARS, getrandstr, rng, Undef
 #pkg
 #local
 __all__ = [
@@ -22,10 +22,11 @@ __all__ = [
     'list_crypt_handlers'
 
     'is_crypt_handler',
+    'is_ext_crypt_handler',
 
     #framework for implementing handlers
     'CryptHandler',
-    'CryptHandlerHelper',
+    'ExtCryptHandler',
 ]
 
 #=========================================================
@@ -92,13 +93,13 @@ def is_crypt_handler(obj):
         "name", "verify", "encrypt", "identify",
         ))
 
-def parse_settings(handler, hash):
-    "attempt to parse setting kwds from hash"
-    return dict(
-        (k,v)
-        for k,v in handler.parse(hash).iteritems()
-        if k in handler.setting_kwds
-    )
+def is_ext_crypt_handler(obj):
+    "check if obj following ExtCryptHandler protocol"
+    #NOTE: this isn't an exhaustive check of all required attrs,
+    #just a quick check of the most uniquely identifying ones
+    return all(hasattr(obj, name) for name in (
+        "name", "verify", "encrypt", "identify", "parse", "render"
+        ))
 
 #==========================================================
 #base interface for all the crypt algorithm implementations
@@ -211,19 +212,20 @@ class CryptHandler(object):
     #optional informational attributes
     #---------------------------------------------------------
     secret_chars = -1 #max number of chars of secret that are used in hash. -1 if all chars used.
-    salt_bytes = 0 #number of effective bytes in salt
+    salt_bytes = 0 #number of effective bytes in salt - 0 if doesn't use salt, max salt bytes if variable-length salt supported
     checksum_bytes = 0 #number of effective bits in hash
 
     #---------------------------------------------------------
-    #algorithm rounds information
+    #algorithm rounds information - only required if alg supports rounds
     #---------------------------------------------------------
     default_rounds = None #default number of rounds to use if none specified (can be name of a preset)
     min_rounds = None #minimum number of rounds (smaller values silently ignored)
     max_rounds = None #maximum number of rounds (larger values silently ignored)
 
     #=========================================================
-    #subclass-provided methods
+    #frontend interface
     #=========================================================
+
     @abstract_class_method
     def identify(cls, hash):
         """identify if a hash string belongs to this algorithm.
@@ -238,7 +240,7 @@ class CryptHandler(object):
         """
 
     @abstract_class_method
-    def encrypt(self, secret):
+    def encrypt(cls, secret, **context_and_settings):
         """encrypt secret, returning resulting hash string.
 
         :arg secret:
@@ -247,99 +249,106 @@ class CryptHandler(object):
             but the common case is to encode into utf-8
             before processing.
 
-        .. note::
-            Various password algorithms may accept addition keyword
-            arguments, usually to override default configuration parameters.
-            For example, most has_rounds algorithms will have a ``rounds`` keyword.
-            Such details vary on a per-algorithm basis, consult their encrypt method
-            for details.
+        :param context_and_settings:
+            All other keywords are algorithm-specified,
+            and should be listed in :attr:`setting_kwds`
+            and :attr:`context_kwds`.
 
-        .. note::
-            In general, if an option was specified both as a kwd
-            and encoded within the ``hash`` parameter,
-            the kwd value should be given preference (eg, the ``rounds`` kwds).
+            Common keywords include ``salt`` and ``rounds``.
+
+        :raises ValueError:
+            * if settings are invalid and not correctable.
+              (eg: provided salt contains invalid characters / length).
+
+            * if a context kwd contains an invalid value, or was required
+              but omitted.
+
+            * if secret contains forbidden characters (e.g: des-crypt forbids null characters).
+              this should rarely occur, since most modern algorithms have no limitations
+              on the types of characters.
 
         :returns:
-            The encoded hash string, with any chrome and identifiers.
-            All values returned by this function should
-            pass ``identify(hash) -> True``
-            and ``verify(secret,hash) -> True``.
-
-        Usage Example::
-
-            >>> from passlib.md5_crypt import Md5Crypt
-            >>> #encrypt a secret, creating a new hash
-            >>> hash = Md5Crypt.encrypt("it's a secret")
-            >>> hash
-            '$1$2xYRz6ta$IWpg/auAdyc8.CyZ0K6QK/'
-            >>> #verify our secret
-            >>> Md5Crypt.verify("fluffy bunnies", hash)
-            False
-            >>> Md5Crypt.verify("it's a secret", hash)
-            True
-            >>> #encrypting again should generate a new salt,
-            >>> #even if we pass in the old one
-            >>> crypt.encrypt("it's a secret", hash)
-            '$1$ZS9HCWrt$dRT5Q5R9YRoc5/SLA.WkD/'
-            >>> _ == hash
-            False
+            Hash encoded in algorithm-specified format.
         """
 
     @abstract_class_method
-    def verify(cls, secret, hash):
+    def verify(cls, secret, hash, **context):
         """verify a secret against an existing hash.
 
         This checks if a secret matches against the one stored
-        inside the specified hash. By default this uses :meth:`encrypt`
-        to re-crypt the secret, and compares it to the provided hash;
-        though some algorithms may implement this in a more efficient manner.
+        inside the specified hash.
 
         :param secret:
             A string containing the secret to check.
         :param hash:
             A string containing the hash to check against.
 
+        :param context:
+            Any additional keywords will be passed to the encrypt
+            method. These should be limited to those listed
+            in :attr:`context_kwds`.
+
+        :raises ValueError:
+            if the hash is omitted or does not belong to this algorithm.
+
         :returns:
             ``True`` if the secret matches, otherwise ``False``.
             If hash is ``None``, should return ``False``.
-
-        See :meth:`encrypt` for a usage example.
-
-        .. note::
-            The default implementation works most of the time,
-            but may give false negatives
-            if the hash algorithm has encoding quirks,
-            such as multiple possible encodings for the same
-            salt + secret.
         """
-
-    #=========================================================
-    #
-    #=========================================================
-
-    #def parse(cls, hash):
-    #  optional method which parses hash into components, or raises ValueError
-
-    #def render(cls, **parse_kwds):
-    #  optional inverse of parse()
 
     #=========================================================
     #eoc
     #=========================================================
 
 #=========================================================
-#helpers
+#
 #=========================================================
-class CryptHandlerHelper(CryptHandler):
-    "class providing some helpful methods for implementing a crypt algorithm"
+class ExtCryptHandler(CryptHandler):
+    """class providing an extended handler interface,
+    allowing manipulation of hash & config strings.
 
-    salt_chars = None #fill in with (maxium) number of salt chars required, and _norm_salt() will handle truncating etc
+    About
+    -----
+    this extended interface adds methods for parsing and rendering
+    a hash or config string to / from a dictionary of components.
 
-    #override w/ minimum number of salt chars (if different from maximum)
-    @classproperty
-    def min_salt_chars(cls):
-        return cls.salt_chars
+    this interface is generally easier to use when *implementing* hash
+    algorithms, and as such is used through passlib. it's kept separate
+    from :class:`CryptHandler` itself, since it's features are not typically
+    required for user-facing purposes.
 
+    Usage
+    -----
+    when implementing a hash algorithm...
+
+    subclasses must implement:
+
+        * parse()
+        * render()
+        * encrypt()
+
+    subclasses may optionally implement more efficient versions of
+    these functions, though the defaults should be sufficient:
+
+        * identify()
+        * verify()
+
+    subclasses may also use the following helper functions
+    when implementing encrypt():
+
+        * render()
+        * _norm_rounds() for normalizing rounds values.
+        * _norm_salt() for normalizing / generating salt
+          (requires filling in some class attrs, read _norm_salt doc for details)
+    """
+
+    #=========================================================
+    #class attrs
+    #=========================================================
+
+    #---------------------------------------------------------
+    #helper to auto-specify setting_kwds for common cases
+    #---------------------------------------------------------
     @classproperty
     def setting_kwds(cls):
         "auto-calculates setting_kwds for the 3 most common cases, autodetecting via other informational attributes"
@@ -352,9 +361,130 @@ class CryptHandlerHelper(CryptHandler):
         else:
             return ()
 
+    #---------------------------------------------------------
+    # _norm_salt() configuration
+    #---------------------------------------------------------
+
+    salt_chars = None #fill in with (maxium) number of salt chars required, and _norm_salt() will handle truncating etc
+    salt_charset = H64_CHARS #helper used when generating salt
+
+    #override only if minimum number of salt chars is different from salt_chars
+    @classproperty
+    def min_salt_chars(cls):
+        return cls.salt_chars
+
+    #=========================================================
+    #parsing routines
+    #=========================================================
+    @abstract_class_method
+    def parse(cls, hash):
+        """parse hash or config into dictionary.
+
+        :arg hash: the hash/config string to parse
+
+        :raises ValueError:
+            If hash/config string is empty,
+            or not recognized as belonging to this algorithm
+
+        :returns:
+            dictionary containing a subset of the keys
+            specified in :attr:`setting_kwds`.
+
+            commonly used keys are ``salt``, ``rounds``.
+
+            If and only if the string is a hash, the dict should also contain
+            the key ``checksum``, mapping to the checksum portion of the hash.
+
+        .. note::
+            Specific implementations may perform anywhere from none to full
+            validation of input string; the primary goal of this method
+            is to parse settings from single string into kwds
+            which will be recognized by :meth:`render` and :meth:`encrypt`.
+
+            :meth:`encrypt` is where validation of inputs *must* be performed.
+        """
+
+    @abstract_class_method
+    def render(cls, checksum, **settings):
+        """render hash from checksum & settings (as returned by :meth:`parse`).
+
+        :param checksum:
+            Encoded checksum portion of hash.
+
+        :param settings:
+            All other keywords are algorithm-specified,
+            and should be listed in :attr:`setting_kwds`.
+
+        :raises ValueError:
+            If any values are not encodeable into hash.
+
+        :raises NotImplementedError:
+            If checksum is omitted and the algorithm
+            doesn't have any settings (:attr:`setting_kwds` is empty),
+            or doesn't support generating "salt strings"
+            which contain all configuration except for the
+            checksum itself.
+
+        :returns:
+            if checksum is specified, this should return a fully-formed hash.
+            otherwise, it should return a config string containing
+            the specified inputs.
+
+        .. note::
+            Specific implementations may perform anywhere from none to full
+            validation of inputs; the primary goal of this method
+            is to render the settings into a single string
+            which will be recognized by :meth:`parse`.
+
+            :meth:`encrypt` is where validation of inputs *must* be performed.
+        """
+
+    #=========================================================
+    #frontend
+    #=========================================================
+
+    @classmethod
+    def identify(cls, hash):
+        #NOTE: this is a default identify() implementation provided
+        # by ExtCryptAlgorithm, which should work for most classes.
+        try:
+            cls.parse(hash)
+        except ValueError:
+            return False
+        return True
+
+    #NOTE: subclasses must still implement encrypt() directly,
+    # though _norm_salt(), _norm_rounds(), and render()
+    # are generally helpful when writing an encrypt() method.
+
+    @classmethod
+    def verify(cls, secret, hash, **context):
+        #NOTE: this is a default verify() implementation provided
+        # by ExtCryptAlgorithm, which should work for most classes,
+        # provided that comparing the checksums as returned by parse()
+        # is a valid way of comparing the two hashes.
+        #
+        # simple string comparison of 'hash == other' was not used
+        # as the default behavior, since some algorithms have multiple possible
+        # encodings for the same hash (eg: case insensitivity, zero-padding
+        # of numeric options, etc)
+        assert all(key in cls.context_kwds for key in context), "one the following not a valid context kwd: %r" % (context,)
+        settings = cls.parse(hash)
+        settings.pop("checksum", None)
+        settings.update(context)
+        other = cls.encrypt(secret, **settings)
+        return hash == other
+
+    #=========================================================
+    #configuration helpers
+    #=========================================================
     @classmethod
     def _norm_rounds(cls, rounds):
-        "provide default rounds if needed, and clip rounds to boundary"
+        """helper routine for normalizing rounds
+
+        * falls back to default_rounds
+        * clips to min_rounds / max_rounds
+        """
         if not rounds:
             rounds = cls.default_rounds
             if not rounds:
@@ -370,23 +500,50 @@ class CryptHandlerHelper(CryptHandler):
         return rounds
 
     @classmethod
+    def _gen_salt(cls):
+        """helper routine to generate salt, used by _norm_salt"""
+        return getrandstr(rng, cls.salt_charset, cls.salt_chars)
+
+    @classmethod
     def _norm_salt(cls, salt):
-        mx = cls.salt_chars
-        assert mx, "cls.salt_chars not set"
+        """helper routine for normalizing salt
+
+        required salt_charset & salt_chars attrs to be filled in,
+        along with optional min_salt_chars attr (defaults to salt_chars).
+
+        * generates salt if none provided
+        * clips salt to maximum length of salt_chars
+
+        :raises ValueError:
+            * if salt contains chars that aren't in salt_charset.
+            * if salt contains less than min_salt_chars characters.
+
+        :returns:
+            resulting or generated salt
+        """
+        if not salt:
+            return cls._gen_salt()
+
+        cs = cls.salt_charset
+        for c in salt:
+            if c not in cs:
+                raise ValueError, "invalid character in %s salt: %r"  % (cls.name, c)
+
         mn = cls.min_salt_chars
         assert mn, "cls.min_salt_chars not set"
-        if not salt:
-            return generate_h64_salt(mx)
-        for c in salt:
-            if c not in H64_CHARS:
-                raise ValueError, "invalid character in %s salt: %r"  % (cls.name, c)
         if len(salt) < mn:
             raise ValueError, "%s salt must be at least %d chars" % (cls.name, mn)
-        elif len(salt) > mx:
+
+        mx = cls.salt_chars
+        assert mx, "cls.salt_chars not set"
+        if len(salt) > mx:
             #automatically clip things to specified number of chars
             return salt[:mx]
         else:
             return salt
+    #=========================================================
+    #eoc
+    #=========================================================
 
 #=========================================================
 # eof

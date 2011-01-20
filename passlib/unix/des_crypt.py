@@ -18,7 +18,7 @@ import os
 #site
 #pkg
 from passlib.utils import H64_CHARS
-from passlib.handler import CryptHandlerHelper, register_crypt_handler
+from passlib.handler import ExtCryptHandler, register_crypt_handler
 #local
 __all__ = [
     'DesCrypt',
@@ -72,7 +72,7 @@ except ImportError:
 #=========================================================
 #old unix crypt
 #=========================================================
-class DesCrypt(CryptHandlerHelper):
+class DesCrypt(ExtCryptHandler):
     """Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
     This implementation uses the builtin ``crypt`` module when available,
     but contains a pure-python fallback so that this algorithm can always be used.
@@ -115,6 +115,12 @@ class DesCrypt(CryptHandlerHelper):
             salt=m.group("salt"),
             checksum=m.group("chk")
         )
+
+    @classmethod
+    def render(cls, salt, checksum=None):
+        if len(salt) < 2:
+            raise ValueError, "invalid salt"
+        return "%s%s" % (salt[:2], checksum or '')
 
     @classmethod
     def encrypt(cls, secret, salt=None):

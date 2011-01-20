@@ -13,7 +13,7 @@ import os
 #site
 #libs
 from passlib.context import CryptContext
-from passlib.handler import CryptHandlerHelper, register_crypt_handler
+from passlib.handler import CryptHandler, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -27,7 +27,7 @@ __all__ = [
 #=========================================================
 #sql database hashes
 #=========================================================
-class Mysql10Crypt(CryptHandlerHelper):
+class Mysql10Crypt(CryptHandler):
     """This implements Mysql's OLD_PASSWORD algorithm, used prior to version 4.1.
 
     See :class:`Mysql41Crypt` for the new algorithm was put in place in version 4.1
@@ -79,7 +79,7 @@ class Mysql10Crypt(CryptHandlerHelper):
     #=========================================================
 register_crypt_handler(Mysql10Crypt)
 
-class Mysql41Crypt(CryptHandlerHelper):
+class Mysql41Crypt(CryptHandler):
     """This implements Mysql new PASSWORD algorithm, introduced in version 4.1.
 
     This function is unsalted, and therefore not very secure against rainbow attacks.

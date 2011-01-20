@@ -9,7 +9,7 @@ import hashlib
 from logging import getLogger
 #site
 #pkg
-from passlib.handler import CryptHandler, CryptHandlerHelper
+from passlib.handler import CryptHandler
 from passlib.tests.handler_utils import _HandlerTestCase
 from passlib.utils import generate_h64_salt
 #module
@@ -28,14 +28,6 @@ class UnsaltedHash(CryptHandler):
     @classmethod
     def identify(cls, hash):
         return bool(hash and re.match("^[0-9a-f]{40}$", hash))
-
-    @classmethod
-    def parse(cls, hash):
-        if not cls.identify(hash):
-            raise ValueError, "not unsalted-example hash"
-        return dict(
-            checksum=hash,
-        )
 
     @classmethod
     def encrypt(cls, secret):

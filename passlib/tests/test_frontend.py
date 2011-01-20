@@ -9,7 +9,6 @@ from logging import getLogger
 #site
 #pkg
 import passlib as mod
-from passlib.handler import parse_settings
 from passlib.tests.utils import TestCase
 #module
 log = getLogger(__name__)
@@ -86,7 +85,8 @@ class QuickAccessTest(TestCase):
             self.assertEqual(identify(h), name)
             self.assertEqual(verify(s, h), True)
             if hasattr(handler, "parse"):
-                info = parse_settings(handler, h)
+                info = handler.parse(h)
+                del info['checksum']
                 h2 = encrypt(s, alg=name, **info)
                 self.assertEqual(identify(h2), name, "failed to identify %r rehash %r of hash %r from secret %r:" % (name, h2, h, s))
                 self.assertEqual(verify(s, h2, alg=name), True)

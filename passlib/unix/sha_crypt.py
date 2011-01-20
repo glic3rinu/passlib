@@ -21,7 +21,7 @@ import time
 import os
 #site
 #libs
-from passlib.handler import CryptHandlerHelper, register_crypt_handler
+from passlib.handler import ExtCryptHandler, register_crypt_handler
 from passlib.utils import abstract_class_method, \
     h64_encode_3_offsets, h64_encode_2_offsets, h64_encode_1_offset
 #pkg
@@ -36,7 +36,7 @@ __all__ = [
 #algorithm defined on this page:
 #   http://people.redhat.com/drepper/SHA-crypt.txt
 #=========================================================
-class _ShaCrypt(CryptHandlerHelper):
+class _ShaCrypt(ExtCryptHandler):
     "common code for used by Sha(256|512)Crypt Classes"
     #=========================================================
     #crypt info
@@ -204,14 +204,17 @@ class _ShaCrypt(CryptHandlerHelper):
         )
 
     @classmethod
-    def render(cls, rounds, salt, checksum, implicit_rounds=False):
+    def render(cls, rounds, salt, checksum=None, implicit_rounds=False):
         if rounds == 5000 and implicit_rounds:
-            return "$%s$%s$%s" % (cls._ident, salt, checksum)
+            out = "$%s$%s" % (cls._ident, salt)
         else:
-            return "$%s$rounds=%d$%s$%s" % (cls._ident, rounds, salt, checksum)
+            out = "$%s$rounds=%d$%s" % (cls._ident, rounds, salt)
+        if checksum is not None:
+            out += "$" + checksum
+        return out
 
     @classmethod
-    def encrypt(cls, secret, salt=None, rounds=None):
+    def encrypt(cls, secret, salt=None, rounds=None, implicit_rounds=False):
         """encrypt using sha256/512-crypt.
 
         In addition to the normal options that :meth:`CryptHandler.encrypt` takes,
@@ -228,7 +231,7 @@ class _ShaCrypt(CryptHandlerHelper):
         salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
         checksum, salt, rounds = cls._raw_encrypt(secret, salt, rounds)
-        return cls.render(rounds, salt, checksum)
+        return cls.render(rounds, salt, checksum, implicit_rounds)
 
     @classmethod
     def verify(cls, secret, hash):

@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.handler import CryptHandlerHelper, register_crypt_handler
+from passlib.handler import ExtCryptHandler, register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -34,7 +34,7 @@ except ImportError:
 #=========================================================
 #OpenBSD's BCrypt
 #=========================================================
-class BCrypt(CryptHandlerHelper):
+class BCrypt(ExtCryptHandler):
     """Implementation of OpenBSD's BCrypt algorithm.
 
     Passlib will use the py-bcrypt package if it is available,
@@ -88,15 +88,27 @@ class BCrypt(CryptHandlerHelper):
         if not m:
             raise ValueError, "invalid bcrypt hash"
         ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
-        return dict(
-            ident=ident,
+        out = dict(
             rounds=int(rounds),
             salt=salt,
             checksum=chk,
         )
+        if ident == '2':
+            out['omit_null_suffix'] = True
+        return out
 
     @classmethod
-    def encrypt(cls, secret, salt=None, rounds=None):
+    def render(cls, rounds, salt, checksum=None, omit_null_suffix=False):
+        if omit_null_suffix:
+            out = "$2$%d$%s" % (rounds, salt)
+        else:
+            out = "$2a$%d$%s" % (rounds, salt)
+        if checksum is not None:
+            out += "$" + checksum
+        return out
+
+    @classmethod
+    def encrypt(cls, secret, salt=None, rounds=None, omit_null_suffix=False):
         """encrypt using bcrypt.
 
         In addition to the normal options that :meth:`CryptHandler.encrypt` takes,
@@ -113,7 +125,7 @@ class BCrypt(CryptHandlerHelper):
         """
         salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
-        config = "$2a$%d$%s" % (rounds, salt)
+        config = cls.render(rounds, salt, omit_null_suffix=omit_null_suffix)
         return bcrypt.hashpw(secret, config)
 
     @classmethod

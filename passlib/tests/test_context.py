@@ -8,7 +8,6 @@ import hashlib
 from logging import getLogger
 #site
 #pkg
-from passlib.handler import parse_settings
 from passlib.context import CryptContext
 from passlib.tests.utils import TestCase
 ##from passlib.unix.des_crypt import DesCrypt
@@ -411,14 +410,15 @@ class CryptContextTest(TestCase):
         h = cc.encrypt("test")
         self.assertEquals(cc.identify(h), c)
 
-        s = parse_settings(c, h)
-        if 'salt' in s:
-            del s['salt']
+        s = c.parse(h)
+        del s['checksum']
+        del s['salt']
         h2 = cc.encrypt("test", **s)
         self.assertEquals(cc.identify(h2), c)
         self.assertNotEquals(h2, h)
 
-        s = parse_settings(c, h)
+        s = c.parse(h)
+        del s['checksum']
         h3 = cc.encrypt("test", **s)
         self.assertEquals(cc.identify(h3), c)
         self.assertEquals(h3, h)
