@@ -341,11 +341,20 @@ def load_tables():
     # of the PC1 rotation schedule, as used by des_setkey
     #---------------------------------------------------
     ##ROTATES = (1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1)
+    ##PCXROT = (
+    ##        PC1ROT,  PC2ROTA, PC2ROTB, PC2ROTB,
+    ##        PC2ROTB, PC2ROTB, PC2ROTB, PC2ROTB,
+    ##        PC2ROTA, PC2ROTB, PC2ROTB, PC2ROTB,
+    ##        PC2ROTB, PC2ROTB, PC2ROTB, PC2ROTA,
+    ##        )
+
+    #NOTE: modified PCXROT to contain entrys broken into pairs,
+    # to helper generate them in format best used by encoder.
     PCXROT = (
-            PC1ROT,  PC2ROTA, PC2ROTB, PC2ROTB,
-            PC2ROTB, PC2ROTB, PC2ROTB, PC2ROTB,
-            PC2ROTA, PC2ROTB, PC2ROTB, PC2ROTB,
-            PC2ROTB, PC2ROTB, PC2ROTB, PC2ROTA,
+            (PC1ROT,  PC2ROTA), (PC2ROTB, PC2ROTB),
+            (PC2ROTB, PC2ROTB), (PC2ROTB, PC2ROTB),
+            (PC2ROTA, PC2ROTB), (PC2ROTB, PC2ROTB),
+            (PC2ROTB, PC2ROTB), (PC2ROTB, PC2ROTA),
             )
 
     #---------------------------------------------------
@@ -598,34 +607,43 @@ def load_tables():
     #=========================================================
 
 #=========================================================
-#des helpers
+#des frontend
 #=========================================================
-def perm64(c, p):
+def permute(c, p):
     """Returns the permutation of the given 32-bit or 64-bit code with
     the specified permutataion table."""
+    #NOTE: only difference between 32 & 64 bit permutations
+    #is that len(p)==8 for 32 bit, and len(p)==16 for 64 bit.
     out = 0
     for r in p:
         out |= r[c&0xf]
         c >>= 4
     return out
 
-perm3264 = perm6464 = perm64
+def des_encrypt_rounds(input, salt, rounds, key):
+    """Returns modified DES for single block of input"""
+    global SPE, PCXROT, IE3264, CF6464
 
-def des_setkey(keyword):
-    "Returns the key schedule for the given key."
-    assert 0 <= keyword <= INT_64_MAX, "key value out of range"
-    def _gen(K):
-        for p in PCXROT:
-            K = perm6464(K, p)
-            yield K & ~0x0303030300000000
-    return list(_gen(keyword))
-
-def des_cipher(input, salt, rounds, KS):
-    """Returns the DES encrypted code of the given word with the specified environment."""
     #bounds check
-    assert rounds >= 0
     assert 0 <= input <= INT_64_MAX, "input value out of range"
     assert 0 <= salt <= INT_24_MAX, "salt value out of range"
+    assert rounds >= 0
+    assert 0 <= key <= INT_64_MAX, "key value out of range"
+
+    #load tables if not already done
+    if PCXROT is None:
+        load_tables()
+
+    #convert key int -> key schedule
+    #NOTE: generation was modified to output two elements at a time,
+    #to optimize for per-round algorithm below.
+    mask = ~0x0303030300000000
+    def _gen(K):
+        for p_even, p_odd in PCXROT:
+            K1 = permute(K, p_even)
+            K = permute(K1, p_odd)
+            yield K1 & mask, K & mask
+    ks_list = list(_gen(key))
 
     #expand 24 bit salt -> 32 bit
     salt = (
@@ -640,16 +658,10 @@ def des_cipher(input, salt, rounds, KS):
         L = R = 0
     else:
         L = ((input >> 31) & 0xaaaaaaaa) | (input & 0x55555555)
-        L = perm3264(L, IE3264)
+        L = permute(L, IE3264)
 
         R = ((input >> 32) & 0xaaaaaaaa) | ((input >> 1) & 0x55555555)
-        R = perm3264(R, IE3264)
-
-    #pre-calc ks iterator
-    ks_list = [
-        (KS[offset], KS[offset+1])
-        for offset in R16_S2
-    ]
+        R = permute(R, IE3264)
 
     #load SPE into local vars to speed things up and remove an array access
     SPE0, SPE1, SPE2, SPE3, SPE4, SPE5, SPE6, SPE7 = SPE
@@ -689,24 +701,9 @@ def des_cipher(input, salt, rounds, KS):
             ((R<<1) &  0x00000000f0f0f0f0L)
         )
 
-    C = perm6464(C, CF6464)
+    C = permute(C, CF6464)
 
     return C
-
-#=========================================================
-#des frontend
-#=========================================================
-def des_encrypt_rounds(input, salt, rounds, key):
-    #load tables if not already done
-    global PCXROT
-    if PCXROT is None:
-        load_tables()
-
-    #convert key int -> key schedule
-    key_sched = des_setkey(key)
-
-    #run data through des using input of 0
-    return des_cipher(input, salt, rounds, key_sched)
 
 #=========================================================
 #crypt frontend
