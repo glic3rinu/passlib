@@ -147,7 +147,7 @@ class _HandlerTestCase(TestCase):
     def test_20_verify_positive(self):
         "test verify() against known-correct secret/hash pairs"
         for secret, hash in self.known_correct:
-            self.assertEqual(self.do_verify(secret, hash), True)
+            self.assertEqual(self.do_verify(secret, hash), True, "known correct hash (secret=%r, hash=%r):" % (secret,hash))
 
     def test_21_verify_negative(self):
         "test verify() against known-incorrect secret/hash pairs"
@@ -173,6 +173,7 @@ class _HandlerTestCase(TestCase):
 
     def test_25_verify_none(self):
         "test verify() throws error against hash=None/empty string"
+        #find valid hash so that doesn't mask error
         self.assertRaises(ValueError, self.do_verify, 'stub', None, __msg__="verify None:")
         self.assertRaises(ValueError, self.do_verify, 'stub', '', __msg__="verify empty:")
 

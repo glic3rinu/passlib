@@ -36,12 +36,20 @@ class DesCryptTest(_HandlerTestCase):
         '!gAwTx2l6NADI',
         )
 
-##class ExtDesCryptTest(_HandlerTestCase):
-##    "test ExtDesCrypt algorithm"
-##    handler = mod.ExtDesCrypt
-##    known_correct = (
-##        ("my socrates note", "_J9..rajmAJffsmIgxRo"),
-##    )
+class ExtDesCryptTest(_HandlerTestCase):
+    "test ExtDesCrypt algorithm"
+    handler = mod.ExtDesCrypt
+    known_correct = (
+        (" ", "_K1..crsmZxOLzfJH8iw"),
+        ("my", "_K1..crsmjChSwFUvdpw"),
+        ("my socra", "_K1..crsmf/9NzZr1fLM"),
+        ("my socrates", '_K1..crsmOv1rbde9A9o'),
+        ("my socrates note", "_K1..crsm/2qeAhdISMA"),
+    )
+    known_invalid = (
+        #bad char in otherwise correctly formatted hash
+       "_K1.!crsmZxOLzfJH8iw"
+    )
 
 #=========================================================
 #test activate backend (stored in mod._crypt)
@@ -61,15 +69,15 @@ class _DesCryptBackendTest(TestCase):
 
             #make sure crypt verifies preserving just salt
             out = crypt(secret, result[:2])
-            self.assertEqual(out, result)
+            self.assertEqual(out, result, "secret=%r using salt alone:" % (secret,))
 
             #make sure crypt verifies preseving salt + fragment of known hash
             out = crypt(secret, result[:6])
-            self.assertEqual(out, result)
+            self.assertEqual(out, result, "secret=%r using salt + fragment:" % (secret,))
 
             #make sure crypt verifies using whole known hash
             out = crypt(secret, result)
-            self.assertEqual(out, result)
+            self.assertEqual(out, result, "secret=%r using whole hash:" % (secret,))
 
     #TODO: deal with border cases where host crypt & bps crypt differ
     # (none of which should impact the normal use cases)
@@ -108,7 +116,7 @@ class _DesCryptBackendTest(TestCase):
 if mod.backend != "builtin" and enable_test("fallback-backend"):
     class BuiltinDesCryptBackendTest(_DesCryptBackendTest):
         "test builtin des-crypt backend"
-        case_prefix = "builtin crypt() backend"
+        case_prefix = "builtin des-crypt() backend"
 
         def get_crypt(self):
             return builtin_crypt
@@ -118,7 +126,7 @@ if enable_test("backends"):
     #which of course is correct, so doing this more to detect deviations in builtin implementation
     class ActiveDesCryptBackendTest(_DesCryptBackendTest):
         "test active des-crypt backend"
-        case_prefix = mod.backend + " crypt() backend"
+        case_prefix = mod.backend + " des-crypt() backend"
 
         def get_crypt(self):
             return mod.crypt

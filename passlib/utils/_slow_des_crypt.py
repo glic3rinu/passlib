@@ -39,29 +39,78 @@ This module is mainly meant as a fallback when stdlib does not supply a ``crypt`
 such as on windows systems. As such, it attempts to have a public interface
 which is compatible with stdlib, so it can be used as a drop-in replacement.
 """
+#=========================================================
+#imports
+#=========================================================
 
 #=========================================================
-#simple constants
+#crypt-style base64 encoding / decoding
 #=========================================================
-
-#XXX: can b64_encode / b64_decode be replaced with H64.encode/decode?
 
 #base64 char sequence
 CHARS = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-b64_encode = CHARS.__getitem__ # int -> char
+b64_encode_6bit = CHARS.__getitem__ # int -> char
 
 #inverse map (char->value)
 CHARIDX = dict( (c,i) for i,c in enumerate(CHARS))
-b64_decode = CHARIDX.__getitem__ # char -> int
+b64_decode_6bit = CHARIDX.__getitem__ # char -> int
 
+##def b64_to_int(value):
+##    "decode hash-64 format used by crypt into integer"
+##    #FORMAT: little-endian, each char contributes 6 bits,
+##    # char value = index in H64_CHARS string
+##    try:
+##        out = 0
+##        for c in reversed(value):
+##                out = (out<<6) + b64_decode_6bit(c)
+##        return out
+##    except KeyError:
+##        raise ValueError, "invalid character in string"
+
+def b64_decode_int12(value):
+    "decode 2 chars of hash-64 format used by crypt, returning 12-bit integer"
+    try:
+        return (b64_decode_6bit(value[1])<<6)+b64_decode_6bit(value[0])
+    except KeyError:
+        raise ValueError, "invalid character"
+
+def b64_decode_int24(value):
+    "decode 4 chars of hash-64 format used by crypt, returning 24-bit integer"
+    try:
+        return  b64_decode_6bit(value[0]) +\
+                (b64_decode_6bit(value[1])<<6)+\
+                (b64_decode_6bit(value[3])<<18)+\
+                (b64_decode_6bit(value[2])<<12)
+    except KeyError:
+        raise ValueError, "invalid character"
+
+def b64_encode_int24(value):
+    "decode 2 chars of hash-64 format used by crypt, returning 12-bit integer"
+    return  b64_encode_6bit(value & 0x3f) + \
+            b64_encode_6bit((value>>6) & 0x3f) + \
+            b64_encode_6bit((value>>12) & 0x3f) + \
+            b64_encode_6bit((value>>18) & 0x3f)
+
+def b64_encode_int64(value):
+    "encode 64-bit integer to hash-64 format used by crypt, returning 11 chars"
+    out = [None] * 10 + [ b64_encode_6bit((value<<2)&0x3f) ]
+    value >>= 4
+    for i in RR9_1:
+        out[i] = b64_encode_6bit(value&0x3f)
+        value >>= 6
+    return "".join(out)
+
+#=========================================================
 #precalculated iteration ranges
+#=========================================================
 R8 = range(8)
 RR8 = range(7, -1, -1)
 RR4 = range(3, -1, -1)
 RR12_1 = range(11, 1, -1)
+RR9_1 = range(9,-1,-1)
 
 #=========================================================
-# static tables
+# static tables for des
 #=========================================================
 PCXROT = IE3264 = SPE = CF6464 = None #placeholders filled in by load_tables
 
@@ -533,10 +582,8 @@ def load_tables():
     #=========================================================
 
 #=========================================================
-#helpers
+#des helpers
 #=========================================================
-
-
 def perm6464(c, p):
     """Returns the permutation of the given 64-bit code with
     the specified permutataion table."""
@@ -564,8 +611,12 @@ def des_setkey(keyword):
     return list(_gen(keyword))
 
 def to_six_bit_int(num):
-        return (((num << 26) & 0xfc000000) | ((num << 12) & 0xfc0000) |
-                ((num >> 2) & 0xfc00) | ((num >> 16) & 0xfc))
+    return (
+        ((num & 0x00003f) << 26) |
+        ((num & 0x000fc0) << 12) |
+        ((num & 0x03f000) >> 2) |
+        ((num & 0xfc0000) >> 16)
+        )
 
 def des_cipher(input, salt, num_iter, KS):
     """Returns the DES encrypted code of the given word with the specified environment."""
@@ -573,11 +624,14 @@ def des_cipher(input, salt, num_iter, KS):
     R = L = input
     L &= 0x5555555555555555
     R = (R & 0xaaaaaaaa00000000L) | ((R >> 1) & 0x0000000055555555L)
-    L = ((((L << 1) | (L << 32)) & 0xffffffff00000000L) |
-         ((R | (R >> 32)) & 0x00000000ffffffffL))
+    C = (
+            (((L << 1) | (L << 32)) & 0xffffffff00000000L)
+        |
+            ((R | (R >> 32)) & 0x00000000ffffffffL)
+        )
 
-    L = perm3264((L>>32), IE3264)
-    R = perm3264((L&0xffffffff), IE3264)
+    L = perm3264((C>>32), IE3264)
+    R = perm3264((C&0xffffffff), IE3264)
 
     #run specified number of passed
     while num_iter >= 1:
@@ -607,65 +661,116 @@ def des_cipher(input, salt, num_iter, KS):
         # swap L and R
         L, R = R, L
 
-    L = ((((L>>35) & 0x0f0f0f0fL) | (((L&0xffffffff)<<1) & 0xf0f0f0f0L))<<32 |
+    C = ((((L>>35) & 0x0f0f0f0fL) | (((L&0xffffffff)<<1) & 0xf0f0f0f0L))<<32 |
          (((R>>35) & 0x0f0f0f0fL) | (((R&0xffffffff)<<1) & 0xf0f0f0f0L)))
 
-    L = perm6464(L, CF6464)
+    C = perm6464(C, CF6464)
 
-    return L
+    return C
 
 #=========================================================
-#frontend
+#des frontend
 #=========================================================
-
-def crypt(key, salt):
-    "encrypt string using unix-crypt (des) algorithm"
+def des_encrypt_rounds(input, salt, rounds, key):
+    #load tables if not already done
+    global PCXROT
     if PCXROT is None:
         load_tables()
 
-    #parse key values
-    if '\x00' in key:
-        #builtin linux crypt doesn't like this, so we don't either
-        #XXX: would make more sense to raise ValueError, but want to be compatible w/ stdlib crypt
-        raise ValueError, "key must be string without null bytes"
+    #convert key int -> key schedule
+    key_sched = des_setkey(key)
 
-    #XXX: doesn't match stdlib, but just to useful to not add in
-    if isinstance(key, unicode):
-        key = key.encode("utf-8")
+    #run data through des using input of 0
+    return des_cipher(input, salt, rounds, key_sched)
 
-    #parse salt into bytes
-    if not salt or len(salt) < 2:
+#=========================================================
+#crypt frontend
+#=========================================================
+def _crypt_secret_to_key(secret):
+    key_value = 0
+    for i, c in enumerate(secret[:8]):
+        key_value |= ord(c) << (57-8*i)
+    return key_value
+
+def crypt(secret, config):
+    "encrypt string using unix-crypt (des) algorithm"
+    #parse config
+    if not config or len(config) < 2:
         raise ValueError, "invalid salt"
 
-    sa, sb = salt[0:2]
+    salt = config[:2]
     try:
-        salt_value = (b64_decode(sb) << 6) + b64_decode(sa)
-    except KeyError:
-        raise ValueError, "invalid salt"
+        salt_value = b64_decode_int12(salt)
+    except ValueError:
+        raise ValueError, "invalid chars in salt"
     #FIXME: ^ this will throws error if bad salt chars are used
     # whereas linux crypt does something (inexplicable) with it
 
-    #convert key string into an integer
-    if len(key) < 8:
-        key = key + '\x00' * 8
-    key_value = 0
-    for c in key[:8]:
-        key_value <<= 8
-        key_value |= 2 * ord(c)
+    #validate secret
+    if '\x00' in secret:
+        #builtin linux crypt doesn't like this, so we don't either
+        #XXX: would make more sense to raise ValueError, but want to be compatible w/ stdlib crypt
+        raise ValueError, "secret must be string without null bytes"
 
-    #convert key int -> key schedule
-    key_sched = des_setkey(key_value)
+    #XXX: doesn't match stdlib, but just to useful to not add in
+    if isinstance(secret, unicode):
+        secret = secret.encode("utf-8")
+
+    #convert secret string into an integer
+    key_value = _crypt_secret_to_key(secret)
 
     #run data through des using input of 0
-    result = des_cipher(0, salt_value, 25, key_sched)
+    result = des_encrypt_rounds(0, salt_value, 25, key_value)
 
-    #run b64 encode on result
-    out = [sa, sb] + [None] * 10 + [ b64_encode((result<<2)&0x3f) ]
-    result >>= 4
-    for i in RR12_1:
-        out[i] = b64_encode(result&0x3f)
-        result >>= 6
-    return "".join(out)
+    #run h64 encode on result
+    return salt + b64_encode_int64(result)
+
+#=========================================================
+#ext crypt frontend
+#=========================================================
+def raw_ext_crypt(secret, salt, rounds):
+    "ext_crypt() helper which returns checksum only"
+
+    #decode salt
+    try:
+        salt_value = b64_decode_int24(salt)
+    except ValueError:
+        raise ValueError, "invalid salt"
+
+    #validate secret
+    if '\x00' in secret:
+        #builtin linux crypt doesn't like this, so we don't either
+        #XXX: would make more sense to raise ValueError, but want to be compatible w/ stdlib crypt
+        raise ValueError, "secret must be string without null bytes"
+
+    #XXX: doesn't match stdlib, but just to useful to not add in
+    if isinstance(secret, unicode):
+        secret = secret.encode("utf-8")
+
+    #convert secret string into an integer
+    key_value = _crypt_secret_to_key(secret)
+    while len(secret) > 8:
+        secret = secret[8:]
+        key_value = des_encrypt_rounds(key_value, 0, 1, key_value)
+        for i,c in enumerate(secret[:8]):
+            key_value ^= ord(c)<<(57-8*i)
+
+    #run data through des using input of 0
+    result = des_encrypt_rounds(0, salt_value, rounds, key_value)
+
+    #run h64 encode on result
+    return b64_encode_int64(result)
+
+def ext_crypt(secret, config):
+    "perform extended unix crypt (BSDi's 3DES modification of crypt)"
+    if not config or len(config) < 5 or not config.startswith("_"):
+        raise ValueError, "invalid config string"
+    try:
+        rounds = b64_decode_int24(config[1:5])
+    except ValueError:
+        raise ValueError, "invalid rounds specification"
+    salt = config[5:9]
+    return config[:9] + raw_ext_crypt(secret, salt, rounds)
 
 #=========================================================
 #eof

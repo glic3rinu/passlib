@@ -22,13 +22,14 @@ from passlib.handler import ExtCryptHandler, register_crypt_handler
 #local
 __all__ = [
     'DesCrypt',
-##    'crypt', 'backend'
+    'ExtDesCrypt',
 ]
 
 #=========================================================
 #load unix crypt backend
 #=========================================================
 try:
+    import xxxxx
     #try stdlib module, which is only present under posix
     from crypt import crypt as _crypt
 
@@ -67,7 +68,7 @@ except ImportError:
     from passlib.utils._slow_des_crypt import crypt
     backend = "builtin"
 
-##from passlib.utils._slow_des_crypt import raw_ext_crypt
+from passlib.utils._slow_des_crypt import raw_ext_crypt, b64_decode_int24, b64_encode_int24
 
 #=========================================================
 #old unix crypt
@@ -83,7 +84,7 @@ class DesCrypt(ExtCryptHandler):
     name = "des-crypt"
     aliases = ("unix-crypt",)
 
-    setting_kwds = ()
+    setting_kwds = ("salt")
 
     salt_bytes = 6*2/8.0
     checksum_bytes = 6*11/8.0
@@ -140,70 +141,95 @@ class DesCrypt(ExtCryptHandler):
 register_crypt_handler(DesCrypt)
 
 #=========================================================
-#
+#extended des crypt
 #=========================================================
-#TODO: find a source for this algorithm, and convert it to python.
-# also need to find some test sources.
+#refs - 
+# http://fuse4bsd.creo.hu/localcgi/man-cgi.cgi?crypt+3
+# http://search.cpan.org/dist/Authen-Passphrase/lib/Authen/Passphrase/DESCrypt.pm
 
-##class ExtDesCrypt(CryptHandlerHelper):
-##    """extended des crypt (3des based)
-##
-##    this algorithm was used on some systems
-##    during the time between the original crypt()
-##    and the development of md5-crypt and the modular crypt format.
-##
-##    thus, it doesn't follow the normal format.
-##    """
-##
-##    #=========================================================
-##    #crypt information
-##    #=========================================================
-##    name = "ext-des-crypt"
-##
-##    setting_kwds = ()
-##
-##    salt_bytes = 6*8/8.0
-##    checksum_bytes = 6*11/8.0
-##    secret_chars = -1 # ???
-##
-##    salt_chars = 8
-##
-##    #=========================================================
-##    #frontend
-##    #=========================================================
-##
-##    #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
-##    _pat = re.compile(r"""
-##        ^
-##        _
-##        (?P<salt>[./a-z0-9]{8})
-##        (?P<chk>[./a-z0-9]{11})
-##        $""", re.X|re.I)
-##
-##    @classmethod
-##    def identify(cls, hash):
-##        return bool(hash and cls._pat.match(hash))
-##
-##    @classmethod
-##    def parse(cls, hash):
-##        m = cls._pat.match(hash)
-##        if not m:
-##            raise ValueError, "not a ext-des-crypt hash"
-##        return dict(
-##            salt=m.group("salt"),
-##            checksum=m.group("chk")
-##        )
-##
-##    @classmethod
-##    def encrypt(cls, secret, salt=None):
-##        salt = cls._norm_salt(salt)
-##        return ext_crypt(secret, salt)
-##
-##    @classmethod
-##    def verify(cls, secret, hash):
-##        info = cls.parse(hash)
-##        return info['checksum'] == raw_ext_crypt(secret, info['salt'])
+class ExtDesCrypt(ExtCryptHandler):
+    """Extended BSDi DES Crypt
 
+    this algorithm was used on some systems
+    during the time between the original crypt()
+    and the development of md5-crypt and the modular crypt format.
+
+    thus, it doesn't follow the normal format,
+    but it does enhance the crypt algorithm to include
+    all chars, and adds a rounds parameter.
+    """
+
+    #=========================================================
+    #crypt information
+    #=========================================================
+    name = "ext-des-crypt"
+
+    setting_kwds = ("salt", "rounds")
+
+    salt_bytes = 6*4/8.0
+    checksum_bytes = 6*11/8.0
+    secret_chars = -1
+
+    salt_chars = 4
+
+    #NOTE: this has variable rounds, but it's so old we just max them out by default
+    #if this is ever used, since it's so weak to begin with
+    default_rounds = 1000
+    default_rounds_range = 64
+    min_rounds = 25
+    max_rounds = 4095
+
+    #=========================================================
+    #frontend
+    #=========================================================
+
+    #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
+    _pat = re.compile(r"""
+        ^
+        _
+        (?P<rounds>[./a-z0-9]{4})
+        (?P<salt>[./a-z0-9]{4})
+        (?P<chk>[./a-z0-9]{11})
+        $""", re.X|re.I)
+
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
+
+    @classmethod
+    def parse(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "not a ext-des-crypt hash"
+        return dict(
+            rounds=b64_decode_int24(m.group("rounds")),
+            salt=m.group("salt"),
+            checksum=m.group("chk")
+        )
+
+    @classmethod
+    def render(cls, checksum, salt, rounds):
+        if len(salt) != 4:
+            raise ValueError, "invalid salt"
+        if len(checksum) != 11:
+            raise ValueError, "invalid checksum"
+        return "_%s%s%s" % (b64_encode_int24(rounds), salt, checksum)
+
+    @classmethod
+    def encrypt(cls, secret, salt=None, rounds=None):
+        salt = cls._norm_salt(salt)
+        rounds = cls._norm_rounds(rounds)
+        chk = raw_ext_crypt(secret, salt, rounds)
+        return cls.render(chk, salt, rounds)
+
+    @classmethod
+    def verify(cls, secret, hash):
+        info = cls.parse(hash)
+        return info['checksum'] == raw_ext_crypt(secret, info['salt'], info['rounds'])
+
+register_crypt_handler(ExtDesCrypt)
 #=========================================================
 # eof
 #=========================================================

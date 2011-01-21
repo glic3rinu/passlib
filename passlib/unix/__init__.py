@@ -3,14 +3,13 @@
 #=========================================================
 #import standard hash algorithms
 #=========================================================
-import passlib.unix.des_crypt #registers "des-crypt" handler
-
-#TODO: support briefly used "extended des crypt" algorithm.
-# http://fuse4bsd.creo.hu/localcgi/man-cgi.cgi?crypt+3
+import passlib.unix.des_crypt #registers "des-crypt", "ext-des-crypt" handlers
 
 #TODO: support sun-md5-crypt, precursor to md5_crypt
 # http://dropsafe.crypticide.com/article/1389
 # http://www.cuddletech.com/blog/pivot/entry.php?id=778
+
+#TODO: Mac OSX salted sha1 hashes  - need reference
 
 import passlib.unix.md5_crypt #registers "md5-crypt" handler
 import passlib.unix.bcrypt #registers "bcrypt" handler
