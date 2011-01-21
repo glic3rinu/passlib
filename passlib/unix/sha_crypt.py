@@ -99,19 +99,22 @@ class _ShaCrypt(ExtCryptHandler):
             salt = salt[:16]
 
         def extend(source, size_ref):
+            "helper which repeats <source> digest string until it's the same length as <size_ref> string"
+            assert len(source) == chunk_size
             size = len(size_ref)
             return source * int(size/chunk_size) + source[:size % chunk_size]
 
         #calc digest B
         b = hash(secret)
-        a = b.copy()
         b.update(salt)
+        a = b.copy()
         b.update(secret)
         b_result = b.digest()
         b_extend = extend(b_result, secret)
 
         #begin digest A
-        a.update(salt)
+        #a = hash(secret)
+        #a.update(salt)
         a.update(b_extend)
 
         #for each bit in slen, add B or SECRET
@@ -131,27 +134,59 @@ class _ShaCrypt(ExtCryptHandler):
         dp_result = extend(dp.digest(), secret)
 
         #calc DS
-        ds = hash()
-        for i in xrange(0, 16+ord(a_result[0])):
-            ds.update(salt)
+        ds = hash(salt * (16+ord(a_result[0])))
         ds_result = extend(ds.digest(), salt) #aka 'S'
 
+        #
         #calc digest C
+        #NOTE: this has been contorted a little to allow pre-computing
+        #some of the hashes. the original algorithm was:
+        #each round's hash is composed of:
+        #   if round%2>0 => dp else lr
+        #   if round%3>0 => ds
+        #   if round%7>0 => dp
+        #   if round%2>0 => lr else dp
+        #where lr is result of last round (initially = a_result)
+        #
+
+        #pre-calculate some digests to speed up odd rounds
+        dp_hash = hash(dp_result).copy
+        dp_ds_hash = hash(dp_result + ds_result).copy
+        dp_dp_hash = hash(dp_result * 2).copy
+        dp_ds_dp_hash = hash(dp_result + ds_result + dp_result).copy
+
+        #pre-calculate some strings to speed up even rounds
+        ds_dp_result = ds_result + dp_result
+        dp_dp_result = dp_result * 2
+        ds_dp_dp_result = ds_result + dp_dp_result
+
         last_result = a_result
-        for i in xrange(0, rounds):
+        i = 0
+        while i < rounds:
             if i % 2:
-                c = hash(dp_result)
-            else:
-                c = hash(last_result)
-            if i % 3:
-                c.update(ds_result)
-            if i % 7:
-                c.update(dp_result)
-            if i % 2:
+                if i % 3:
+                    if i % 7:
+                        c = dp_ds_dp_hash()
+                    else:
+                        c = dp_ds_hash()
+                elif i % 7:
+                    c = dp_dp_hash()
+                else:
+                    c = dp_hash()
                 c.update(last_result)
             else:
-                c.update(dp_result)
+                c = hash(last_result)
+                if i % 3:
+                    if i % 7:
+                        c.update(ds_dp_dp_result)
+                    else:
+                        c.update(ds_dp_result)
+                elif i % 7:
+                    c.update(dp_dp_result)
+                else:
+                    c.update(dp_result)
             last_result = c.digest()
+            i += 1
 
         #encode result using 256/512 specific func
         return cls._encode(last_result), salt, rounds
@@ -165,7 +200,7 @@ class _ShaCrypt(ExtCryptHandler):
             ^
             \$(?P<ident>""" + cls._ident + r""")
             (\$rounds=(?P<rounds>\d+))?
-            \$(?P<salt>[A-Za-z0-9./]+)
+            \$(?P<salt>[^$]+)
             $
             """, config, re.X)
         if not m:
