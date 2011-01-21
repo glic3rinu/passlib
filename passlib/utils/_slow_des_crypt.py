@@ -101,13 +101,19 @@ def b64_encode_int64(value):
     return "".join(out)
 
 #=========================================================
-#precalculated iteration ranges
+#precalculated iteration ranges & constants
 #=========================================================
 R8 = range(8)
 RR8 = range(7, -1, -1)
 RR4 = range(3, -1, -1)
 RR12_1 = range(11, 1, -1)
 RR9_1 = range(9,-1,-1)
+
+RR6_S2 = range(6, -1, -2)
+RR14_S2 = range(14, -1, -2)
+R16_S2 = range(0, 16, 2)
+
+INT_64_MAX = 0xffffffffffffffffL # 2**64-1
 
 #=========================================================
 # static tables for des
@@ -588,8 +594,8 @@ def perm6464(c, p):
     """Returns the permutation of the given 64-bit code with
     the specified permutataion table."""
     out = 0
-    for i in RR8:
-        out |= p[i<<1][c&0x0f] | p[(i<<1)+1][(c>>4) & 0x0f]
+    for i in RR14_S2:
+        out |= p[i][c&0x0f] | p[i+1][(c>>4) & 0x0f]
         c >>= 8
     return out
 
@@ -597,13 +603,14 @@ def perm3264(c, p):
     """Returns the permutation of the given 32-bit code with
     the specified permutataion table."""
     out = 0
-    for i in RR4:
-        out |= p[i<<1][c&0x0f] | p[(i<<1)+1][(c>>4)&0x0f]
+    for i in RR6_S2:
+        out |= p[i][c&0x0f] | p[i+1][(c>>4)&0x0f]
         c >>= 8
     return out
 
 def des_setkey(keyword):
     "Returns the key schedule for the given key."
+    assert 0 <= keyword <= INT_64_MAX, "key value out of range"
     def _gen(K):
         for p in PCXROT:
             K = perm6464(K, p)
@@ -618,51 +625,62 @@ def to_six_bit_int(num):
         ((num & 0xfc0000) >> 16)
         )
 
-def des_cipher(input, salt, num_iter, KS):
+def des_cipher(input, salt, rounds, KS):
     """Returns the DES encrypted code of the given word with the specified environment."""
-    salt = to_six_bit_int(salt)
-    R = L = input
-    L &= 0x5555555555555555
-    R = (R & 0xaaaaaaaa00000000L) | ((R >> 1) & 0x0000000055555555L)
-    C = (
-            (((L << 1) | (L << 32)) & 0xffffffff00000000L)
-        |
-            ((R | (R >> 32)) & 0x00000000ffffffffL)
-        )
+    assert rounds >= 0
+    assert 0 <= input <= INT_64_MAX, "input value out of range"
 
-    L = perm3264((C>>32), IE3264)
-    R = perm3264((C&0xffffffff), IE3264)
+    salt = to_six_bit_int(salt) & 0xffffffff
+
+    L = ((input >> 31) & 0xaaaaaaaa) | (input & 0x55555555)
+    L = perm3264(L, IE3264)
+
+    R = ((input >> 32) & 0xaaaaaaaa) | ((input >> 1) & 0x55555555)
+    R = perm3264(R, IE3264)
+
+    #pre-calc kp list
+    kp_list = [
+        (KS[offset], KS[offset+1])
+        for offset in R16_S2
+    ]
+
+    #load SPE into locals
+    SPE0, SPE1, SPE2, SPE3, SPE4, SPE5, SPE6, SPE7 = SPE
 
     #run specified number of passed
-    while num_iter >= 1:
-        num_iter -= 1
+    while rounds:
+        rounds -= 1
+
         #run over each part of the schedule
-        for loop_count in R8:
-            kp = KS[(loop_count<<1)]
-            k = ((R>>32) ^ R) & salt & 0xffffffff
-            k |= (k<<32)
-            B = (k ^ R ^ kp)
+        for kp_even, kp_odd in kp_list:
+            k = ((R>>32) ^ R) & salt
+            B = (k<<32) ^ k ^ R ^ kp_even
 
-            L ^= (SPE[0][(B>>58)&0x3f] ^ SPE[1][(B>>50)&0x3f] ^
-                  SPE[2][(B>>42)&0x3f] ^ SPE[3][(B>>34)&0x3f] ^
-                  SPE[4][(B>>26)&0x3f] ^ SPE[5][(B>>18)&0x3f] ^
-                  SPE[6][(B>>10)&0x3f] ^ SPE[7][(B>>2)&0x3f])
+            L ^= (SPE0[(B>>58)&0x3f] ^ SPE1[(B>>50)&0x3f] ^
+                  SPE2[(B>>42)&0x3f] ^ SPE3[(B>>34)&0x3f] ^
+                  SPE4[(B>>26)&0x3f] ^ SPE5[(B>>18)&0x3f] ^
+                  SPE6[(B>>10)&0x3f] ^ SPE7[(B>>2)&0x3f])
 
-            kp = KS[(loop_count<<1)+1]
-            k = ((L>>32) ^ L) & salt & 0xffffffff
-            k |= (k<<32)
-            B = (k ^ L ^ kp)
+            k = ((L>>32) ^ L) & salt
+            B = (k<<32) ^ k ^ L ^ kp_odd
 
-            R ^= (SPE[0][(B>>58)&0x3f] ^ SPE[1][(B>>50)&0x3f] ^
-                  SPE[2][(B>>42)&0x3f] ^ SPE[3][(B>>34)&0x3f] ^
-                  SPE[4][(B>>26)&0x3f] ^ SPE[5][(B>>18)&0x3f] ^
-                  SPE[6][(B>>10)&0x3f] ^ SPE[7][(B>>2)&0x3f])
+            R ^= (SPE0[(B>>58)&0x3f] ^ SPE1[(B>>50)&0x3f] ^
+                  SPE2[(B>>42)&0x3f] ^ SPE3[(B>>34)&0x3f] ^
+                  SPE4[(B>>26)&0x3f] ^ SPE5[(B>>18)&0x3f] ^
+                  SPE6[(B>>10)&0x3f] ^ SPE7[(B>>2)&0x3f])
 
         # swap L and R
         L, R = R, L
 
-    C = ((((L>>35) & 0x0f0f0f0fL) | (((L&0xffffffff)<<1) & 0xf0f0f0f0L))<<32 |
-         (((R>>35) & 0x0f0f0f0fL) | (((R&0xffffffff)<<1) & 0xf0f0f0f0L)))
+    C = (
+            ((L>>3) &  0x0f0f0f0f00000000L)
+            |
+            ((L<<33) & 0xf0f0f0f000000000L)
+            |
+            ((R>>35) & 0x000000000f0f0f0fL)
+            |
+            ((R<<1) &  0x00000000f0f0f0f0L)
+        )
 
     C = perm6464(C, CF6464)
 
@@ -689,7 +707,7 @@ def des_encrypt_rounds(input, salt, rounds, key):
 def _crypt_secret_to_key(secret):
     key_value = 0
     for i, c in enumerate(secret[:8]):
-        key_value |= ord(c) << (57-8*i)
+        key_value |= (ord(c)&0x7f) << (57-8*i)
     return key_value
 
 def crypt(secret, config):
@@ -753,7 +771,7 @@ def raw_ext_crypt(secret, salt, rounds):
         secret = secret[8:]
         key_value = des_encrypt_rounds(key_value, 0, 1, key_value)
         for i,c in enumerate(secret[:8]):
-            key_value ^= ord(c)<<(57-8*i)
+            key_value ^= (ord(c)&0x7f)<<(57-8*i)
 
     #run data through des using input of 0
     result = des_encrypt_rounds(0, salt_value, rounds, key_value)
