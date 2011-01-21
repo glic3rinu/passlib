@@ -62,8 +62,9 @@ is not available::
 #=========================================================
 #core
 from cStringIO import StringIO
+from struct import pack
 #pkg
-from passlib.utils import bytes_to_list, list_to_bytes, rng, getrandbytes
+from passlib.utils import rng, getrandbytes
 #local
 __all__ = [
     'hashpw',
@@ -90,6 +91,8 @@ BLOWFISH_P = [
     0xc0ac29b7, 0xc97c50dd, 0x3f84d5b5, 0xb5470917,
     0x9216d5d9, 0x8979fb1b
 ]
+
+BLOWFISH_P_LEN = len(BLOWFISH_P)
 
 BLOWFISH_S = [
     0xd1310ba6, 0x98dfb5ac, 0x2ffd72db, 0xd01adfb7,
@@ -350,11 +353,15 @@ BLOWFISH_S = [
     0xb74e6132, 0xce77e25b, 0x578fdfe3, 0x3ac372e6
 ];
 
+BLOWFISH_S_LEN = len(BLOWFISH_S)
+
 # bcrypt IV: "OrpheanBeholderScryDoubt"
 BF_CRYPT_CIPHERTEXT = [ # 6 int
     0x4f727068, 0x65616e42, 0x65686f6c,
     0x64657253, 0x63727944, 0x6f756274
 ]
+
+BF_CRYPT_CIPHERLEN = len(BF_CRYPT_CIPHERTEXT)
 
 #(unencoded) length of bcrypt chk length
 BCRYPT_CHK_LEN = len(BF_CRYPT_CIPHERTEXT)*4-1
@@ -466,25 +473,53 @@ def decode_base64(s):
 #=========================================================
 #helpers
 #=========================================================
-def streamtoword(data, offp):
-    """Cycically extract a word of key material
-    :param data:	the string to extract the data from
-    :param offp:	a "pointer" (as a one-entry array) to the current offset into data
-    :returns: the next word of material from data
-    """
-    # data byte[]
-    # offp int[]
-    #return int
-    word = 0
-    off = offp[0]
+##def streamtoword(data, offp):
+##    """Cycically extract a word of key material
+##    :param data:	the string to extract the data from
+##    :param offp:	a "pointer" (as a one-entry array) to the current offset into data
+##    :returns: the next word of material from data
+##    """
+##    # data byte[]
+##    # offp int[]
+##    #return int
+##    word = 0
+##    off = offp[0]
+##    dlen = len(data)
+##
+##    for i in xrange(0, 4):
+##        word = (word << 8) | ord(data[off])
+##        off = (off + 1) % dlen
+##
+##    offp[0] = off
+##    return word
+
+def iter_cyclic_words(data):
+    """return generator which translates bytes into sequence of word-sized ints;
+    cyclically restarting at beginning when it reaches end"""
+    off = 0
     dlen = len(data)
 
-    for i in xrange(0, 4):
-        word = (word << 8) | ord(data[off])
-        off = (off + 1) % dlen
+    #duplicate data chunk until it's a multiple of 4.
+    #this make the loop cheaper to iterate
+    m = dlen % 4
+    if m == 1 or m == 3:
+        dlen <<= 2
+        data *= 4
+    elif m == 2:
+        dlen <<= 1
+        data *= 2
 
-    offp[0] = off
-    return word
+    while True:
+        yield (
+            (ord(data[off])<<24) +
+            (ord(data[off+1])<<16) +
+            (ord(data[off+2])<<8) +
+            (ord(data[off+3]))
+        )
+        off += 4
+        if off == dlen:
+            off = 0
+        assert off < dlen
 
 def encode_hash(minor, rounds, salt, chk=None):
     "helper for formatting hash string"
@@ -499,149 +534,136 @@ def encode_hash(minor, rounds, salt, chk=None):
 #=========================================================
 #hash class
 #=========================================================
-class BCrypt(object):
 
-    #private copy of keys
-    P = None
-    S = None
+RPLEN = range(0, BLOWFISH_P_LEN)
+RPLEN_S2 = range(0, BLOWFISH_P_LEN, 2)
+RSLEN_S2 = range(0, BLOWFISH_S_LEN, 2)
 
-    def encipher(self, lr, off):
-        """Blowfish encipher a single 64-bit block encoded as two 32-bit halves
-        :param lr:	an array containing the two 32-bit half blocks
-        :param off:	the position in the array of the blocks
-        """
-        P, S = self.P, self.S
+RRND_S2 = range(0, BLOWFISH_NUM_ROUNDS-1, 2)
+RRND_S4 = range(0, BLOWFISH_NUM_ROUNDS-1, 4)
+RCLEN_S2 = range(0, BF_CRYPT_CIPHERLEN, 2)
 
-        l = lr[off]
-        r = lr[off+1]
+BLOWFISH_NUM_ROUNDS_ONE = BLOWFISH_NUM_ROUNDS+1
 
-        l ^= P[0];
-        for i in xrange(0, BLOWFISH_NUM_ROUNDS-1, 2):
+MASK_32 = 0xFfffFfff
+
+CHK_PACK = ">" + "I" * BF_CRYPT_CIPHERLEN
+
+def raw_bcrypt(password, salt, log_rounds):
+    """perform central password hashing step in bcrypt scheme.
+
+    :param password: the password to hash
+    :param salt: the binary salt to use
+    :param rounds: the log2 of the number of rounds
+    :returns: array containing hashed password
+    """
+    # password byte[]
+    # salt byte[]
+    # log_rounds int
+    # returns byte[]
+
+    if log_rounds < BCRYPT_MIN_ROUNDS or log_rounds > BCRYPT_MAX_ROUNDS:
+        raise ValueError, "Bad number of rounds"
+    if len(salt) != BCRYPT_SALT_LEN:
+        raise ValueError, "Bad salt length: %r" % salt
+
+    #
+    #init blowfish key schedule
+    #
+    P = list(BLOWFISH_P)
+    S = list(BLOWFISH_S)
+
+    def encipher(l, r):
+        """Blowfish encipher a single 64-bit block encoded as two 32-bit halves"""
+        l ^= P[0]
+        for i in RRND_S2:
             # Feistel substitution on left word
-            n = S[(l >> 24) & 0xff]
-            n += S[0x100 | ((l >> 16) & 0xff)]
-            n ^= S[0x200 | ((l >> 8) & 0xff)]
-            n += S[0x300 | (l & 0xff)]
-            r ^= n ^ P[i+1]
-
+            r ^= ((((S[(l >> 24) & 0xff] +
+                     S[0x100 | ((l >> 16) & 0xff)]
+                    ) ^ S[0x200 | ((l >> 8) & 0xff)]
+                   ) + S[0x300 | (l & 0xff)]
+                  ) & MASK_32
+                 ) ^ P[i+1]
             # Feistel substitution on right word
-            n = S[(r >> 24) & 0xff]
-            n += S[0x100 | ((r >> 16) & 0xff)]
-            n ^= S[0x200 | ((r >> 8) & 0xff)]
-            n += S[0x300 | (r & 0xff)]
-            l ^= n ^ P[i+2]
+            l ^= ((((S[(r >> 24) & 0xff] +
+                     S[0x100 | ((r >> 16) & 0xff)]
+                    ) ^ S[0x200 | ((r >> 8) & 0xff)]
+                   ) + S[0x300 | (r & 0xff)]
+                  ) & MASK_32
+                 ) ^ P[i+2]
+        return r ^ P[BLOWFISH_NUM_ROUNDS_ONE], l
 
-        lr[off] = r ^ P[BLOWFISH_NUM_ROUNDS + 1]
-        lr[off + 1] = l
+    #
+    #Perform the "enhanced key schedule" step described by
+    #Provos and Mazieres in "A Future-Adaptable Password Scheme"
+    #http:#www.openbsd.org/papers/bcrypt-paper.ps
+    #
+    #uses password as key, salt as data
+    #
+    pass_iter = iter_cyclic_words(password).next
+    for i in RPLEN: ##xrange(BLOWFISH_P_LEN):
+        P[i] = P[i] ^ pass_iter() #streamtoword(password, koffp)
 
-    def init_key(self):
-        """
-    /**
-     * Initialise the Blowfish key schedule
-     */
-        """
-        self.P = list(BLOWFISH_P)
-        self.S = list(BLOWFISH_S)
+    l = r = 0
+    salt_iter = iter_cyclic_words(salt).next
+    for i in RPLEN_S2: ##xrange(0, BLOWFISH_P_LEN, 2):
+        l ^= salt_iter() #streamtoword(salt, doffp)
+        r ^= salt_iter() #streamtoword(salt, doffp)
+        P[i], P[i+1] = l,r = encipher(l,r)
 
-    def key(self, key):
-        """
-    /**
-     * Key the Blowfish cipher
-     * @param key	an array containing the key
-     */
-          """
-        #key byte[]
-        #return void
-        koffp = [0]
-        lr = [0, 0]
-        P, S = self.P, self.S
-        plen = len(P)
-        slen = len(S)
+    for i in RSLEN_S2: ##xrange(0, BLOWFISH_S_LEN, 2):
+        l ^= salt_iter() #streamtoword(salt, doffp)
+        r ^= salt_iter() #streamtoword(salt, doffp)
+        S[i], S[i+1] = l,r = encipher(l,r)
 
-        for i in xrange(plen):
-            P[i] = P[i] ^ streamtoword(key, koffp)
+    #
+    #precalculate key arrays for the rounds
+    #
+    def mkarray(key):
+        key_iter = iter_cyclic_words(key).next
+        return [
+            (i, key_iter())
+            for i in RPLEN ##xrange(BLOWFISH_P_LEN)
+        ]
+    key_word_arrays = [
+        mkarray(password),
+        mkarray(salt)
+    ]
 
-        for i in xrange(0, plen, 2):
-            self.encipher(lr, 0)
-            P[i] = lr[0]
-            P[i + 1] = lr[1]
+    #
+    #apply password & salt keys to key schedule
+    #
+    rounds = 1<<log_rounds
+    while rounds:
+        rounds -= 1
+        for key_words in key_word_arrays:
+            #
+            #key the Blowfish cipher
+            #
+            for i, word in key_words:
+                P[i] ^= word
+            l = r = 0
+            for i in RPLEN_S2:
+                P[i], P[i+1] = l,r = encipher(l,r)
+            for i in RSLEN_S2:
+                S[i], S[i+1] = l,r = encipher(l,r)
 
-        for i in xrange(0, slen, 2):
-            self.encipher(lr, 0)
-            S[i] = lr[0]
-            S[i + 1] = lr[1]
+    #
+    #encipher constant data
+    #
+    cdata = list(BF_CRYPT_CIPHERTEXT)
+    for j in RCLEN_S2:
+        l,r = cdata[j], cdata[j+1]
+        rounds = 64
+        while rounds:
+            rounds -= 1
+            l,r=encipher(l,r)
+        cdata[j], cdata[j+1] = l,r
 
-    def ekskey(self, data, key):
-        """Perform the "enhanced key schedule" step described by
-        Provos and Mazieres in "A Future-Adaptable Password Scheme"
-        http:#www.openbsd.org/papers/bcrypt-paper.ps
-
-        :param data:	salt information
-        :param key:	password information
-        """
-        P, S = self.P, self.S
-        koffp = [0]
-        doffp = [0]
-        lr = [0, 0]
-        plen = len(P)
-        slen = len(S)
-
-        for i in xrange(plen):
-            P[i] = P[i] ^ streamtoword(key, koffp)
-
-        for i in xrange(0, plen, 2):
-            lr[0] ^= streamtoword(data, doffp)
-            lr[1] ^= streamtoword(data, doffp)
-            self.encipher(lr, 0)
-            P[i] = lr[0]
-            P[i + 1] = lr[1]
-
-        for i in xrange(0, slen, 2):
-            lr[0] ^= streamtoword(data, doffp)
-            lr[1] ^= streamtoword(data, doffp)
-            self.encipher(lr, 0)
-            S[i] = lr[0]
-            S[i + 1] = lr[1]
-
-    def crypt_raw(self, password, salt, log_rounds):
-        """perform central password hashing step in bcrypt scheme.
-
-        :param password: the password to hash
-        :param salt: the binary salt to use
-        :param rounds: the log2 of the number of rounds
-        :returns: array containing hashed password
-        """
-        # password byte[]
-        # salt byte[]
-        # log_rounds int
-        # returns byte[]
-        cdata = list(BF_CRYPT_CIPHERTEXT)
-        clen = len(cdata)
-
-        if log_rounds < BCRYPT_MIN_ROUNDS or log_rounds > BCRYPT_MAX_ROUNDS:
-            raise ValueError, "Bad number of rounds"
-        if len(salt) != BCRYPT_SALT_LEN:
-            raise ValueError, "Bad salt length: %r" % salt
-
-        self.init_key()
-        self.ekskey(salt, password)
-        for i in xrange(1 << log_rounds):
-            self.key(password)
-            self.key(salt)
-
-        for i in xrange(64):
-            for j in xrange(clen>>1):
-                self.encipher(cdata, j << 1)
-
-        ret = [0] * (clen*4)
-        j = 0
-        for i in xrange(clen):
-            ret[j] = ((cdata[i] >> 24) & 0xff)
-            ret[j+1] = ((cdata[i] >> 16) & 0xff)
-            ret[j+2] = ((cdata[i] >> 8) & 0xff)
-            ret[j+3] = (cdata[i] & 0xff)
-            j += 4
-        return ret
+    #
+    #encode cdata buffer to bytes
+    #
+    return pack(CHK_PACK, *cdata)[:-1]
 
 #=========================================================
 #frontends
@@ -691,10 +713,9 @@ def hashpw(password, salt):
         passwordb += '\x00'
 
     #encrypt password
-    hashed = BCrypt().crypt_raw(passwordb, saltb, rounds)
+    chk = raw_bcrypt(passwordb, saltb, rounds)
 
     #return hash string
-    chk = list_to_bytes(hashed[:BCRYPT_CHK_LEN])
     if minor < 'a':
         minor = ''
     return encode_hash(minor, rounds, saltb, chk)
