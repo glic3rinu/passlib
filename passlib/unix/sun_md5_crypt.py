@@ -57,6 +57,7 @@ class SunMd5Crypt(ExtCryptHandler):
     checksum_bytes = 16
 
     salt_chars = 8
+    min_salt_chars = 0
 
     default_rounds = 5000
     min_rounds = 0
@@ -111,7 +112,7 @@ class SunMd5Crypt(ExtCryptHandler):
     @classmethod
     def _raw_encrypt(cls, secret, salt, rounds):
         "given secret & salt, return encoded md5-crypt checksum"
-        assert len(salt) == 8, "invalid salt length: %r" % (salt,)
+        assert len(salt) <= 8, "invalid salt length: %r" % (salt,)
 
         #normalize rounds
         if rounds <= 0:
@@ -200,7 +201,7 @@ class SunMd5Crypt(ExtCryptHandler):
         ^
         \$(?P<ident>md5)
         ([$,]rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]{8})
+        \$(?P<salt>[A-Za-z0-9./]{0,8})
         \$(?P<chk>[A-Za-z0-9./]{22})
         $
         """, re.X)
@@ -237,14 +238,20 @@ class SunMd5Crypt(ExtCryptHandler):
         )
 
     @classmethod
-    def encrypt(cls, secret, salt=None, rounds=None):
-        "encrypt an md5-crypt hash"
-        salt = cls._norm_salt(salt)
-        checksum = cls._raw_encrypt(secret, salt, rounds)
+    def render(cls, salt, rounds=0, checksum=None):
+        if not checksum:
+            checksum = ''
         if rounds:
             return "$md5,rounds=%d$%s$%s" % (rounds,salt, checksum)
         else:
             return "$md5$%s$%s" % (salt, checksum)
+
+    @classmethod
+    def encrypt(cls, secret, salt=None, rounds=None):
+        "encrypt an md5-crypt hash"
+        salt = cls._norm_salt(salt)
+        checksum = cls._raw_encrypt(secret, salt, rounds)
+        return cls.render(salt, rounds, checksum)
 
     @classmethod
     def verify(cls, secret, hash):
