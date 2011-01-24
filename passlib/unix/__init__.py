@@ -5,15 +5,18 @@
 #=========================================================
 import passlib.unix.des_crypt #registers "des-crypt", "ext-des-crypt" handlers
 
-#TODO: support sun-md5-crypt, precursor to md5_crypt
-# http://dropsafe.crypticide.com/article/1389
-# http://www.cuddletech.com/blog/pivot/entry.php?id=778
+#XXX: passlib.unix.sun_md5 is working, but hasn't been tested much,
+# so isn't imported by default.
 
 #TODO: Mac OSX salted sha1 hashes  - need reference
 
 import passlib.unix.md5_crypt #registers "md5-crypt" handler
 import passlib.unix.bcrypt #registers "bcrypt" handler
 import passlib.unix.sha_crypt #registers "sha256-crypt" and "sha512-crypt" handlers
+
+#other recognizers for shadow - NullHandler for empty string (always verify) and "*" (never verify)
+#also, a UnknownCryptHandler - given hash, detect if system crypt recognizes it,
+# allowing for pass-through for unknown ones.
 
 #=========================================================
 #build default context objects
