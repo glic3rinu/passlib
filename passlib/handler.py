@@ -367,6 +367,7 @@ class ExtCryptHandler(CryptHandler):
 
     salt_chars = None #fill in with (maxium) number of salt chars required, and _norm_salt() will handle truncating etc
     salt_charset = H64_CHARS #helper used when generating salt
+    salt_charpat = None #optional regexp used by _norm_salt to validate salts
 
     #override only if minimum number of salt chars is different from salt_chars
     @classproperty
@@ -460,14 +461,11 @@ class ExtCryptHandler(CryptHandler):
     @classmethod
     def verify(cls, secret, hash, **context):
         #NOTE: this is a default verify() implementation provided
-        # by ExtCryptAlgorithm, which should work for most classes,
-        # provided that comparing the checksums as returned by parse()
-        # is a valid way of comparing the two hashes.
+        # by ExtCryptAlgorithm, which should work for most classes.
         #
-        # simple string comparison of 'hash == other' was not used
-        # as the default behavior, since some algorithms have multiple possible
-        # encodings for the same hash (eg: case insensitivity, zero-padding
-        # of numeric options, etc)
+        # simple string comparison of hashes is used
+        # as the default behavior, since most algorithms
+        # were designed to be compared in this manner.
         assert all(key in cls.context_kwds for key in context), "one the following not a valid context kwd: %r" % (context,)
         settings = cls.parse(hash)
         settings.pop("checksum", None)
@@ -505,6 +503,15 @@ class ExtCryptHandler(CryptHandler):
         return getrandstr(rng, cls.salt_charset, cls.salt_chars)
 
     @classmethod
+    def _validate_salt_chars(cls, salt):
+        "validate chars in salt, used by _norm_salt"
+        cs = cls.salt_charset
+        for c in salt:
+            if c not in cs:
+                raise ValueError, "invalid character in %s salt: %r"  % (cls.name, c)
+        return salt
+
+    @classmethod
     def _norm_salt(cls, salt):
         """helper routine for normalizing salt
 
@@ -521,21 +528,18 @@ class ExtCryptHandler(CryptHandler):
         :returns:
             resulting or generated salt
         """
-        if not salt:
+        if salt is None:
             return cls._gen_salt()
 
-        cs = cls.salt_charset
-        for c in salt:
-            if c not in cs:
-                raise ValueError, "invalid character in %s salt: %r"  % (cls.name, c)
+        salt = cls._validate_salt_chars(salt)
 
         mn = cls.min_salt_chars
-        assert mn, "cls.min_salt_chars not set"
+        assert mn is not None, "cls.min_salt_chars not set"
         if len(salt) < mn:
             raise ValueError, "%s salt must be at least %d chars" % (cls.name, mn)
 
         mx = cls.salt_chars
-        assert mx, "cls.salt_chars not set"
+        assert mx is not None, "cls.salt_chars not set"
         if len(salt) > mx:
             #automatically clip things to specified number of chars
             return salt[:mx]

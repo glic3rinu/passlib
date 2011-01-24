@@ -29,7 +29,6 @@ __all__ = [
 #load unix crypt backend
 #=========================================================
 try:
-    import xxxxx
     #try stdlib module, which is only present under posix
     from crypt import crypt as _crypt
 
@@ -62,6 +61,9 @@ try:
 
     backend = "stdlib"
 except ImportError:
+    #XXX: could check for openssl passwd -des support in libssl
+
+
     #TODO: need to reconcile our implementation's behavior
     # with the stdlib's behavior so error types, messages, and limitations
     # are the same. (eg: handling of None and unicode chars)
@@ -143,7 +145,7 @@ register_crypt_handler(DesCrypt)
 #=========================================================
 #extended des crypt
 #=========================================================
-#refs - 
+#refs -
 # http://fuse4bsd.creo.hu/localcgi/man-cgi.cgi?crypt+3
 # http://search.cpan.org/dist/Authen-Passphrase/lib/Authen/Passphrase/DESCrypt.pm
 

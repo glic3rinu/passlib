@@ -61,18 +61,16 @@ if enable_test("backends"):
         def test512(self):
             "verify sha512 passes specification test vectors"
             handler = mod.Sha512Crypt
+            _raw_encrypt = mod.raw_sha512_crypt
 
             def raw_encrypt(secret, salt, rounds, implicit_rounds=False, ident=None):
-                checksum, salt, rounds = handler._raw_encrypt(secret, salt, rounds)
+                checksum, salt, rounds = _raw_encrypt(secret, salt, rounds)
                 return handler.render(rounds, salt, checksum, implicit_rounds)
 
             for hash, secret, result in self.cases512:
 
                 #parse salt
                 rec = handler.parse_config(hash)
-
-                #ensure identifier read correctly
-                self.assertEqual(rec['ident'], '6')
 
                 #encrypt secret, preserving rounds & salt
                 out = raw_encrypt(secret, **rec)
@@ -103,7 +101,7 @@ class Sha256CryptTest(_HandlerTestCase):
         )
     known_invalid = (
         #bad char in otherwise correct hash
-        '$5$rounds=10428$uy/jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMe!ZGsGx2aBvxTvDFI613c3'
+        '$5$rounds=10428$uy/:jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMeZGsGx2aBvxTvDFI613c3'
         )
 
 class Sha512CryptTest(_HandlerTestCase):
@@ -117,7 +115,7 @@ class Sha512CryptTest(_HandlerTestCase):
         )
     known_invalid = (
         #bad char in otherwise correct hash
-        '$6$rounds=11021$KsvQipYPWpr9!wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
+        '$6$rounds=11021$KsvQipYPWpr9:wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
         )
 
 #=========================================================

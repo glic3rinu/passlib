@@ -169,3 +169,32 @@ optional public methods
         and returns resulting hash.
 
         should generally act as the inverse of parse().
+
+======================================================================
+info about upgrade policy scheme, and sun-md5 ref...
+    http://www.cuddletech.com/blog/pivot/entry.php?id=778
+
+some sample hashes all using "passwd", including sunmd5
+    http://compgroups.net/comp.unix.solaris/password-file-in-linux-and-solaris-8-9
+
+nt-hash
+    md4.new(passwd.encode('utf-16le')).hexdigest().upper()
+
+    mygreatpasswd
+    CFACF72F5EB60EA15F89E3AF66732545
+
+    http://www.faqs.org/rfcs/rfc1320.html
+
+    $3$hash
+
+
+http://search.cpan.org/~zefram/Authen-Passphrase-0.007/lib/Authen/Passphrase.pm
+======================================================================
+
+policy file format
+
+[passlib.policy]
+des-crypt:decpreated = true
+sha512-crypt:default-rounds = 40000
+sha512-crypt:min-rounds = 30000
+sha512-crypt:max-rounds = 50000

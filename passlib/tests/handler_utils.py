@@ -134,7 +134,7 @@ class _HandlerTestCase(TestCase):
     def test_12_identify_invalid(self):
         "test identify() against known-invalid hashes"
         for hash in self.known_invalid:
-            self.assertEqual(self.do_identify(hash), False)
+            self.assertEqual(self.do_identify(hash), False, "hash=%r:" % (hash,))
 
     def test_13_identify_none(self):
         "test identify() against None / empty string"

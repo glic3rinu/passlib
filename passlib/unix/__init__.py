@@ -9,6 +9,7 @@ import passlib.unix.des_crypt #registers "des-crypt", "ext-des-crypt" handlers
 # so isn't imported by default.
 
 #TODO: Mac OSX salted sha1 hashes  - need reference
+#http://www.dribin.org/dave/blog/archives/2006/04/28/os_x_passwords_2/
 
 import passlib.unix.md5_crypt #registers "md5-crypt" handler
 import passlib.unix.bcrypt #registers "bcrypt" handler
@@ -29,6 +30,8 @@ default_context = CryptContext(["des-crypt", "md5-crypt", "bcrypt", "sha256-cryp
 #some general os-context helpers (these may not match your os policy exactly, but are generally useful)
 linux_context = CryptContext([ "des-crypt", "md5-crypt", "sha256-crypt", "sha512-crypt" ])
 bsd_context = CryptContext([ "des-crypt", "md5-crypt", "bcrypt" ])
+
+
 
 #=========================================================
 #eof

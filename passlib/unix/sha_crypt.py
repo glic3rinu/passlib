@@ -1,13 +1,59 @@
-"""passlib.sha_crypt - implements SHA-256-Crypt & SHA-512-Crypt
+"""passlib.unix.sha_crypt - implements SHA-256-Crypt & SHA-512-Crypt
 
-Implementation written based on specification at `<http://www.akkadia.org/drepper/SHA-crypt.txt>`_.
+This implementation is based on Ulrich Drepper's
+``sha-crypt specification <http://www.akkadia.org/drepper/sha-crypt.txt>``.
 It should be byte-compatible with unix shadow hashes beginning with ``$5$`` and ``$6%``.
-More details about specification at `<http://www.akkadia.org/drepper/sha-crypt.html>`_.
 
-XXX: spec says salt can be variable (8-16 chars), but implementation currently always generates 16 chars.
-    should at least make sure it can accept <16 chars properly
+About
+=====
+This implementation is based on Ulrich Drepper's
+``sha-crypt specification <http://www.akkadia.org/drepper/sha-crypt.txt>``.
+It should be byte-compatible with unix shadow hashes beginning with ``$5$`` and ``$6%``.
 
-NOTE: the spec says nothing about unicode, so we handle it by converting to utf-8
+This module is not intended to be used directly,
+but merely as a backend for :mod:`passlib.unix.sha_crypt`
+when native sha crypt support is not available.
+
+Deviations from the Specification
+=================================
+
+Unicode
+-------
+The sha-crypt specification makes no statement regarding
+the unicode support, it merely takes in a series of bytes.
+
+In order to support non-ascii passwords and :class:`unicode` class,
+this implementation makes the arbitrary decision to encode all unicode passwords
+to ``utf-8`` before passing it into the encryption function.
+
+Salt Length
+-----------
+The sha-crypt specification allows salt strings of length 0-16 inclusive.
+However, most implementations (including this one) will only
+generate salts of length 16, though they allow the full range.
+
+Salt Characters
+---------------
+The charset used by salt strings is poorly defined for sha-crypt.
+
+The sha-crypt spec does not make any statements about the allowable
+salt charset, one way or the other. Furthermore, the reference implementation
+within the spec, and linux implementation, cheerfully allow
+all 8-bit values besides ``\x00`` and ``$``, and excluding
+those not by choice, but due to implementation details.
+Thus the argument could be made that all other characters should be allowed.
+
+However, allowing the characters ``:`` and ``\n`` would cause
+problems for the most common application of this algorithm,
+storage in ``/etc/shadow``. As well, the most unix shadow suites
+only generate salts using the chars ``./0-9A-Za-z``.
+
+Thus, as a compromise, this implementation of sha-crypt
+will allow all salt characters except for ``\x00\n:$``,
+in order to support as much of the specification as feasible;
+but it will only generate salts using the chars ``./0-9A-Za-z``,
+in order to remain compatible with the majority of hashes
+out there, in case other tools have made different assumptions.
 """
 #=========================================================
 #imports
@@ -32,6 +78,190 @@ __all__ = [
 ]
 
 #=========================================================
+#pure-python backend
+#=========================================================
+def raw_sha_crypt(secret, salt, rounds, hash):
+    """perform raw sha crypt
+
+    :arg secret: password to encode (if unicode, encoded to utf-8)
+    :arg salt: salt string to use (required)
+    :arg rounds: int rounds
+    :arg hash: hash constructor function for 256/512 variant
+
+    :returns:
+        Returns tuple of ``(unencoded checksum, normalized salt, normalized rounds)``.
+
+    """
+    #validate secret
+    if isinstance(secret, unicode):
+        secret = secret.encode("utf-8")
+
+    #validate rounds
+    if rounds < 1000:
+        rounds = 1000
+    if rounds > 999999999:
+        rounds = 999999999
+
+    #validate salt
+    if any(c in salt for c in '\x00$'):
+        raise ValueError, "invalid chars in salt"
+    if len(salt) > 16:
+        salt = salt[:16]
+
+    #init helpers
+    def extend(source, size_ref):
+        "helper which repeats <source> digest string until it's the same length as <size_ref> string"
+        assert len(source) == chunk_size
+        size = len(size_ref)
+        return source * int(size/chunk_size) + source[:size % chunk_size]
+
+    #calc digest B
+    b = hash(secret)
+    chunk_size = b.digest_size #grab this once hash is created
+    b.update(salt)
+    a = b.copy() #make a copy to save a little time later
+    b.update(secret)
+    b_result = b.digest()
+    b_extend = extend(b_result, secret)
+
+    #begin digest A
+    #a = hash(secret) <- performed above
+    #a.update(salt) <- performed above
+    a.update(b_extend)
+
+    #for each bit in slen, add B or SECRET
+    value = len(secret)
+    while value > 0:
+        if value % 2:
+            a.update(b_result)
+        else:
+            a.update(secret)
+        value >>= 1
+
+    #finish A
+    a_result = a.digest()
+
+    #calc DP - hash of password, extended to size of password
+    dp = hash(secret * len(secret))
+    dp_result = extend(dp.digest(), secret)
+
+    #calc DS - hash of salt, extended to size of salt
+    ds = hash(salt * (16+ord(a_result[0])))
+    ds_result = extend(ds.digest(), salt) #aka 'S'
+
+    #
+    #calc digest C
+    #NOTE: this has been contorted a little to allow pre-computing
+    #some of the hashes. the original algorithm was that
+    #each round generates digest composed of:
+    #   if round%2>0 => dp else lr
+    #   if round%3>0 => ds
+    #   if round%7>0 => dp
+    #   if round%2>0 => lr else dp
+    #where lr is digest of the last round's hash (initially = a_result)
+    #
+
+    #pre-calculate some digests to speed up odd rounds
+    dp_hash = hash(dp_result).copy
+    dp_ds_hash = hash(dp_result + ds_result).copy
+    dp_dp_hash = hash(dp_result * 2).copy
+    dp_ds_dp_hash = hash(dp_result + ds_result + dp_result).copy
+
+    #pre-calculate some strings to speed up even rounds
+    ds_dp_result = ds_result + dp_result
+    dp_dp_result = dp_result * 2
+    ds_dp_dp_result = ds_result + dp_dp_result
+
+    #run through rounds
+    last_result = a_result
+    i = 0
+    while i < rounds:
+        if i % 2:
+            if i % 3:
+                if i % 7:
+                    c = dp_ds_dp_hash()
+                else:
+                    c = dp_ds_hash()
+            elif i % 7:
+                c = dp_dp_hash()
+            else:
+                c = dp_hash()
+            c.update(last_result)
+        else:
+            c = hash(last_result)
+            if i % 3:
+                if i % 7:
+                    c.update(ds_dp_dp_result)
+                else:
+                    c.update(ds_dp_result)
+            elif i % 7:
+                c.update(dp_dp_result)
+            else:
+                c.update(dp_result)
+        last_result = c.digest()
+        i += 1
+
+    #return unencoded result, along w/ normalized config values
+    return last_result, salt, rounds
+
+def raw_sha256_crypt(secret, salt, rounds):
+    "perform raw sha256-crypt; returns encoded checksum, normalized salt & rounds"
+    #run common crypt routine
+    result, salt, rounds = raw_sha_crypt(secret, salt, rounds, hashlib.sha256)
+
+    #encode result
+    out = ''
+    a, b, c = 0, 10, 20
+    while a < 30:
+        out += h64_encode_3_offsets(result, c, b, a)
+        a, b, c = c+1, a+1, b+1
+    assert a == 30, "loop went to far: %r" % (a,)
+    out += h64_encode_2_offsets(result, 30, 31)
+    assert len(out) == 43, "wrong length: %r" % (out,)
+    return out, salt, rounds
+
+def raw_sha512_crypt(secret, salt, rounds):
+    "perform raw sha512-crypt; returns encoded checksum, normalized salt & rounds"
+    #run common crypt routine
+    result, salt, rounds = raw_sha_crypt(secret, salt, rounds, hashlib.sha512)
+
+    #encode result
+    out = ''
+    a, b, c = 0, 21, 42
+    while c < 63:
+        out += h64_encode_3_offsets(result, c, b, a)
+        a, b, c = b+1, c+1, a+1
+    assert c == 63, "loop to far: %r" % (c,)
+    out += h64_encode_1_offset(result, 63)
+    assert len(out) == 86, "wrong length: %r" % (out,)
+    return out, salt, rounds
+
+#=========================================================
+#choose backend
+#=========================================================
+
+#fallback to default backend (defined above)
+backend = "builtin"
+
+#check if stdlib crypt is available, and if so, if OS supports $5$ and $6$
+#XXX: is this test expensive enough it should be delayed
+#until sha-crypt is requested?
+
+try:
+    from crypt import crypt
+except ImportError:
+    crypt = None
+else:
+    if (
+        crypt("test", "$5$rounds=1000$test") == "$5$rounds=1000$test$QmQADEXMG8POI5WDsaeho0P36yK3Tcrgboabng6bkb/"
+        and
+        crypt("test", "$6$rounds=1000$test") == "$6$rounds=1000$test$2M/Lx6MtobqjLjobw0Wmo4Q5OFx5nVLJvmgseatA6oMnyWeBdRDx4DU.1H3eGmse6pgsOgDisWBGI5c7TZauS0"
+        ):
+        backend = "stdlib"
+    else:
+        crypt = None
+
+#=========================================================
 #ids 5,6 -- sha
 #algorithm defined on this page:
 #   http://people.redhat.com/drepper/SHA-crypt.txt
@@ -49,8 +279,7 @@ class _ShaCrypt(ExtCryptHandler):
     salt_bytes = 12
     #checksum_bytes - provided by subclass
 
-    #NOTE: spec seems to allow shorter salts. not sure *how* short
-    min_salt_chars = 1
+    min_salt_chars = 0
     salt_chars = 16
 
     default_rounds = 40000
@@ -58,139 +287,21 @@ class _ShaCrypt(ExtCryptHandler):
     max_rounds = 999999999
 
     #=========================================================
-    #backend
+    #backend backend
     #=========================================================
+    _pat = None #regexp for hash string - provided by subclass
+    _ident = None #identifier hash string - provided by subclass
+    _raw_crypt = None #corresponding crypt func from builtin backend - provided by subclass
 
-    #------------------------------------------------
-    #provided by subclass
-    #------------------------------------------------
-    _hash = None #callable to use for hashing
-    _chunk_size = None #bytes at a time to input secret
-    _hash_size = None #bytes in hash
-    _pat = None #regexp for sha variant
-    _ident = None #identifier for specific subclass
-
-    @abstract_class_method
-    def _encode(cls, result):
-        "encode raw result into h64 style"
-
-    #------------------------------------------------
-    #common code
-    #------------------------------------------------
     @classmethod
-    def _raw_encrypt(cls, secret, salt, rounds):
-        "perform sha crypt, returning just the checksum"
-        #setup alg-specific parameters
-        hash = cls._hash
-        chunk_size = cls._chunk_size
+    def _validate_salt_chars(cls, salt):
+        #see documentation in _sha_crypt with regards to why we allow
+        #all chars except the following...
+        if any(c in salt for c in '\x00\n:$'):
+            raise ValueError, "invalid %s salt: '\\x00', '\\n', ':', and '$' chars forbidden" % (cls.name,)
+        return salt
 
-        #handle unicode
-        #FIXME: can't find definitive policy on how sha-crypt handles non-ascii.
-        if isinstance(secret, unicode):
-            secret = secret.encode("utf-8")
-
-        #init rounds
-        if rounds < 1000:
-            rounds = 1000
-        if rounds > 999999999:
-            rounds = 999999999
-
-        if len(salt) > 16:
-            salt = salt[:16]
-
-        def extend(source, size_ref):
-            "helper which repeats <source> digest string until it's the same length as <size_ref> string"
-            assert len(source) == chunk_size
-            size = len(size_ref)
-            return source * int(size/chunk_size) + source[:size % chunk_size]
-
-        #calc digest B
-        b = hash(secret)
-        b.update(salt)
-        a = b.copy()
-        b.update(secret)
-        b_result = b.digest()
-        b_extend = extend(b_result, secret)
-
-        #begin digest A
-        #a = hash(secret)
-        #a.update(salt)
-        a.update(b_extend)
-
-        #for each bit in slen, add B or SECRET
-        value = len(secret)
-        while value > 0:
-            if value % 2:
-                a.update(b_result)
-            else:
-                a.update(secret)
-            value >>= 1
-
-        #finish A
-        a_result = a.digest()
-
-        #calc DP
-        dp = hash(secret * len(secret))
-        dp_result = extend(dp.digest(), secret)
-
-        #calc DS
-        ds = hash(salt * (16+ord(a_result[0])))
-        ds_result = extend(ds.digest(), salt) #aka 'S'
-
-        #
-        #calc digest C
-        #NOTE: this has been contorted a little to allow pre-computing
-        #some of the hashes. the original algorithm was:
-        #each round's hash is composed of:
-        #   if round%2>0 => dp else lr
-        #   if round%3>0 => ds
-        #   if round%7>0 => dp
-        #   if round%2>0 => lr else dp
-        #where lr is result of last round (initially = a_result)
-        #
-
-        #pre-calculate some digests to speed up odd rounds
-        dp_hash = hash(dp_result).copy
-        dp_ds_hash = hash(dp_result + ds_result).copy
-        dp_dp_hash = hash(dp_result * 2).copy
-        dp_ds_dp_hash = hash(dp_result + ds_result + dp_result).copy
-
-        #pre-calculate some strings to speed up even rounds
-        ds_dp_result = ds_result + dp_result
-        dp_dp_result = dp_result * 2
-        ds_dp_dp_result = ds_result + dp_dp_result
-
-        last_result = a_result
-        i = 0
-        while i < rounds:
-            if i % 2:
-                if i % 3:
-                    if i % 7:
-                        c = dp_ds_dp_hash()
-                    else:
-                        c = dp_ds_hash()
-                elif i % 7:
-                    c = dp_dp_hash()
-                else:
-                    c = dp_hash()
-                c.update(last_result)
-            else:
-                c = hash(last_result)
-                if i % 3:
-                    if i % 7:
-                        c.update(ds_dp_dp_result)
-                    else:
-                        c.update(ds_dp_result)
-                elif i % 7:
-                    c.update(dp_dp_result)
-                else:
-                    c.update(dp_result)
-            last_result = c.digest()
-            i += 1
-
-        #encode result using 256/512 specific func
-        return cls._encode(last_result), salt, rounds
-
+    #TODO: merge this into parse()
     @classmethod
     def parse_config(cls, config):
         "parse partial hash containing just salt+rounds, with salt potentially too large"
@@ -198,17 +309,16 @@ class _ShaCrypt(ExtCryptHandler):
             raise ValueError, "invalid sha hash/salt"
         m = re.search(r"""
             ^
-            \$(?P<ident>""" + cls._ident + r""")
+            \$""" + cls._ident + r"""
             (\$rounds=(?P<rounds>\d+))?
-            \$(?P<salt>[^$]+)
+            \$(?P<salt>[^:$]*)
             $
             """, config, re.X)
         if not m:
             raise ValueError, "invalid sha hash/salt"
-        ident, rounds, salt = m.group("ident", "rounds", "salt")
+        rounds, salt = m.group("rounds", "salt")
         return dict(
             implicit_rounds = not rounds,
-            ident = ident,
             rounds = int(rounds) if rounds else 5000,
             salt = salt,
         )
@@ -230,7 +340,6 @@ class _ShaCrypt(ExtCryptHandler):
         if not m:
             raise ValueError, "invalid sha hash/salt"
         rounds, salt, chk = m.group("rounds", "salt", "chk")
-        assert m.group("ident") == cls._ident
         return dict(
             implicit_rounds = not rounds,
             rounds = int(rounds) if rounds else 5000,
@@ -239,17 +348,18 @@ class _ShaCrypt(ExtCryptHandler):
         )
 
     @classmethod
-    def render(cls, rounds, salt, checksum=None, implicit_rounds=False):
+    def render(cls, rounds, salt, checksum=None, implicit_rounds=True):
+        assert '$' not in salt
         if rounds == 5000 and implicit_rounds:
             out = "$%s$%s" % (cls._ident, salt)
         else:
             out = "$%s$rounds=%d$%s" % (cls._ident, rounds, salt)
-        if checksum is not None:
+        if checksum:
             out += "$" + checksum
         return out
 
     @classmethod
-    def encrypt(cls, secret, salt=None, rounds=None, implicit_rounds=False):
+    def encrypt(cls, secret, salt=None, rounds=None, implicit_rounds=True):
         """encrypt using sha256/512-crypt.
 
         In addition to the normal options that :meth:`CryptHandler.encrypt` takes,
@@ -265,14 +375,22 @@ class _ShaCrypt(ExtCryptHandler):
         """
         salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
-        checksum, salt, rounds = cls._raw_encrypt(secret, salt, rounds)
-        return cls.render(rounds, salt, checksum, implicit_rounds)
+        if crypt:
+            #using system's crypt routine.
+            config = cls.render(rounds, salt, None, implicit_rounds)
+            if isinstance(secret, unicode):
+                secret = secret.encode("utf-8")
+            return crypt(secret, config)
+        else:
+            #using builtin routine
+            checksum, salt, rounds = cls._raw_crypt(secret, salt, rounds)
+            return cls.render(rounds, salt, checksum, implicit_rounds)
 
     @classmethod
     def verify(cls, secret, hash):
         info = cls.parse(hash)
-        checksum, _, _ = cls._raw_encrypt(secret, info['salt'], info['rounds'])
-        return checksum == info['checksum']
+        del info['checksum']
+        return hash == cls.encrypt(secret, **info)
 
     #=========================================================
     #eoc
@@ -295,29 +413,17 @@ class Sha256Crypt(_ShaCrypt):
     #backend
     #=========================================================
     _ident = '5'
-    _hash = hashlib.sha256
-    _chunk_size = 32
 
     _pat = re.compile(r"""
         ^
         \$(?P<ident>5)
         (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]{1,16})
+        \$(?P<salt>[^:$]{0,16})
         \$(?P<chk>[A-Za-z0-9./]{43})
         $
         """, re.X)
 
-    @classmethod
-    def _encode(self, result):
-        out = ''
-        a, b, c = 0, 10, 20
-        while a < 30:
-            out += h64_encode_3_offsets(result, c, b, a)
-            a, b, c = c+1, a+1, b+1
-        assert a == 30, "loop went to far: %r" % (a,)
-        out += h64_encode_2_offsets(result, 30, 31)
-        assert len(out) == 43, "wrong length: %r" % (out,)
-        return out
+    _raw_crypt = raw_sha256_crypt
 
     #=========================================================
     #eof
@@ -365,29 +471,17 @@ class Sha512Crypt(_ShaCrypt):
     #backend
     #=========================================================
     _ident = '6'
-    _hash = hashlib.sha512
-    _chunk_size = 64
 
     _pat = re.compile(r"""
         ^
         \$(?P<ident>6)
         (\$rounds=(?P<rounds>\d+))?
-        \$(?P<salt>[A-Za-z0-9./]{1,16})
+        \$(?P<salt>[^:$]{0,16})
         \$(?P<chk>[A-Za-z0-9./]{86})
         $
         """, re.X)
 
-    @classmethod
-    def _encode(self, result):
-        out = ''
-        a, b, c = 0, 21, 42
-        while c < 63:
-            out += h64_encode_3_offsets(result, c, b, a)
-            a, b, c = b+1, c+1, a+1
-        assert c == 63, "loop to far: %r" % (c,)
-        out += h64_encode_1_offset(result, 63)
-        assert len(out) == 86, "wrong length: %r" % (out,)
-        return out
+    _raw_crypt = raw_sha512_crypt
 
     #=========================================================
     #eof
