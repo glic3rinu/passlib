@@ -1,6 +1,4 @@
 """passlib - implementation of various password hashing functions
-
-http://unix.derkeiler.com/Newsgroups/comp.unix.solaris/2004-04/0199.html
 """
 #=========================================================
 #imports
@@ -24,7 +22,7 @@ __all__ = [
 ]
 
 #=========================================================
-#backend
+#default backend
 #=========================================================
 def raw_md5_crypt(secret, salt, apr=False):
     "perform raw md5 encryption"
@@ -118,6 +116,29 @@ def raw_md5_crypt(secret, salt, apr=False):
     return out
 
 #=========================================================
+#choose backend
+#=========================================================
+
+#NOTE: AprMd5Crypt will always use builtin backend
+
+#fallback to default backend (defined above)
+backend = "builtin"
+
+#check if stdlib crypt is available, and if so, if OS supports $1$
+#XXX: is this test expensive enough it should be delayed
+#until md5-crypt is requested?
+
+try:
+    from crypt import crypt
+except ImportError:
+    crypt = None
+else:
+    if crypt("test", "$1$test") == '$1$test$pi/xDtU5WFVRqYS6BMU8X/':
+        backend = "stdlib"
+    else:
+        crypt = None
+
+#=========================================================
 #id 1 -- md5
 #=========================================================
 class Md5Crypt(ExtCryptHandler):
@@ -189,15 +210,21 @@ class Md5Crypt(ExtCryptHandler):
     def encrypt(cls, secret, salt=None):
         "encrypt an md5-crypt hash"
         salt = cls._norm_salt(salt)
-        checksum = cls._raw_encrypt(secret, salt)
-        return cls.render(salt=salt, checksum=checksum)
+        if crypt:
+            #use system implementation
+            config = cls.render(salt)
+            if isinstance(secret, unicode):
+                secret = secret.encode("utf-8")
+            return crypt(secret, config)
+        else:
+            checksum = cls._raw_encrypt(secret, salt)
+            return cls.render(salt=salt, checksum=checksum)
 
     @classmethod
     def verify(cls, secret, hash):
         "verify an md5-crypt hash"
         info = cls.parse(hash)
-        checksum = cls._raw_encrypt(secret, info['salt'])
-        return checksum == info['checksum']
+        return hash == cls.encrypt(secret, info['salt'])
 
     #=========================================================
     #eoc
@@ -209,7 +236,7 @@ register_crypt_handler(Md5Crypt)
 #apache variant of md5 crypt
 #=========================================================
 class AprMd5Crypt(Md5Crypt):
-    "Apache variant of md5-crypt, sometimes used in htpasswd files"
+    "Apache variant of md5-crypt, used in htpasswd files"
 
     name = "apr-md5-crypt"
 

@@ -6,7 +6,7 @@ They do not support multi-block operation or decryption,
 since they are designed for use in password hash algorithms
 such as ``lmhash`` and ``des-crypt``.
 
-.. function:: des_expand_key
+.. function:: expand_des_key
 .. function:: des_encrypt_block
 .. function:: mdes_encrypt_int_block
 """

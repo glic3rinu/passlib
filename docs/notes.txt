@@ -233,7 +233,8 @@ offset 169-216 ( 48 chars) - salted sha1 hash - unhex first 8 chars + password |
 policy file format
 
 [passlib.policy]
-des-crypt:decpreated = true
+default = sha512-crypt
+deprecate = des-crypt
 sha512-crypt:default-rounds = 40000
 sha512-crypt:min-rounds = 30000
 sha512-crypt:max-rounds = 50000
