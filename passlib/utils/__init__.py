@@ -73,8 +73,21 @@ Undef = object() #singleton used as default kwd value in some functions
 #numeric helpers
 #=================================================================================
 
-##def int_to_bytes(value, count=None):
-##    """encode a integer into a string of bytes"""
+##def int_to_bytes(value, count=None, order="big"):
+##    """encode a integer into a string of bytes
+##
+##    :arg value: the integer
+##    :arg count: optional number of bytes to expose, uses minimum needed if count not specified
+##    :param order: the byte ordering; "big" (the default), "little", or "native"
+##
+##    :raises ValueError:
+##        * if count specified and integer too large to fit.
+##        * if integer is negative
+##
+##    :returns:
+##        bytes encoding integer
+##    """
+##
 ##
 ##def bytes_to_int(value, order="big"):
 ##    """decode a byte string into an integer representation of it's binary value.
@@ -94,6 +107,21 @@ Undef = object() #singleton used as default kwd value in some functions
 ##    for v in value:
 ##        out = (out<<8) | ord(v)
 ##    return out
+
+def bytes_to_int(value):
+    "decode bytes as single big-endian integer"
+    out = 0
+    for v in value:
+        out = (out<<8) | ord(v)
+    return out
+
+def int_to_bytes(value, count):
+    "encode integer into single big-endian byte string"
+    assert value < (1<<(8*count)), "value too large for %d bytes: %d" % (count, value)
+    return ''.join(
+        chr((value>>s) & 0xff)
+        for s in xrange(8*count-8,-8,-8)
+    )
 
 #TODO: rename 'bytes' kwd for py30 compat purposes
 def list_to_bytes(value, bytes=None, order="big"):

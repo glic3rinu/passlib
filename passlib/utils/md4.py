@@ -120,17 +120,17 @@ class md4(object):
         orig = self._state
         state = list(orig)
 
-        #round 1
+        #round 1 - F function - (x&y)|(~x & z)
         for a,b,c,d,k,s in self._round1:
             t = (state[a] + F(state[b],state[c],state[d]) + X[k]) & MASK_32
             state[a] = ((t<<s) & MASK_32) + (t>>(32-s))
 
-        #round 2
+        #round 2 - G function
         for a,b,c,d,k,s in self._round2:
             t = (state[a] + G(state[b],state[c],state[d]) + X[k] + 0x5a827999) & MASK_32
             state[a] = ((t<<s) & MASK_32) + (t>>(32-s))
 
-        #round 3
+        #round 3 - H function - x ^ y ^ z
         for a,b,c,d,k,s in self._round3:
             t = (state[a] + (state[b] ^ state[c] ^ state[d]) + X[k] + 0x6ed9eba1) & MASK_32
             state[a] = ((t<<s) & MASK_32) + (t>>(32-s))
