@@ -73,8 +73,29 @@ Undef = object() #singleton used as default kwd value in some functions
 #numeric helpers
 #=================================================================================
 
-#TODO: rename 'bytes' kwd for py30 compat purposes
+##def int_to_bytes(value, count=None):
+##    """encode a integer into a string of bytes"""
+##
+##def bytes_to_int(value, order="big"):
+##    """decode a byte string into an integer representation of it's binary value.
+##
+##    :arg value: the string to decode.
+##    :param order: the byte ordering; "big" (the default), "little", or "native"
+##
+##    :returns: the decoded positive integer.
+##    """
+##    if not value:
+##        return 0
+##    if order == "native":
+##        order = sys.byteorder
+##    if order == "little":
+##        value = reversed(value)
+##    out = 0
+##    for v in value:
+##        out = (out<<8) | ord(v)
+##    return out
 
+#TODO: rename 'bytes' kwd for py30 compat purposes
 def list_to_bytes(value, bytes=None, order="big"):
     """Returns a multi-character string corresponding to a list of byte values.
 

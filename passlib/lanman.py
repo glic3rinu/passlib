@@ -3,33 +3,35 @@
 lanman
 
 macintosh
-D47F3AF827A48F7DFA4F2C1F12D68CD6 08460EB13C5CA0C4CA9516712F7FED95
+D47F 3AF8 27A4 8F7D FA4F 2C1F 12D6 8CD6
+
+08460EB13C5CA0C4CA9516712F7FED95
 
 ntlm
 
+
+lanman
+
+C234 13A8 A1E7 665f
+AAD3 B435 B514 04EE
+welcome
 """
+from binascii import hexlify
+from bps.numeric import int_to_base
+from passlib.utils._slow_des_crypt import des_encrypt_block
 
-from passlib.utils._slow_des_crypt import des_encrypt_rounds
+LM_MAGIC = "KGS!@#$%"
 
-secret = "macintosh"
+def lmhash(secret):
+    #XXX: encoding should be oem ascii
+    ns = secret.upper()[:14] + "\x00" * (14-len(secret))
+    return hexlify(des_encrypt_block(expand_des_key(ns[:7]), LM_MAGIC) + des_encrypt_block(expand_des_key(ns[7:]), LM_MAGIC))
 
-s = secret.upper()[:14] + "\x00" * (14-len(secret))
-sa, sb = s[:7], s[7:]
+for secret, hash in [
+    #hashes from http://msdn.microsoft.com/en-us/library/cc245828(v=prot.10).aspx
+    ("OLDPASSWORD", "c9b81d939d6fd80cd408e6b105741864"),
+    ("NEWPASSWORD", '09eeab5aa415d6e4d408e6b105741864'),
+    ("welcome", "c23413a8a1e7665faad3b435b51404ee"),
+    ]:
 
-cc = 0
-for c in reversed("KGS!@#$%"):
-    cc <<= 8
-    cc |= ord(c)
-
-ka = 0
-for c in reversed(sa):
-    ka <<= 8
-    ka |= (ord(c)<<1)
-
-ct = des_encrypt_rounds(cc, 0, 25, ka)
-
-out = ''
-for i in xrange(8):
-    out += '%02x' % ((ct>>(8*(7-i))) & 0xFF)
-
-print out
+    print secret, lmhash(secret), hash == lmhash(secret)

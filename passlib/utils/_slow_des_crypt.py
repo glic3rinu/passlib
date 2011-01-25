@@ -620,8 +620,55 @@ def permute(c, p):
         c >>= 4
     return out
 
+def bytes_to_int(value):
+    out = 0
+    for v in value:
+        out = (out<<8) | ord(v)
+    return out
+
+def int_to_bytes(value, count):
+    return ''.join(
+        chr((value>>s) & 0xff)
+        for s in xrange(8*count-8,-8,-8)
+    )
+
+def des_encrypt_block(key, input):
+    "do traditional encryption of a single DES block"
+    assert len(input) == 8
+    assert len(key) == 8
+    input = bytes_to_int(input)
+    key = bytes_to_int(key)
+    out = des_encrypt_rounds(input, 0, 1, key)
+    return int_to_bytes(out, 8)
+
+def expand_des_key(source):
+    "convert 7 byte des key to 8 byte des key (by adding parity bit every 7 bits)"
+    #NOTE: could probably do this much more cleverly and efficiently,
+    # but no need really given it's use
+    assert len(source) == 7
+
+    def iter_bits(source):
+        for c in source:
+            v = ord(c)
+            for i in xrange(7,-1,-1):
+                yield (v>>i) & 1
+
+    out = 0
+    p = 1
+    for i, b in enumerate(iter_bits(source)):
+        out = (out<<1) + b
+        p ^= b
+        if i % 7 == 6:
+            out = (out<<1) + p
+            p = 1
+
+    return ''.join(
+        chr((out>>s) & 0xFF)
+        for s in xrange(8*7,-8,-8)
+    )
+
 def des_encrypt_rounds(input, salt, rounds, key):
-    """Returns modified DES for single block of input"""
+    """returns modified DES for single block of input, used by des-crypt algorithm"""
     global SPE, PCXROT, IE3264, CF6464
 
     #bounds check

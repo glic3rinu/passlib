@@ -27,6 +27,7 @@ class md4(object):
     "md4 hash algorithm"
     #FIXME: make this follow hash object PEP better.
     #FIXME: this isn't threadsafe
+    #XXX: should we monkeypatch ourselves into hashlib for general use? probably wouldn't be nice.
 
     digest_size = digestsize = 16
 
