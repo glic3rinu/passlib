@@ -53,7 +53,7 @@ class Mysql10Crypt(CryptHandler):
         return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def genhash(cls, secret, config=None):
+    def genhash(cls, secret, config):
         nr1 = 1345345333
         nr2 = 0x12345671
         add = 7
@@ -67,8 +67,10 @@ class Mysql10Crypt(CryptHandler):
         return "%08x%08x" % (nr1 & 0x7fffffff, nr2 & 0x7fffffff)
 
     @classmethod
-    def norm_hash(cls, hash):
-        return hash.lower()
+    def verify(cls, secret, hash):
+        if not cls.identify(hash):
+            raise ValueError, "not a mysql-10 hash"
+        return hash.lower() == cls.genhash(secret, None)
 
     #=========================================================
     #eoc
@@ -101,12 +103,14 @@ class Mysql41Crypt(CryptHandler):
         return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def genhash(cls, secret, config=None):
+    def genhash(cls, secret, config):
         return '*' + hashlib.sha1(hashlib.sha1(secret).digest()).hexdigest().upper()
 
     @classmethod
-    def norm_hash(cls, hash):
-        return hash.upper()
+    def verify(cls, secret, hash):
+        if not cls.identify(hash):
+            raise ValueError, "not a mysql-41 hash"
+        return hash.upper() == cls.genhash(secret, None)
 
     #=========================================================
     #eoc

@@ -434,14 +434,14 @@ class ExtCryptHandler(CryptHandler):
 
         * parse()
         * render()
-        * genconfig()
-        * genhash()
+        * genconfig() - render usually helpful
+        * genhash() - parse, render usually helpful
 
     subclasses may optionally implement more efficient versions of
     these functions, though the defaults should be sufficient:
 
-        * identify()
-        * verify()
+        * identify() - requires parse()
+        * verify() - requires parse()
 
     some helper methods are provided for implementing genconfig, genhash & verify.
     """
@@ -493,6 +493,11 @@ class ExtCryptHandler(CryptHandler):
             which will be recognized by :meth:`render` and :meth:`encrypt`.
 
             :meth:`encrypt` is where validation of inputs *must* be performed.
+
+        .. note::
+            If multiple encoding formats are possible, this *must* normalize
+            the checksum kwd to it's canonical format, so the default
+            verify() method can work properly.
         """
 
     @abstract_class_method
@@ -683,26 +688,12 @@ class ExtCryptHandler(CryptHandler):
 
     @classmethod
     def verify(cls, secret, hash, **context_kwds):
-        if not hash:
-            raise ValueError, "no hash specified"
-        if not cls.identify(hash):
-            raise ValueError, "not a %s hash" % (cls.name,)
-        hash = cls.norm_hash(hash)
-        return hash == cls.genhash(secret, hash, **context_kwds)
-
-        #alt implementation...
-        ##info = cls.parse(hash)
-        ##if not info.get('checksum'):
-        ##  raise ValueError, "hash lacks checksum"
-        ##other = cls.genhash(secret, hash, *context_args, **context_kwds)
-        ##other_info = cls.parse(other)
-        ##return info['checksum'] == other_info['checksum']
-
-    @classmethod
-    def norm_hash(cls, hash):
-        "helper for default verify method"
-        #NOTE: this only needs implementing if hash has multiple valid encodings (eg case insensitive)
-        return hash
+        info = cls.parse(hash) #<- should throw ValueError for us if hash is invalid
+        if not info.get('checksum'):
+          raise ValueError, "hash lacks checksum (did you pass a config string into verify?)"
+        other_hash = cls.genhash(secret, hash, **context_kwds)
+        other_info = cls.parse(other_hash)
+        return info['checksum'] == other_info['checksum']
 
     #=========================================================
     #eoc

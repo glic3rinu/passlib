@@ -263,12 +263,6 @@ class SunMd5Crypt(ExtCryptHandler):
         checksum = raw_sun_md5_crypt(secret, info['salt'], info['rounds'])
         return cls.render(checksum=checksum, **info)
 
-    @classmethod
-    def norm_hash(cls, hash):
-        if hash.startswith("$md5$"):
-            return "$md5," + hash[5:]
-        return hash
-
     #=========================================================
     #eoc
     #=========================================================
