@@ -20,14 +20,35 @@ __all__ = [
 #=========================================================
 #load bcrypt backend
 #=========================================================
+#fall back to our much slower pure-python implementation
+from passlib.utils._slow_bcrypt import hashpw as bcrypt
+backend = "builtin"
+
 try:
     #try importing py-bcrypt, it's much faster
-    import bcrypt
+    from bcrypt import hashpw as bcrypt
     backend = "pybcrypt"
 except ImportError:
-    #fall back to our much slower pure-python implementation
-    import passlib.utils._slow_bcrypt as bcrypt
-    backend = "builtin"
+    #check for OS crypt support before falling back to pure python version
+    try:
+        from crypt import crypt
+    except ImportError:
+        pass
+    else:
+        if (
+            crypt("test", "$2a$04$......................") == '$2a$04$......................qiOQjkB8hxU8OzRhS.GhRMa4VUnkPty'
+            and
+            crypt("test", "$2$04$......................") == '$2$04$......................1O4gOrCYaqBG3o/4LnT2ykQUt1wbyju'
+        ):
+            def bcrypt(secret, config):
+                if isinstance(secret, unicode):
+                    secret = secret.encode("utf-8")
+                hash = crypt(secret, config)
+                if not hash.startswith("$2a$") and not hash.startswith("$2$"):
+                    #means config was wrong
+                    raise ValueError, "not a bcrypt hash"
+                return hash
+            backend = "stdlib"
 
 #XXX: should issue warning when _slow_bcrypt is first used.
 
@@ -117,7 +138,7 @@ class BCrypt(ExtCryptHandler):
     @classmethod
     def genhash(cls, secret, config):
         config = cls._prepare_config(config)
-        return bcrypt.hashpw(secret, config)
+        return bcrypt(secret, config)
 
     #=========================================================
     #eoc
