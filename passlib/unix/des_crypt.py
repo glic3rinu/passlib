@@ -31,6 +31,9 @@ __all__ = [
 try:
     #try stdlib module, which is only present under posix
     from crypt import crypt as _crypt
+    if not _crypt("test", "ab") == 'abgOeLfPimXQo':
+        #shouldn't be any unix os which has crypt but doesn't support this format.
+        raise EnvironmentError, "crypt() failed runtime test for DES-CRYPT support"
 
     #NOTE: we're wrapping the builtin crypt with some checks due to deficiencies in it's base implementation.
     #   1. given an empty salt, it returns '' instead of raising an error. the wrapper raises an error.
@@ -95,22 +98,20 @@ class DesCrypt(ExtCryptHandler):
     salt_chars = 2
 
     #=========================================================
-    #frontend
+    #helpers
     #=========================================================
 
     #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
     _pat = re.compile(r"""
         ^
         (?P<salt>[./a-z0-9]{2})
-        (?P<chk>[./a-z0-9]{11})
+        (?P<chk>[./a-z0-9]{11})?
         $""", re.X|re.I)
 
     @classmethod
-    def identify(cls, hash):
-        return bool(hash and cls._pat.match(hash))
-
-    @classmethod
     def parse(cls, hash):
+        if not hash:
+            raise ValueError, "no des-crypt hash specified"
         m = cls._pat.match(hash)
         if not m:
             raise ValueError, "not a des-crypt hash"
@@ -125,16 +126,21 @@ class DesCrypt(ExtCryptHandler):
             raise ValueError, "invalid salt"
         return "%s%s" % (salt[:2], checksum or '')
 
+    #=========================================================
+    #frontend
+    #=========================================================
     @classmethod
-    def encrypt(cls, secret, salt=None):
-        salt = cls._norm_salt(salt)
-        return crypt(secret, salt)
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def verify(cls, secret, hash):
-        if not cls.identify(hash):
-            raise ValueError, "not a des-crypt hash"
-        return hash == crypt(secret, hash)
+    def genconfig(cls, salt=None):
+        return cls._norm_salt(salt)
+
+    @classmethod
+    def genhash(cls, secret, config=None):
+        config = cls._prepare_config(config)
+        return crypt(secret, config)
 
     #=========================================================
     #eoc
@@ -182,7 +188,7 @@ class ExtDesCrypt(ExtCryptHandler):
     max_rounds = 4095
 
     #=========================================================
-    #frontend
+    #helpers
     #=========================================================
 
     #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
@@ -191,12 +197,8 @@ class ExtDesCrypt(ExtCryptHandler):
         _
         (?P<rounds>[./a-z0-9]{4})
         (?P<salt>[./a-z0-9]{4})
-        (?P<chk>[./a-z0-9]{11})
+        (?P<chk>[./a-z0-9]{11})?
         $""", re.X|re.I)
-
-    @classmethod
-    def identify(cls, hash):
-        return bool(hash and cls._pat.match(hash))
 
     @classmethod
     def parse(cls, hash):
@@ -212,24 +214,37 @@ class ExtDesCrypt(ExtCryptHandler):
         )
 
     @classmethod
-    def render(cls, checksum, salt, rounds):
+    def render(cls, rounds, salt, checksum=None):
+        if rounds < 0:
+            raise ValueError, "invalid rounds"
         if len(salt) != 4:
             raise ValueError, "invalid salt"
-        if len(checksum) != 11:
+        if checksum and len(checksum) != 11:
             raise ValueError, "invalid checksum"
-        return "_%s%s%s" % (b64_encode_int24(rounds), salt, checksum)
+        return "_%s%s%s" % (b64_encode_int24(rounds), salt, checksum or '')
+
+    #=========================================================
+    #frontend
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(cls, secret, salt=None, rounds=None):
+    def genconfig(cls, salt=None, rounds=None):
         salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
-        chk = raw_ext_crypt(secret, salt, rounds)
-        return cls.render(chk, salt, rounds)
+        return cls.render(salt, rounds)
 
     @classmethod
-    def verify(cls, secret, hash):
-        info = cls.parse(hash)
-        return info['checksum'] == raw_ext_crypt(secret, info['salt'], info['rounds'])
+    def genhash(cls, secret, config):
+        info = cls._prepare_parsed_config(config)
+        chk = raw_ext_crypt(secret, info['salt'], info['rounds'])
+        return cls.render(rounds, salt, chk)
+
+    #=========================================================
+    #eoc
+    #=========================================================
 
 register_crypt_handler(ExtDesCrypt)
 #=========================================================

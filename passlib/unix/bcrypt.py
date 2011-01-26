@@ -69,21 +69,14 @@ class BCrypt(ExtCryptHandler):
         \$(?P<ident>2a?)
         \$(?P<rounds>\d+)
         \$(?P<salt>[A-Za-z0-9./]{22})
-        (?P<chk>[A-Za-z0-9./]{31})
+        (?P<chk>[A-Za-z0-9./]{31})?
         $
         """, re.X)
 
-    #=========================================================
-    #frontend
-    #=========================================================
-
-    @classmethod
-    def identify(cls, hash):
-        "identify bcrypt hash"
-        return bool(hash and cls._pat.match(hash))
-
     @classmethod
     def parse(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
         m = cls._pat.match(hash)
         if not m:
             raise ValueError, "invalid bcrypt hash"
@@ -107,33 +100,24 @@ class BCrypt(ExtCryptHandler):
             out += "$" + checksum
         return out
 
+    #=========================================================
+    #frontend
+    #=========================================================
     @classmethod
-    def encrypt(cls, secret, salt=None, rounds=None, omit_null_suffix=False):
-        """encrypt using bcrypt.
+    def identify(cls, hash):
+        "identify bcrypt hash"
+        return bool(hash and cls._pat.match(hash))
 
-        In addition to the normal options that :meth:`CryptHandler.encrypt` takes,
-        this function also accepts the following:
-
-        :param rounds:
-            Optionally specify the number of rounds to use
-            (technically, bcrypt will actually use ``2**rounds``).
-            This can be one of "fast", "medium", "slow",
-            or an integer in the range 4..31.
-
-            See :attr:`CryptHandler.has_named_rounds` for details
-            on the meaning of "fast", "medium" and "slow".
-        """
+    @classmethod
+    def genconfig(cls, salt=None, rounds=None, omit_null_suffix=False):
         salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
-        config = cls.render(rounds, salt, omit_null_suffix=omit_null_suffix)
-        return bcrypt.hashpw(secret, config)
+        return cls.render(rounds, salt, None, omit_null_suffix)
 
     @classmethod
-    def verify(cls, secret, hash):
-        "verify bcrypt hash"
-        if not cls.identify(hash):
-            raise ValueError, "not a bcrypt hash"
-        return bcrypt.hashpw(secret, hash) == hash
+    def genhash(cls, secret, config):
+        config = cls._prepare_config(config)
+        return bcrypt.hashpw(secret, config)
 
     #=========================================================
     #eoc

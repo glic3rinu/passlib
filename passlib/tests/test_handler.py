@@ -30,14 +30,8 @@ class UnsaltedHash(CryptHandler):
         return bool(hash and re.match("^[0-9a-f]{40}$", hash))
 
     @classmethod
-    def encrypt(cls, secret):
+    def genhash(cls, secret, config):
         return hashlib.sha1("boblious" + secret).hexdigest()
-
-    @classmethod
-    def verify(cls, secret, hash):
-        if not cls.identify(hash):
-            raise ValueError, "not an unsalted-example hash"
-        return hash == cls.encrypt(secret)
 
 class SaltedHash(CryptHandler):
     "example algorithm with a salt [REALLY INSECURE - DO NOT USE]"
@@ -51,26 +45,33 @@ class SaltedHash(CryptHandler):
         return bool(hash and re.match("^@salt[0-9a-zA-Z./]{2}[0-9a-f]{40}$", hash))
 
     @classmethod
-    def parse(cls, hash):
+    def _parse(cls, hash):
         if not cls.identify(hash):
-            raise ValueError, "not unsalted-example hash"
+            raise ValueError, "not a salted-example hash"
         return dict(
             salt=hash[5:7],
             checksum=hash[7:],
         )
 
     @classmethod
-    def encrypt(cls, secret, salt=None):
-        if not salt:
-            salt = generate_h64_salt(2)
+    def _render(cls, salt, checksum):
         assert len(salt) == 2
-        checksum = hashlib.sha1(salt+secret).hexdigest()
+        assert len(checksum) == 40
         return "@salt%s%s" % (salt, checksum)
 
     @classmethod
-    def verify(cls, secret, hash):
-        info = cls.parse(hash)
-        return hash == cls.encrypt(secret, salt=info['salt'])
+    def genconfig(cls, salt=None):
+        if not salt:
+            salt = generate_h64_salt(2)
+        return cls._render(salt[:2], '0' * 40)
+
+    @classmethod
+    def genhash(cls, secret, config):
+        if not config:
+            config = cls.genconfig()
+        salt = cls._parse(config)['salt']
+        checksum = hashlib.sha1(salt+secret).hexdigest()
+        return cls._render(salt, checksum)
 
 #=========================================================
 #test sample algorithms

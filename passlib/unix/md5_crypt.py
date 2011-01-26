@@ -26,15 +26,19 @@ __all__ = [
 #=========================================================
 def raw_md5_crypt(secret, salt, apr=False):
     "perform raw md5 encryption"
-    assert len(salt) < 8, "invalid salt"
-
-    #NOTE: re 'apr' format: really, apache? you had to invent a whole new "$apr1$" format,
+    #NOTE: regarding 'apr' format: really, apache? you had to invent a whole new "$apr1$" format,
     # when all you did was change the ident incorporated into the hash?
+    # would love to find webpage explaining why just using a portable
+    # implementation of $1$ wasn't sufficient.
 
-    #handle unicode
+    #validate secret
     #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
     if isinstance(secret, unicode):
         secret = secret.encode("utf-8")
+
+    #validate salt
+    if len(salt) > 8:
+        salt = salt[:8]
 
     #primary hash = secret+id+salt+...
     h = md5(secret)
@@ -116,10 +120,8 @@ def raw_md5_crypt(secret, salt, apr=False):
     return out
 
 #=========================================================
-#choose backend
+#choose backend for md5-crypt
 #=========================================================
-
-#NOTE: AprMd5Crypt will always use builtin backend
 
 #fallback to default backend (defined above)
 backend = "builtin"
@@ -137,6 +139,8 @@ else:
         backend = "stdlib"
     else:
         crypt = None
+
+#TODO: could check for libssl support (openssl passwd -1)
 
 #=========================================================
 #id 1 -- md5
@@ -160,38 +164,26 @@ class Md5Crypt(ExtCryptHandler):
     min_salt_chars = 0
 
     #=========================================================
-    #backend
+    #helpers
     #=========================================================
     _ident = "1"
 
     _pat = re.compile(r"""
         ^
-        \$(?P<ident>1)
+        \$1
         \$(?P<salt>[A-Za-z0-9./]{,8})
         \$(?P<chk>[A-Za-z0-9./]{22})
         $
         """, re.X)
 
-    #TODO: check for crypt() support for md5 format.
-    #TODO: could check for libssl support (openssl passwd -1)
-    _raw_encrypt = staticmethod(raw_md5_crypt)
-
-    #=========================================================
-    #frontend
-    #=========================================================
-    @classmethod
-    def identify(cls, hash):
-        "identify md5-crypt hash"
-        return bool(hash and cls._pat.match(hash))
-
     @classmethod
     def parse(cls, hash):
-        "parse an md5-crypt hash"
+        "parse an md5-crypt hash or config string"
         if not hash:
-            raise ValueError, "invalid md5-crypt hash"
+            raise ValueError, "no %s hash specified" % (cls.name,)
         m = cls._pat.match(hash)
         if not m:
-            raise ValueError, "invalid md5-crypt hash"
+            raise ValueError, "invalid %s hash" % (cls.name,)
         salt, chk = m.group("salt", "chk")
         return dict(
             salt=salt,
@@ -200,31 +192,35 @@ class Md5Crypt(ExtCryptHandler):
 
     @classmethod
     def render(cls, salt, checksum=None):
-        "render hash/config string"
-        if checksum:
-            return "$%s$%s$%s" % (cls._ident, salt, checksum)
-        else:
-            return "$%s$%s" % (cls._ident, salt)
+        "render md5-crypt hash or config string"
+        return "$%s$%s$%s" % (cls._ident, salt, checksum or '')
+
+    #=========================================================
+    #1.4 frontend
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        "identify md5-crypt hash"
+        return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(cls, secret, salt=None):
-        "encrypt an md5-crypt hash"
+    def genconfig(cls, salt=None):
         salt = cls._norm_salt(salt)
+        return cls.render(salt)
+
+    @classmethod
+    def genhash(cls, secret, config=None):
         if crypt:
-            #use system implementation
-            config = cls.render(salt)
+            #use OS's crypt(), should be faster than builtin backend
+            config = cls._prepare_config(config)
             if isinstance(secret, unicode):
                 secret = secret.encode("utf-8")
             return crypt(secret, config)
         else:
-            checksum = cls._raw_encrypt(secret, salt)
-            return cls.render(salt=salt, checksum=checksum)
-
-    @classmethod
-    def verify(cls, secret, hash):
-        "verify an md5-crypt hash"
-        info = cls.parse(hash)
-        return hash == cls.encrypt(secret, info['salt'])
+            #fallback to builtin backend
+            info = cls._prepare_parsed_config(config)
+            checksum = raw_md5_crypt(secret, info['salt'])
+            return cls.render(checksum=checksum, **info)
 
     #=========================================================
     #eoc
@@ -244,16 +240,18 @@ class AprMd5Crypt(Md5Crypt):
 
     _pat = re.compile(r"""
         ^
-        \$(?P<ident>apr1)
+        \$apr1
         \$(?P<salt>[A-Za-z0-9./]{,8})
         \$(?P<chk>[A-Za-z0-9./]{22})
         $
         """, re.X)
 
-    #TODO: could check for libssl support (openssl passwd -apr)
     @classmethod
-    def _raw_encrypt(cls, secret, salt):
-        return raw_md5_crypt(secret, salt, apr=True)
+    def genhash(cls, secret, config=None):
+        #TODO: could check for libssl support (openssl passwd -apr)
+        info = cls._prepare_parsed_config(config)
+        checksum = raw_md5_crypt(secret, info['salt'], apr=True)
+        return cls.render(checksum=checksum, **info)
 
 register_crypt_handler(AprMd5Crypt)
 

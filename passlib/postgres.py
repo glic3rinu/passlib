@@ -64,16 +64,10 @@ class PostgresMd5Crypt(CryptHandler):
         return bool(hash and cls._pat.match(hash))
 
     @classmethod
-    def encrypt(cls, secret, user):
+    def genhash(cls, secret, config, user):
         if not user:
             raise ValueError, "user keyword must be specified for this algorithm"
         return "md5" + hashlib.md5(secret + user).hexdigest().lower()
-
-    @classmethod
-    def verify(cls, secret, hash, user):
-        if not cls.identify(hash):
-            raise ValueError, "invalid postgres-md5 hash"
-        return hash == cls.encrypt(secret, user)
 
     #=========================================================
     #eoc

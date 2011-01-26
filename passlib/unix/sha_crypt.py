@@ -359,38 +359,24 @@ class _ShaCrypt(ExtCryptHandler):
         return out
 
     @classmethod
-    def encrypt(cls, secret, salt=None, rounds=None, implicit_rounds=True):
-        """encrypt using sha256/512-crypt.
-
-        In addition to the normal options that :meth:`CryptHandler.encrypt` takes,
-        this function also accepts the following:
-
-        :param rounds:
-            Optionally specify the number of rounds to use.
-            This can be one of "fast", "medium", "slow",
-            or an integer in the range 1000...999999999.
-
-            See :attr:`CryptHandler.has_named_rounds` for details
-            on the meaning of "fast", "medium" and "slow".
-        """
+    def genconfig(cls, salt=None, rounds=None, implicit_rounds=True):
         salt = cls._norm_salt(salt)
         rounds = cls._norm_rounds(rounds)
+        return cls.render(rounds, salt, None, implicit_rounds)
+
+    @classmethod
+    def genhash(cls, secret, config=None):
+        config = cls._prepare_config(config)
         if crypt:
             #using system's crypt routine.
-            config = cls.render(rounds, salt, None, implicit_rounds)
             if isinstance(secret, unicode):
                 secret = secret.encode("utf-8")
             return crypt(secret, config)
         else:
             #using builtin routine
-            checksum, salt, rounds = cls._raw_crypt(secret, salt, rounds)
-            return cls.render(rounds, salt, checksum, implicit_rounds)
-
-    @classmethod
-    def verify(cls, secret, hash):
-        info = cls.parse(hash)
-        del info['checksum']
-        return hash == cls.encrypt(secret, **info)
+            info = cls.parse(config)
+            checksum, salt, rounds = cls._raw_crypt(secret, info['salt'], info['rounds'])
+            return cls.render(rounds, salt, checksum, info['implicit_rounds'])
 
     #=========================================================
     #eoc
