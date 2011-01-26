@@ -136,7 +136,7 @@ class BCrypt(ExtCryptHandler):
 
     @classmethod
     def genhash(cls, secret, config):
-        config = cls._prepare_config(config)
+        config = cls._norm_config(config)
         return bcrypt(secret, config)
 
     #=========================================================

@@ -546,14 +546,14 @@ class ExtCryptHandler(CryptHandler):
     #for handlers which normalize config string and hand off to external library
     #----------------------------------------------------------------
     @classmethod
-    def _prepare_config(cls, config):
-        """normalize config string provided to genhash; return new config string"""
-        assert cls.setting_kwds, "_prepare_config not designed for hashses w/o settings"
+    def _norm_config(cls, config):
+        """normalize & validate config string"""
+        assert cls.setting_kwds, "_norm_config not designed for hashses w/o settings"
         if not config:
             raise ValueError, "no %s hash or config string specified" % (cls.name,)
-        kwds = cls.parse(config)
-        kwds.pop("checksum", None)
-        return cls.genconfig(**kwds)
+        settings = cls.parse(config) #this should catch malformed entries
+        settings.pop("checksum", None) #remove checksum if a hash was passed in
+        return cls.genconfig(**settings) #re-generate config string, let genconfig() catch invalid values
 
     #----------------------------------------------------------------
     #for handlers which implement the guts of the process directly
@@ -562,9 +562,9 @@ class ExtCryptHandler(CryptHandler):
     # render() is also usually used for implementing genhash() in this case
 
     @classmethod
-    def _prepare_parsed_config(cls, config):
-        """normalize config string provided to genhash; return parsed settings"""
-        return cls.parse(cls._prepare_config(config))
+    def _parse_norm_config(cls, config):
+        """normalize & validate config string, return parsed dictionary"""
+        return cls.parse(cls._norm_config(config))
 
     #=========================================================
     #genconfig helpers

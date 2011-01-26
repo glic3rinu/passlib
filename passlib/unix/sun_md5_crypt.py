@@ -259,7 +259,7 @@ class SunMd5Crypt(ExtCryptHandler):
 
     @classmethod
     def genhash(cls, secret, config):
-        info = cls._prepare_parsed_config(config)
+        info = cls._parse_norm_config(config)
         checksum = raw_sun_md5_crypt(secret, info['salt'], info['rounds'])
         return cls.render(checksum=checksum, **info)
 

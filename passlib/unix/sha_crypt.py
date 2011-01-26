@@ -363,8 +363,8 @@ class _ShaCrypt(ExtCryptHandler):
         return cls.render(rounds, salt, None, implicit_rounds)
 
     @classmethod
-    def genhash(cls, secret, config=None):
-        config = cls._prepare_config(config)
+    def genhash(cls, secret, config):
+        config = cls._norm_config(config)
         if crypt:
             #using system's crypt routine.
             if isinstance(secret, unicode):

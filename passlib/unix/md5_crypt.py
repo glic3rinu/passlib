@@ -208,16 +208,16 @@ class Md5Crypt(ExtCryptHandler):
         return cls.render(salt)
 
     @classmethod
-    def genhash(cls, secret, config=None):
+    def genhash(cls, secret, config):
         if crypt:
             #use OS's crypt(), should be faster than builtin backend
-            config = cls._prepare_config(config)
+            config = cls._norm_config(config)
             if isinstance(secret, unicode):
                 secret = secret.encode("utf-8")
             return crypt(secret, config)
         else:
             #fallback to builtin backend
-            info = cls._prepare_parsed_config(config)
+            info = cls._parse_norm_config(config)
             checksum = raw_md5_crypt(secret, info['salt'])
             return cls.render(checksum=checksum, **info)
 
@@ -246,9 +246,9 @@ class AprMd5Crypt(Md5Crypt):
         """, re.X)
 
     @classmethod
-    def genhash(cls, secret, config=None):
+    def genhash(cls, secret, config):
         #TODO: could check for libssl support (openssl passwd -apr)
-        info = cls._prepare_parsed_config(config)
+        info = cls._parse_norm_config(config)
         checksum = raw_md5_crypt(secret, info['salt'], apr=True)
         return cls.render(checksum=checksum, **info)
 

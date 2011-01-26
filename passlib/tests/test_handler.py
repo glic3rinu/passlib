@@ -67,8 +67,6 @@ class SaltedHash(CryptHandler):
 
     @classmethod
     def genhash(cls, secret, config):
-        if not config:
-            config = cls.genconfig()
         salt = cls._parse(config)['salt']
         checksum = hashlib.sha1(salt+secret).hexdigest()
         return cls._render(salt, checksum)

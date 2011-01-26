@@ -138,8 +138,8 @@ class DesCrypt(ExtCryptHandler):
         return cls._norm_salt(salt)
 
     @classmethod
-    def genhash(cls, secret, config=None):
-        config = cls._prepare_config(config)
+    def genhash(cls, secret, config):
+        config = cls._norm_config(config)
         return crypt(secret, config)
 
     #=========================================================
@@ -237,7 +237,7 @@ class ExtDesCrypt(ExtCryptHandler):
 
     @classmethod
     def genhash(cls, secret, config):
-        info = cls._prepare_parsed_config(config)
+        info = cls._parse_norm_config(config)
         chk = raw_ext_crypt(secret, info['salt'], info['rounds'])
         return cls.render(rounds, salt, chk)
 
