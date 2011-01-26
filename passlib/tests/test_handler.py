@@ -23,7 +23,7 @@ log = getLogger(__name__)
 class UnsaltedHash(CryptHandler):
     "example algorithm which lacks a salt [REALLY INSECURE - DO NOT USE]"
     name = "unsalted-example"
-    checksum_bytes = 20
+    #stats: 160 bit checksum, no salt
 
     @classmethod
     def identify(cls, hash):
@@ -36,9 +36,9 @@ class UnsaltedHash(CryptHandler):
 class SaltedHash(CryptHandler):
     "example algorithm with a salt [REALLY INSECURE - DO NOT USE]"
     name = "salted-example"
+    #stats: 160 bit checksum, 12 bit salt
+
     setting_kwds = ("salt",)
-    salt_bytes = 6*2/8.0
-    checksum_bytes = 20
 
     @classmethod
     def identify(cls, hash):

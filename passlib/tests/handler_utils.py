@@ -107,12 +107,6 @@ class _HandlerTestCase(TestCase):
         self.assert_(name.lower() == name, "name not lower-case:")
         self.assert_(re.match("^[a-z0-9-]+$", name), "name must be alphanum + hyphen:")
 
-        value = ga("salt_bytes")
-        self.assert_(value is not None and value >= 0, "salt_bytes not >= 0")
-
-        value = ga("checksum_bytes")
-        self.assert_(value is not None and value > 0, "checksum_bytes not > 0")
-
         value = ga("secret_chars")
         self.assert_(value is not None and (value == -1 or value > 0), "secret_chars must be -1 or positive integer")
 
@@ -224,7 +218,7 @@ class _HandlerTestCase(TestCase):
     #---------------------------------------------------------
     def test_33_encrypt_gensalt(self):
         "test encrypt() generates new salt each time"
-        if not self.handler.salt_bytes:
+        if 'salt' not in self.handler.setting_kwds:
             return
         for secret, hash in self.known_correct:
             hash2 = self.do_encrypt(secret)

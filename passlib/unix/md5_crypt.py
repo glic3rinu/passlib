@@ -153,12 +153,11 @@ class Md5Crypt(ExtCryptHandler):
     #crypt info
     #=========================================================
     name = 'md5-crypt'
+    #stats: 96 bit checksum, 48 bit salt
 
     setting_kwds = ("salt",)
 
     secret_chars = -1
-    salt_bytes = 6
-    checksum_bytes = 12
 
     salt_chars = 8
     min_salt_chars = 0

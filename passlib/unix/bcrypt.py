@@ -69,11 +69,10 @@ class BCrypt(ExtCryptHandler):
     #algorithm info
     #=========================================================
     name = "bcrypt"
+    #stats: 192 bit checksum, 128 bit salt, 2**(4..31) rounds
 
     setting_kwds = ("salt", "rounds")
 
-    salt_bytes = 16
-    checksum_bytes = 24
     secret_chars = 72
 
     salt_chars = 22

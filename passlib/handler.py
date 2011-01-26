@@ -212,8 +212,6 @@ class CryptHandler(object):
     #optional informational attributes
     #---------------------------------------------------------
     secret_chars = -1 #max number of chars of secret that are used in hash. -1 if all chars used.
-    salt_bytes = 0 #number of effective bytes in salt - 0 if doesn't use salt, max salt bytes if variable-length salt supported
-    checksum_bytes = 0 #number of effective bits in hash
 
     #---------------------------------------------------------
     #algorithm rounds information - only required if alg supports rounds
@@ -453,21 +451,6 @@ class ExtCryptHandler(CryptHandler):
     #=========================================================
     #class attrs
     #=========================================================
-
-    #---------------------------------------------------------
-    #helper to auto-specify setting_kwds for common cases
-    #---------------------------------------------------------
-    @classproperty
-    def setting_kwds(cls):
-        "auto-calculates setting_kwds for the 3 most common cases, autodetecting via other informational attributes"
-        if cls.salt_bytes > 0:
-            if cls.default_rounds:
-                return ("salt", "rounds")
-            return ("salt",)
-        elif cls.default_rounds:
-            return ("rounds",)
-        else:
-            return ()
 
     #---------------------------------------------------------
     # _norm_salt() configuration

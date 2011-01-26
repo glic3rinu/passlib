@@ -49,10 +49,9 @@ class PostgresMd5Crypt(CryptHandler):
     #=========================================================
     name = "postgres-md5"
 
-    setting_kwds = ()
     context_kwds = ("user",)
 
-    checksum_bytes = 64
+    #stats: 512 bit checksum, username used as salt
 
     #=========================================================
     #frontend

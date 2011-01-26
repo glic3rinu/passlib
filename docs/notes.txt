@@ -110,18 +110,6 @@ optional public attributes
 
         Provided for user information, and for use by the passlib unittests.
 
-    salt_bytes
-        Indicates number of bytes in salt portion of hash
-        after decoding. 0 to indicate algorithm has no salt.
-
-       Provided for user information, and for use by the passlib unittests.
-
-    hash_bytes
-        Indicates number of bytes in checksum portion of hash
-        after decoding. 0 to indicate algorithm has no salt.
-
-       Provided for user information, and for use by the passlib unittests.
-
     default_rounds
         if the algorithm supports variable number of rounds,
         this should indicate the default number of rounds that will be used

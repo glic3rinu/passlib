@@ -405,7 +405,7 @@ class CryptContextTest(TestCase):
         "test CryptContext.encrypt salting options"
         cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
         a, b, c = cc._handlers
-        self.assert_(c.salt_bytes > 0)
+        self.assert_('salt' in c.setting_kwds)
 
         h = cc.encrypt("test")
         self.assertEquals(cc.identify(h), c)

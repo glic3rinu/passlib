@@ -41,9 +41,7 @@ class Mysql10Crypt(CryptHandler):
     #=========================================================
     name = "mysql-10"
 
-    setting_kwds = ()
-
-    checksum_bytes = 32
+    #stats: 256 bit checksum, no salt
 
     #=========================================================
     #frontend
@@ -90,8 +88,8 @@ class Mysql41Crypt(CryptHandler):
     #crypt information
     #=========================================================
     name = "mysql-41"
-    setting_kwds = ()
-    checksum_bytes = 80
+
+    #stats: 160 bit checksum, no salt
 
     #=========================================================
     #frontend

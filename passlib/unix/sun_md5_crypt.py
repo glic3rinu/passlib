@@ -184,12 +184,11 @@ class SunMd5Crypt(ExtCryptHandler):
     #crypt info
     #=========================================================
     name = 'sun-md5-crypt'
+    #stats: 128 bit checksum, 48 bit salt, 0..2**32-4095 rounds
 
     setting_kwds = ("salt","rounds")
 
     secret_chars = -1
-    salt_bytes = 6
-    checksum_bytes = 16
 
     salt_chars = 8
     min_salt_chars = 0

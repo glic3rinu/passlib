@@ -276,8 +276,6 @@ class _ShaCrypt(ExtCryptHandler):
     setting_kwds = ("salt", "rounds")
 
     secret_chars = -1
-    salt_bytes = 12
-    #checksum_bytes - provided by subclass
 
     min_salt_chars = 0
     salt_chars = 16
@@ -393,7 +391,7 @@ class Sha256Crypt(_ShaCrypt):
     #algorithm info
     #=========================================================
     name='sha256-crypt'
-    checksum_bytes = 32
+    #stats: 256 bit checksum, 96 bit salt, 1000..10e8-1 rounds
 
     #=========================================================
     #backend
@@ -451,7 +449,7 @@ class Sha512Crypt(_ShaCrypt):
     #crypt info
     #=========================================================
     name='sha512-crypt'
-    checksum_bytes = 64
+    #stats: 512 bit checksum, 96 bit salt, 1000..10e8-1 rounds
 
     #=========================================================
     #backend
