@@ -1,0 +1,335 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>passlib.hash - Quick Start &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="../../index.html" />
+    <link rel="up" title="passlib.hash - Password Hashing" href="../passlib.hash.html" />
+    <link rel="next" title="passlib.hash - Crypt Contexts" href="contexts.html" />
+    <link rel="prev" title="passlib.hash - Password Hashing" href="../passlib.hash.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="contexts.html" title="passlib.hash - Crypt Contexts"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../passlib.hash.html" title="passlib.hash - Password Hashing"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" accesskey="U"><tt class="docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="passlib-hash-quick-start">
+<h1><a class="reference internal" href="../passlib.hash.html#module-passlib.hash" title="passlib.hash: password hashing (unix-crypt, md5-crypt, etc)"><tt class="xref py py-mod docutils literal"><span class="pre">passlib.hash</span></tt></a> - Quick Start<a class="headerlink" href="#passlib-hash-quick-start" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="usage-example">
+<h2>Usage Example<a class="headerlink" href="#usage-example" title="Permalink to this headline">¶</a></h2>
+<p>In order to get off the ground quickly, here&#8217;s an
+example of how to quickly encrypt and verify passwords
+without having to delve too deeply into this module:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bps.security</span> <span class="kn">import</span> <span class="n">pwhash</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#encrypt password using strongest algorithm defined by this module</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">hash</span> <span class="o">=</span> <span class="n">pwhash</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">hash</span>
+<span class="go">$6$rounds=39000$DNnCxm85LEP1WXUh$IVkALQeSuhr2hcUV90Tv8forzli3K.XwX.1JzPjgwltgvCAgllN3x1jNpG9E1C8IQPm0gEIesqATDyKh/nEnh0&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#verify password against hash</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pwhash</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;mypass&quot;</span><span class="p">,</span> <span class="nb">hash</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pwhash</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">,</span> <span class="nb">hash</span><span class="p">)</span>
+<span class="go">True</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#identify the algorithm used in a hash</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pwhash</span><span class="o">.</span><span class="n">identify</span><span class="p">(</span><span class="nb">hash</span><span class="p">)</span>
+<span class="go">&#39;sha512-crypt&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#choose a specific algorithm to use (instead of the default)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hash2</span> <span class="o">=</span> <span class="n">pwhash</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">,</span> <span class="n">alg</span><span class="o">=</span><span class="s">&quot;bcrypt&quot;</span><span class="p">)</span>
+<span class="go">&#39;$2a$11$unZuTsMEjeo5mqFX6rmRduQPBDx9t3djd2voi9W.oFhUDQu1NNMcW&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#check if we used right algorithm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pwhash</span><span class="o">.</span><span class="n">identify</span><span class="p">(</span><span class="n">hash2</span><span class="p">)</span>
+<span class="go">&#39;bcrypt&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#the hash type is autodetected by verify</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pwhash</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">,</span> <span class="n">hash2</span><span class="p">)</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="frontend-functions">
+<h2>Frontend Functions<a class="headerlink" href="#frontend-functions" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="passlib.hash.encrypt">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">encrypt</tt><big>(</big><em>secret</em>, <em>hash=None</em>, <em>alg=None</em>, <em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.encrypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Encrypt secret using a password hash algorithm.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>secret</strong> (<em>str</em>) &#8211; String containing the secret to encrypt</li>
+<li><strong>hash</strong> (<em>str|None</em>) &#8211; Optional previously existing hash string which
+will be used to provide default value for the salt, rounds,
+or other algorithm-specific options.
+If not specified, algorithm-chosen defaults will be used.</li>
+<li><strong>alg</strong> (<em>str|None</em>) &#8211; Optionally specify the name of the algorithm to use.
+If no algorithm is specified, an attempt is made
+to guess from the hash string. If no hash string
+is specified, sha512-crypt will be used.
+See <a class="reference internal" href="#passlib.hash.identify" title="passlib.hash.identify"><tt class="xref py py-func docutils literal"><span class="pre">identify()</span></tt></a> for a list of algorithm names.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>All other keywords are passed on to the specific password algorithm
+being used to encrypt the secret.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>keep_salt</strong> (<em>bool</em>) &#8211; <p>This option is accepted by all of the builtin algorithms.</p>
+<p>By default, a new salt value generated each time
+a secret is encrypted. However, if this keyword
+is set to <tt class="xref docutils literal"><span class="pre">True</span></tt>, and a previous hash string is provided,
+the salt from that string will be used instead.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is generally only useful when verifying an existing hash
+(see <a class="reference internal" href="#passlib.hash.verify" title="passlib.hash.verify"><tt class="xref py py-func docutils literal"><span class="pre">verify()</span></tt></a>). Other than that, this option should be
+avoided, as re-using a salt will needlessly decrease security.</p>
+</div>
+</li>
+<li><strong>rounds</strong> (<em>int</em>) &#8211; <p>For the sha256-crypt and sha512-crypt algorithms,
+this option lets you specify the number of rounds
+of encryption to use. For the bcrypt algorithm,
+this option lets you specify the log-base-2 of
+the number of rounds of encryption to use.</p>
+<p>For all three of these algorithms, you can either
+specify a positive integer, or one of the strings
+&#8220;fast&#8221;, &#8220;medium&#8221;, &#8220;slow&#8221; to choose a preset number
+of rounds corresponding to an appropriate level
+of encryption.</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The secret as encoded by the specified algorithm and options.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="passlib.hash.verify">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">verify</tt><big>(</big><em>secret</em>, <em>hash</em>, <em>alg=None</em><big>)</big><a class="headerlink" href="#passlib.hash.verify" title="Permalink to this definition">¶</a></dt>
+<dd><p>verify a secret against an existing hash.</p>
+<p>This checks if a secret matches against the one stored
+inside the specified hash. By default this uses <a class="reference internal" href="#passlib.hash.encrypt" title="passlib.hash.encrypt"><tt class="xref py py-func docutils literal"><span class="pre">encrypt()</span></tt></a>
+to re-crypt the secret, and compares it to the provided hash;
+though some algorithms may implement this in a more efficient manner.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>secret</strong> (<em>str</em>) &#8211; A string containing the secret to check.</li>
+<li><strong>hash</strong> (<em>str</em>) &#8211; A string containing the hash to check against.</li>
+<li><strong>alg</strong> (<em>str|None</em>) &#8211; Optionally specify the name of the algorithm to use.
+If no algorithm is specified, an attempt is made
+to guess from the hash string. If it can&#8217;t be
+identified, a ValueError will be raised.
+See <a class="reference internal" href="#passlib.hash.identify" title="passlib.hash.identify"><tt class="xref py py-func docutils literal"><span class="pre">identify()</span></tt></a> for a list of algorithm names.</li>
+</ul>
+</td>
+</tr>
+<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><tt class="xref docutils literal"><span class="pre">True</span></tt> if the secret matches, otherwise <tt class="xref docutils literal"><span class="pre">False</span></tt>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="passlib.hash.identify">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">identify</tt><big>(</big><em>hash</em>, <em>resolve=False</em><big>)</big><a class="headerlink" href="#passlib.hash.identify" title="Permalink to this definition">¶</a></dt>
+<dd><p>Identify algorithm which generated a password hash.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>hash</strong> &#8211; The hash string to identify.</li>
+<li><strong>resolve</strong> &#8211; If <tt class="xref docutils literal"><span class="pre">True</span></tt>, this function will return a <a class="reference internal" href="implementation.html#passlib.hash.CryptAlgorithm" title="passlib.hash.CryptAlgorithm"><tt class="xref py py-class docutils literal"><span class="pre">CryptAlgorithm</span></tt></a>
+instance which can handle the hash.
+If <tt class="xref docutils literal"><span class="pre">False</span></tt> (the default), then only the name of the hash algorithm
+will be returned.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>The following algorithms are currently recognized:</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="26%" />
+<col width="74%" />
+</colgroup>
+<tbody valign="top">
+<tr><td>Name</td>
+<td>Description</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">&quot;unix-crypt&quot;</span></tt></td>
+<td>the historic unix-crypt algorithm</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">&quot;md5-crypt&quot;</span></tt></td>
+<td>the md5-crypt algorithm, usually identified
+by the prefix <tt class="docutils literal"><span class="pre">$1$</span></tt> in unix shadow files.</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">&quot;bcrypt&quot;</span></tt></td>
+<td>the openbsd blowfish-crypt algorithm,
+usually identified by the prefixes <tt class="docutils literal"><span class="pre">$2$</span></tt> or <tt class="docutils literal"><span class="pre">$2a$</span></tt>
+in unix shadow files.</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">&quot;sha256-crypt&quot;</span></tt></td>
+<td>the 256-bit version of the sha-crypt algorithm,
+usually identified by the prefix <tt class="docutils literal"><span class="pre">$5$</span></tt>
+in unix shadow files.</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">&quot;sha512-crypt&quot;</span></tt></td>
+<td>the 512-bit version of the sha-crypt algorithm,
+usually identified by the prefix <tt class="docutils literal"><span class="pre">$6$</span></tt>
+in unix shadow files.</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Returns:</th><td class="field-body">The name of the hash, or <tt class="xref docutils literal"><span class="pre">None</span></tt> if the hash could not be identified.
+(The return may be altered by the <em>resolve</em> keyword).</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a convience wrapper for <tt class="docutils literal"><span class="pre">pwhash.default_context.identify(hash)</span></tt>.</p>
+</div>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../contents.html">
+              <img class="logo" src="../../_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h3><a href="../../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Quick Start</a><ul>
+<li><a class="reference internal" href="#usage-example">Usage Example</a></li>
+<li><a class="reference internal" href="#frontend-functions">Frontend Functions</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../passlib.hash.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="contexts.html"
+                        title="next chapter"><tt class="docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Crypt Contexts</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/lib/passlib.hash/quickstart.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="contexts.html" title="passlib.hash - Crypt Contexts"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../passlib.hash.html" title="passlib.hash - Password Hashing"
+             >previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" ><tt class="docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="../../copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>

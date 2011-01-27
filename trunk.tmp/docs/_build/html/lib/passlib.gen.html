@@ -1,0 +1,302 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>passlib.gen – Password Generation &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="../index.html" />
+    <link rel="next" title="Release History" href="../history.html" />
+    <link rel="prev" title="passlib.hash - Helper Functions" href="passlib.hash/utils.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../history.html" title="Release History"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="passlib.hash/utils.html" title="passlib.hash - Helper Functions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-passlib.gen">
+<span id="passlib-gen-password-generation"></span><h1><a class="reference internal" href="#module-passlib.gen" title="passlib.gen: password generation algorithms"><tt class="xref py py-mod docutils literal"><span class="pre">passlib.gen</span></tt></a> &#8211; Password Generation<a class="headerlink" href="#module-passlib.gen" title="Permalink to this headline">¶</a></h1>
+<p>The following single function allows
+easy password generation in a number of styles:</p>
+<dl class="function">
+<dt id="passlib.gen.generate_secret">
+<tt class="descclassname">passlib.gen.</tt><tt class="descname">generate_secret</tt><big>(</big><em>alg=None</em>, <em>count=None</em>, <em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.gen.generate_secret" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a random password.</p>
+<p><em>count</em> lets you generate multiple passwords at once.
+If count is not specified, a single string is returned.
+Otherwise, a list of <em>count</em> passwords will be returned.</p>
+<p><em>alg</em> lets you select the algorithm used when generating the password.
+This value may be either the name of a preset, or the name of an actual algorithm
+(see the list of presets and algorithms below).</p>
+<p>Any additional keywords will be passed to the algorithm implementation.</p>
+<div class="system-message">
+<p class="system-message-title">System Message: SEVERE/4 (<tt class="docutils">/home/biscuit/dev/libs/passlib/trunk/passlib/gen.py:docstring of passlib.gen.generate_secret</tt>, line 14)</p>
+<p>Unexpected section title.</p>
+<div class="highlight-python"><pre>Examples
+========</pre>
+</div>
+</div>
+<p>The follow are some usages examples (your results may vary,
+depending on the random number state):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">passlib.gen</span> <span class="kn">import</span> <span class="n">generate_secret</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c"># generate a bunch of passwords using the  gpw algorithm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">generate_secret</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alg</span><span class="o">=</span><span class="s">&quot;gpw&quot;</span><span class="p">)</span>
+<span class="go">[&#39;preatioc&#39;,</span>
+<span class="go"> &#39;mirenencet&#39;,</span>
+<span class="go"> &#39;blackessse&#39;,</span>
+<span class="go"> &#39;shantesita&#39;,</span>
+<span class="go"> &#39;sonsimena&#39;,</span>
+<span class="go"> &#39;mestongesho&#39;,</span>
+<span class="go"> &#39;amilitterl&#39;,</span>
+<span class="go"> &#39;lonisantr&#39;,</span>
+<span class="go"> &#39;onsesenone&#39;,</span>
+<span class="go"> &#39;astensult&#39;]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c"># generate a single alphanumeric password</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">generate_secret</span><span class="p">(</span><span class="n">alg</span><span class="o">=</span><span class="s">&quot;alphanum&quot;</span><span class="p">)</span>
+<span class="go">&#39;l9u09f3N8Squ23q2&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c"># generate a single password using default algorithm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">generate_secret</span><span class="p">()</span>
+<span class="go">&#39;bablistre&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#generate a strong password</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">generate_secret</span><span class="p">(</span><span class="s">&quot;strong&quot;</span><span class="p">)</span>
+<span class="go">&quot;g_)&#39;sP?Z&#39;Zhi]6hL&quot;</span>
+</pre></div>
+</div>
+<div class="system-message">
+<p class="system-message-title">System Message: SEVERE/4 (<tt class="docutils">/home/biscuit/dev/libs/passlib/trunk/passlib/gen.py:docstring of passlib.gen.generate_secret</tt>, line 46)</p>
+<p>Unexpected section title.</p>
+<div class="highlight-python"><pre>Presets
+=======</pre>
+</div>
+</div>
+<p>This function defines a number of presets, which can be passed
+in as the <em>alg</em> string, and will load the most appropriate underlying algorithm,
+as well as various presets:</p>
+<blockquote>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">alphanum</span></tt> (the default)</dt>
+<dd>Generates a random sequence of mixed-case letters, and numbers.
+This was chosen as the default because it&#8217;s reasonably strong
+for average purposes, to lessen the security risk if users
+just call <tt class="docutils literal"><span class="pre">generate_secret()</span></tt> without options.
+If you want a more memorable (and therefore weaker) password,
+you have to explicitly chose another preset. As a matter
+of balance, this is not the <em>strongest</em> algorithm available,
+just one that&#8217;s reasonably strong for most uses.</dd>
+<dt><tt class="docutils literal"><span class="pre">hex</span></tt></dt>
+<dd>Generates a random sequence of 16 hexidecimal digits.</dd>
+<dt><tt class="docutils literal"><span class="pre">ascii</span></tt></dt>
+<dd>This algorithm uses a wide range of 92 ascii characters (letters, numbers, punctuation).</dd>
+<dt><tt class="docutils literal"><span class="pre">human</span></tt></dt>
+<dd><p class="first">This generates a medium-strength phonetic password,
+which should be (relatively) easy to remember,
+yet reasonably unlikely to be guessed.</p>
+<p class="last">Currently this uses the <tt class="docutils literal"><span class="pre">cvc</span></tt> algorithm with a size of 9-12,
+but if stronger-yet-memorable algorithm is found,
+this preset will be changed to refer to that algorithm instead.</p>
+</dd>
+<dt><tt class="docutils literal"><span class="pre">strong</span></tt></dt>
+<dd><p class="first">This generates a password that&#8217;s as strong enough to be unguessable.</p>
+<p class="last">This is currently an alias for the <tt class="docutils literal"><span class="pre">ascii</span></tt> preset, which creates a
+16  character password made up of all possible ascii characters.
+The odds of this password being guessed / generated again are 1 in 2e31,
+making it reasonably strong for most purposes.
+As computers get more powerful, this preset&#8217;s nature may be upped
+as needed to keep it strong.</p>
+</dd>
+</dl>
+</blockquote>
+<div class="system-message">
+<p class="system-message-title">System Message: SEVERE/4 (<tt class="docutils">/home/biscuit/dev/libs/passlib/trunk/passlib/gen.py:docstring of passlib.gen.generate_secret</tt>, line 87)</p>
+<p>Unexpected section title.</p>
+<div class="highlight-python"><pre>Algorithms
+==========</pre>
+</div>
+</div>
+<p>The following algorithms are available:</p>
+<blockquote>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">random</span></tt></dt>
+<dd>This generates a random password from a specified alphabet.
+You can specify a <em>charset</em> of <tt class="docutils literal"><span class="pre">hex</span></tt>, <tt class="docutils literal"><span class="pre">alphanum</span></tt>, or <tt class="docutils literal"><span class="pre">ascii</span></tt>,
+or specifiy an <em>alphabet</em> string directly.</dd>
+<dt><tt class="docutils literal"><span class="pre">cvc</span></tt></dt>
+<dd>This implements a simple phonetic algorithm which generates
+sequences of letters using some basic english syllable patterns.
+While not as frequently pronouncable as the <tt class="docutils literal"><span class="pre">gpw</span></tt> algorithm&#8217;s results,
+this algorithm has a much larger effective key space,
+and so it a much better choice for phonetic password generation.</dd>
+<dt><tt class="docutils literal"><span class="pre">gpw</span></tt></dt>
+<dd><p class="first">This is a complex phonetic algorithm, which attempts to generate
+pronouncable words via a markov walk using a compiled dictionary
+of 3-order letter frequencies. This is a python implementation of
+Tom Van Vleck&#8217;s phonetic password algorithm, found at <a class="reference external" href="http://www.multicians.org/thvv/gpw.html">http://www.multicians.org/thvv/gpw.html</a>.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>While more memorable, it&#8217;s probablistic nature severely constrains
+the effective keyspace, so this should not be used where
+strong passwords are needed, especially if the attacker
+knows you have used this algorithm and can brute force their attack.</p>
+<p class="last">For size=10, this will generate a duplicate 1 out of 20,000 times.</p>
+</div>
+<p>This algorithm accepts a <em>language</em> keyword, letting you specify
+the dictionary to load from. The following languages are implemented:</p>
+<blockquote>
+<dl class="docutils">
+<dt>en_US (the default)</dt>
+<dd>uses a dictionary built from Ubuntu&#8217;s american-english word list.</dd>
+<dt>en_UK</dt>
+<dd>uses a dictionary built from Ubuntu&#8217;s british-english word list.</dd>
+<dt>gpw</dt>
+<dd>uses the original dictionary from Tom Van Vleck&#8217;s implementation.</dd>
+</dl>
+</blockquote>
+<div class="last admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Due to keyspace issues, the en_US and en_UK tables have been removed for now.</p>
+</div>
+</dd>
+</dl>
+</blockquote>
+<div class="system-message">
+<p class="system-message-title">System Message: SEVERE/4 (<tt class="docutils">/home/biscuit/dev/libs/passlib/trunk/passlib/gen.py:docstring of passlib.gen.generate_secret</tt>, line 131)</p>
+<p>Unexpected section title.</p>
+<div class="highlight-python"><pre>Additional Keywords
+===================</pre>
+</div>
+</div>
+<p>The following keywords are recognized by all algorithms:</p>
+<blockquote>
+<dl class="docutils">
+<dt>size</dt>
+<dd>This lets you explicitly set the size of the generated password.
+If the size is not specified, a algorithm-dependant default is used.
+If size is a tuple of two integers, a random size is used with the
+specified range.</dd>
+<dt>reshake</dt>
+<dd>If true (the default), the random number generator will be</dd>
+</dl>
+</blockquote>
+<p>The following keywords are recognized by the phonetic algorithms (cvc,gpw):</p>
+<blockquote>
+<dl class="docutils">
+<dt>numeric_head</dt>
+<dd>If set to a positive integer, that many digits will be added to the start
+of the generated password.</dd>
+<dt>numeric_tail</dt>
+<dd>If set to a positive integer, that many digits will be added to the end
+of the generated password.</dd>
+</dl>
+</blockquote>
+</dd></dl>
+
+<div class="admonition-todo admonition " id="index-0">
+<p class="first admonition-title">Todo</p>
+<p class="last">document internal classes</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../contents.html">
+              <img class="logo" src="../_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="passlib.hash/utils.html"
+                        title="previous chapter"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Helper Functions</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../history.html"
+                        title="next chapter">Release History</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/lib/passlib.gen.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../history.html" title="Release History"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="passlib.hash/utils.html" title="passlib.hash - Helper Functions"
+             >previous</a> |</li>
+        <li><a href="../contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="../copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>

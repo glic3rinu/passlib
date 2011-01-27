@@ -1,0 +1,321 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>passlib.hash - Crypt Algorithms &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="../../index.html" />
+    <link rel="up" title="passlib.hash - Password Hashing" href="../passlib.hash.html" />
+    <link rel="next" title="passlib.hash - Implementing a Custom Crypt Algorithm" href="implementation.html" />
+    <link rel="prev" title="passlib.hash - Crypt Contexts" href="contexts.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="implementation.html" title="passlib.hash - Implementing a Custom Crypt Algorithm"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="contexts.html" title="passlib.hash - Crypt Contexts"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" accesskey="U"><tt class="docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="passlib-hash-crypt-algorithms">
+<h1><a class="reference internal" href="../passlib.hash.html#module-passlib.hash" title="passlib.hash: password hashing (unix-crypt, md5-crypt, etc)"><tt class="xref py py-mod docutils literal"><span class="pre">passlib.hash</span></tt></a> - Crypt Algorithms<a class="headerlink" href="#passlib-hash-crypt-algorithms" title="Permalink to this headline">¶</a></h1>
+<p>All of the crypt algorithms must inherit from <a class="reference internal" href="implementation.html#passlib.hash.CryptAlgorithm" title="passlib.hash.CryptAlgorithm"><tt class="xref py py-class docutils literal"><span class="pre">CryptAlgorithm</span></tt></a>,
+which defines a common interface all algorithms must support.
+You may use the algorithms directly, by creating
+an instance and calling it as described in <a class="reference internal" href="implementation.html"><em>Implementing a Crypt Algorithm</em></a>.
+However, you will normally will not need to deal with the internals of the algorithms
+directly, but rather take advantage of one of the predefined algorithms,
+through the <a class="reference internal" href="quickstart.html"><em>frontend functions</em></a> or a
+custom <a class="reference internal" href="contexts.html"><em>crypt context</em></a>.</p>
+<div class="section" id="standard-algorithms">
+<h2>Standard Algorithms<a class="headerlink" href="#standard-algorithms" title="Permalink to this headline">¶</a></h2>
+<p>The following algorithms are all standard password hashing algorithms
+used by various Posix operating systems over the years.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">BPS tries to use external accelaration for these classes when possible,
+but provides a pure-python fallback so that these algorithms will
+ALWAYS be available for use.</p>
+</div>
+<dl class="class">
+<dt id="passlib.hash.UnixCrypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">UnixCrypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.UnixCrypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
+This implementation uses the builtin <tt class="docutils literal"><span class="pre">crypt</span></tt> module when available,
+but contains a pure-python fallback so that this algorithm can always be used.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="passlib.hash.Md5Crypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">Md5Crypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.Md5Crypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>This provides the MD5-crypt algorithm, used in many 1990&#8217;s era unix systems.
+It should be byte compatible with unix shadow hashes beginning with <tt class="docutils literal"><span class="pre">$1$</span></tt>.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="passlib.hash.Sha256Crypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">Sha256Crypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.Sha256Crypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class implements the SHA-256 Crypt Algorithm,
+according to the specification at <a class="reference external" href="http://people.redhat.com/drepper/SHA-crypt.txt">http://people.redhat.com/drepper/SHA-crypt.txt</a>.
+It should be byte-compatible with unix shadow hashes beginning with <tt class="docutils literal"><span class="pre">$5$</span></tt>.</p>
+<p>See Sha512Crypt for usage examples and details.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="passlib.hash.Sha512Crypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">Sha512Crypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.Sha512Crypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class implements the SHA-512 Crypt Algorithm,
+according to the specification at <a class="reference external" href="http://people.redhat.com/drepper/SHA-crypt.txt">http://people.redhat.com/drepper/SHA-crypt.txt</a>.
+It should be byte-compatible with unix shadow hashes beginning with <tt class="docutils literal"><span class="pre">$6$</span></tt>.</p>
+<p>This implementation is based on a pure-python translation
+of the original specification.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is <em>not</em> just the raw SHA-512 hash of the password,
+which is sometimes incorrectly referred to as sha512-crypt.
+This is a variable-round descendant of md5-crypt,
+and is comparable in strength to bcrypt.</p>
+</div>
+<p>Usage Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">passlib.hash</span> <span class="kn">import</span> <span class="n">Sha512Crypt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">crypt</span> <span class="o">=</span> <span class="n">Sha512Crypt</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#to encrypt a new secret with this algorithm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">hash</span> <span class="o">=</span> <span class="n">crypt</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="s">&quot;forget me not&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">hash</span>
+<span class="go">&#39;$6$rounds=11949$KkBupsnnII6YXqgT$O8qAEcEgDyJlMC4UB3buST8vE1PsPPABA.0lQIUARTNnlLPZyBRVXAvqqynVByGRLTRMIorkcR0bsVQS5i3Xw1&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#to verify an existing secret</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">crypt</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;forget me not&quot;</span><span class="p">,</span> <span class="nb">hash</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">crypt</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;i forgot it&quot;</span><span class="p">,</span> <span class="nb">hash</span><span class="p">)</span>
+<span class="go">False</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="passlib.hash.Sha512Crypt.encrypt">
+<tt class="descname">encrypt</tt><big>(</big><em>secret</em>, <em>hash=None</em>, <em>rounds=None</em>, <em>keep_salt=False</em><big>)</big><a class="headerlink" href="#passlib.hash.Sha512Crypt.encrypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>encrypt using sha256/512-crypt.</p>
+<p>In addition to the normal options that <a class="reference internal" href="implementation.html#passlib.hash.CryptAlgorithm.encrypt" title="passlib.hash.CryptAlgorithm.encrypt"><tt class="xref py py-meth docutils literal"><span class="pre">CryptAlgorithm.encrypt()</span></tt></a> takes,
+this function also accepts the following:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rounds</strong> &#8211; <p>Optionally specify the number of rounds to use.
+This can be one of &#8220;fast&#8221;, &#8220;medium&#8221;, &#8220;slow&#8221;,
+or an integer in the range 1000...999999999.</p>
+<p>See <a class="reference internal" href="implementation.html#passlib.hash.CryptAlgorithm.has_named_rounds" title="passlib.hash.CryptAlgorithm.has_named_rounds"><tt class="xref py py-attr docutils literal"><span class="pre">CryptAlgorithm.has_named_rounds</span></tt></a> for details
+on the meaning of &#8220;fast&#8221;, &#8220;medium&#8221; and &#8220;slow&#8221;.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="passlib.hash.BCrypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">BCrypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.BCrypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implementation of OpenBSD&#8217;s BCrypt algorithm.</p>
+<p>BPS will use the py-bcrypt package if it is available,
+otherwise it will fall back to a slower pure-python implementation
+that is builtin.</p>
+<dl class="method">
+<dt id="passlib.hash.BCrypt.encrypt">
+<tt class="descname">encrypt</tt><big>(</big><em>secret</em>, <em>hash=None</em>, <em>keep_salt=False</em>, <em>rounds=None</em><big>)</big><a class="headerlink" href="#passlib.hash.BCrypt.encrypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>encrypt using bcrypt.</p>
+<p>In addition to the normal options that <a class="reference internal" href="implementation.html#passlib.hash.CryptAlgorithm.encrypt" title="passlib.hash.CryptAlgorithm.encrypt"><tt class="xref py py-meth docutils literal"><span class="pre">CryptAlgorithm.encrypt()</span></tt></a> takes,
+this function also accepts the following:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rounds</strong> &#8211; <p>Optionally specify the number of rounds to use
+(technically, bcrypt will actually use <tt class="docutils literal"><span class="pre">2**rounds</span></tt>).
+This can be one of &#8220;fast&#8221;, &#8220;medium&#8221;, &#8220;slow&#8221;,
+or an integer in the range 4..31.</p>
+<p>See <a class="reference internal" href="implementation.html#passlib.hash.CryptAlgorithm.has_named_rounds" title="passlib.hash.CryptAlgorithm.has_named_rounds"><tt class="xref py py-attr docutils literal"><span class="pre">CryptAlgorithm.has_named_rounds</span></tt></a> for details
+on the meaning of &#8220;fast&#8221;, &#8220;medium&#8221; and &#8220;slow&#8221;.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="database-algorithms">
+<h2>Database Algorithms<a class="headerlink" href="#database-algorithms" title="Permalink to this headline">¶</a></h2>
+<p>BPS also provides implementations of the hash
+algorithms used by MySql and PostgreSQL.</p>
+<dl class="class">
+<dt id="passlib.hash.Mysql10Crypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">Mysql10Crypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.Mysql10Crypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>This implements Mysql&#8217;s OLD_PASSWORD algorithm, used prior to version 4.1.</p>
+<p>See <a class="reference internal" href="#passlib.hash.Mysql41Crypt" title="passlib.hash.Mysql41Crypt"><tt class="xref py py-class docutils literal"><span class="pre">Mysql41Crypt</span></tt></a> for the new algorithm was put in place in version 4.1</p>
+<p>This function is known to be very insecure,
+and should only be used to verify existing password hashes.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="passlib.hash.Mysql41Crypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">Mysql41Crypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.Mysql41Crypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>This implements Mysql new PASSWORD algorithm, introduced in version 4.1.</p>
+<p>This function is unsalted, and therefore not very secure against rainbow attacks.
+It should only be used when dealing with mysql passwords,
+for all other purposes, you should use a salted hash function.</p>
+<p>Description taken from <a class="reference external" href="http://dev.mysql.com/doc/refman/6.0/en/password-hashing.html">http://dev.mysql.com/doc/refman/6.0/en/password-hashing.html</a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="passlib.hash.PostgresMd5Crypt">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">PostgresMd5Crypt</tt><big>(</big><em>**kwds</em><big>)</big><a class="headerlink" href="#passlib.hash.PostgresMd5Crypt" title="Permalink to this definition">¶</a></dt>
+<dd><p>This implements the md5-based hash algorithm used by Postgres to store
+passwords in the pg_shadow table.</p>
+<p>This algorithm shouldn&#8217;t be used for any purpose besides Postgres interaction,
+it&#8217;s a weak unsalted algorithm which could easily be attacked with a rainbow table.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This algorithm is slightly different from most of the others,
+in that both encrypt() and verify() require you pass in
+the name of the user account via the required &#8216;user&#8217; keyword,
+since postgres uses this in place of a salt :(</p>
+</div>
+<p>Usage Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">passlib</span> <span class="kn">import</span> <span class="nb">hash</span> 
+<span class="gp">&gt;&gt;&gt; </span><span class="n">crypt</span> <span class="o">=</span> <span class="nb">hash</span><span class="o">.</span><span class="n">PostgresMd5Crypt</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">crypt</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="s">&quot;mypass&quot;</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="s">&quot;postgres&quot;</span><span class="p">)</span>
+<span class="go">&#39;md55fba2ea04fd36069d2574ea71c8efe9d&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">crypt</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;mypass&quot;</span><span class="p">,</span> <span class="s">&#39;md55fba2ea04fd36069d2574ea71c8efe9d&#39;</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="s">&quot;postgres&quot;</span><span class="p">)</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="data">
+<dt id="passlib.hash.mysql_context">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">mysql_context</tt><a class="headerlink" href="#passlib.hash.mysql_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>This context object contains the algorithms used by MySql 4.1 and newer
+for storing user passwords.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="passlib.hash.postgres_context">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">postgres_context</tt><a class="headerlink" href="#passlib.hash.postgres_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>This context object should be able to read/write/verify
+the values found in the password field of the pg_shadow table in Postgres.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../contents.html">
+              <img class="logo" src="../../_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h3><a href="../../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Crypt Algorithms</a><ul>
+<li><a class="reference internal" href="#standard-algorithms">Standard Algorithms</a></li>
+<li><a class="reference internal" href="#database-algorithms">Database Algorithms</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="contexts.html"
+                        title="previous chapter"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Crypt Contexts</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="implementation.html"
+                        title="next chapter"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Implementing a Custom Crypt Algorithm</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/lib/passlib.hash/algorithms.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="implementation.html" title="passlib.hash - Implementing a Custom Crypt Algorithm"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="contexts.html" title="passlib.hash - Crypt Contexts"
+             >previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" ><tt class="docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="../../copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>

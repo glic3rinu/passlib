@@ -1,0 +1,159 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>passlib.hash - Helper Functions &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="../../index.html" />
+    <link rel="up" title="passlib.hash - Password Hashing" href="../passlib.hash.html" />
+    <link rel="next" title="passlib.gen – Password Generation" href="../passlib.gen.html" />
+    <link rel="prev" title="passlib.hash - Implementing a Custom Crypt Algorithm" href="implementation.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../passlib.gen.html" title="passlib.gen – Password Generation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="implementation.html" title="passlib.hash - Implementing a Custom Crypt Algorithm"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" accesskey="U"><tt class="docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="passlib-hash-helper-functions">
+<h1><a class="reference internal" href="../passlib.hash.html#module-passlib.hash" title="passlib.hash: password hashing (unix-crypt, md5-crypt, etc)"><tt class="xref py py-mod docutils literal"><span class="pre">passlib.hash</span></tt></a> - Helper Functions<a class="headerlink" href="#passlib-hash-helper-functions" title="Permalink to this headline">¶</a></h1>
+<p>A couple of utility functions are available,
+mainly useful when writing custom password hash algorithms.
+The <tt class="docutils literal"><span class="pre">h64_*</span></tt> series of functions all provide
+utilities for encoding &amp; decoding strings
+under the modified base64 system used by most
+of the standard unix hash algorithms.</p>
+<dl class="function">
+<dt id="passlib.hash.h64_encode">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">h64_encode</tt><big>(</big><em>value</em>, <em>pad=False</em>, <em>num=False</em><big>)</big><a class="headerlink" href="#passlib.hash.h64_encode" title="Permalink to this definition">¶</a></dt>
+<dd><p>encode string of bytes into hash64 format</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="passlib.hash.h64_decode">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">h64_decode</tt><big>(</big><em>value</em>, <em>pad=False</em>, <em>num=False</em><big>)</big><a class="headerlink" href="#passlib.hash.h64_decode" title="Permalink to this definition">¶</a></dt>
+<dd><p>decode string of bytes from hash64 format</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="passlib.hash.h64_gen_salt">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">h64_gen_salt</tt><big>(</big><em>size</em>, <em>pad=False</em><big>)</big><a class="headerlink" href="#passlib.hash.h64_gen_salt" title="Permalink to this definition">¶</a></dt>
+<dd><p>generate hash64 salt of arbitrary length</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="passlib.hash.is_crypt_context">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">is_crypt_context</tt><big>(</big><em>obj</em><big>)</big><a class="headerlink" href="#passlib.hash.is_crypt_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>check if obj following CryptContext protocol</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="passlib.hash.is_crypt_alg">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">is_crypt_alg</tt><big>(</big><em>obj</em><big>)</big><a class="headerlink" href="#passlib.hash.is_crypt_alg" title="Permalink to this definition">¶</a></dt>
+<dd><p>check if obj following CryptAlgorithm protocol</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../contents.html">
+              <img class="logo" src="../../_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="implementation.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Implementing a Custom Crypt Algorithm</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../passlib.gen.html"
+                        title="next chapter"><tt class="docutils literal docutils literal docutils literal"><span class="pre">passlib.gen</span></tt> &#8211; Password Generation</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/lib/passlib.hash/utils.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../passlib.gen.html" title="passlib.gen – Password Generation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="implementation.html" title="passlib.hash - Implementing a Custom Crypt Algorithm"
+             >previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" ><tt class="docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="../../copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>

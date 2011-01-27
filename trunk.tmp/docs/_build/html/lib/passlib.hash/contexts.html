@@ -1,0 +1,222 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>passlib.hash - Crypt Contexts &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="../../copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="../../index.html" />
+    <link rel="up" title="passlib.hash - Password Hashing" href="../passlib.hash.html" />
+    <link rel="next" title="passlib.hash - Crypt Algorithms" href="algorithms.html" />
+    <link rel="prev" title="passlib.hash - Quick Start" href="quickstart.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="algorithms.html" title="passlib.hash - Crypt Algorithms"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="quickstart.html" title="passlib.hash - Quick Start"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" accesskey="U"><tt class="docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="passlib-hash-crypt-contexts">
+<h1><a class="reference internal" href="../passlib.hash.html#module-passlib.hash" title="passlib.hash: password hashing (unix-crypt, md5-crypt, etc)"><tt class="xref py py-mod docutils literal"><span class="pre">passlib.hash</span></tt></a> - Crypt Contexts<a class="headerlink" href="#passlib-hash-crypt-contexts" title="Permalink to this headline">¶</a></h1>
+<p>For more complex deployment scenarios than
+the frontend functions described in <a class="reference internal" href="quickstart.html"><em>Quick Start</em></a>,
+the CryptContext class exists...</p>
+<dl class="class">
+<dt id="passlib.hash.CryptContext">
+<em class="property">class </em><tt class="descclassname">passlib.hash.</tt><tt class="descname">CryptContext</tt><big>(</big><em>source=None</em><big>)</big><a class="headerlink" href="#passlib.hash.CryptContext" title="Permalink to this definition">¶</a></dt>
+<dd><p>Helper for encrypting passwords using different algorithms.</p>
+<p>Different storage contexts (eg: linux shadow files vs openbsd shadow files)
+may use different sets and subsets of the available algorithms.
+This class encapsulates such distinctions: it represents an ordered
+list of algorithms, each with a unique name. It contains methods
+to verify against existing algorithms in the context,
+and still encrypt using new algorithms as they are added.</p>
+<p>Because of all of this, it&#8217;s basically just a list object.
+However, it contains some dictionary-like features
+such as looking up algorithms by name, and it&#8217;s restriction
+that no two algorithms in a list share the same name
+causes it to act more like an &#8220;ordered set&#8221; than a list.</p>
+<p>In general use, none of this matters.
+The typical use case is as follows:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">passlib</span> <span class="kn">import</span> <span class="nb">hash</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#create a new context that only understands Md5Crypt &amp; BCrypt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myctx</span> <span class="o">=</span> <span class="nb">hash</span><span class="o">.</span><span class="n">CryptContext</span><span class="p">([</span> <span class="nb">hash</span><span class="o">.</span><span class="n">Md5Crypt</span><span class="p">,</span> <span class="nb">hash</span><span class="o">.</span><span class="n">BCrypt</span> <span class="p">])</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#the last one in the list will be used as the default for encrypting...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hash1</span> <span class="o">=</span> <span class="n">myctx</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hash1</span>
+<span class="go">&#39;$2a$11$RvViwGZL./LkWfdGKTrgeO4khL/PDXKe0TayeVObQdoew7TFwhNFy&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#choose algorithm explicitly</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hash2</span> <span class="o">=</span> <span class="n">myctx</span><span class="o">.</span><span class="n">encrypt</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">,</span> <span class="n">alg</span><span class="o">=</span><span class="s">&quot;md5-crypt&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hash2</span>
+<span class="go">&#39;$1$E1g0/BY.$gS9XZ4W2Ea.U7jMueBRVA.&#39;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#verification will autodetect the right hash</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myctx</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">,</span> <span class="n">hash1</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myctx</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;too many secrets&quot;</span><span class="p">,</span> <span class="n">hash2</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myctx</span><span class="o">.</span><span class="n">verify</span><span class="p">(</span><span class="s">&quot;too many socks&quot;</span><span class="p">,</span> <span class="n">hash2</span><span class="p">)</span>
+<span class="go">False</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#you can also have it identify the algorithm in use</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myctx</span><span class="o">.</span><span class="n">identify</span><span class="p">(</span><span class="n">hash1</span><span class="p">)</span>
+<span class="go">&#39;bcrypt&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#or just return the CryptAlgorithm instance directly</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myctx</span><span class="o">.</span><span class="n">identify</span><span class="p">(</span><span class="n">hash1</span><span class="p">,</span> <span class="n">resolve</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="go">&lt;passlib.hash.BCrypt object, name=&quot;bcrypt&quot;&gt;</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#you can get a list of algs...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">myctx</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+<span class="go">[ &#39;md5-crypt&#39;, &#39;bcrypt&#39; ]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="c">#and get the CryptAlgorithm object by name</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bc</span> <span class="o">=</span> <span class="n">myctx</span><span class="p">[</span><span class="s">&#39;bcrypt&#39;</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bc</span>
+<span class="go">&lt;passlib.hash.BCrypt object, name=&quot;bcrypt&quot;&gt;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<div class="section" id="predefined-contexts">
+<h2>Predefined Contexts<a class="headerlink" href="#predefined-contexts" title="Permalink to this headline">¶</a></h2>
+<p>The following context objects are predefined by BPS:</p>
+<dl class="data">
+<dt id="passlib.hash.default_context">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">default_context</tt><a class="headerlink" href="#passlib.hash.default_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>This context object contains all the algorithms
+supported by BPS, listed (mostly) in order of strength.
+<a class="reference internal" href="quickstart.html#passlib.hash.identify" title="passlib.hash.identify"><tt class="xref py py-func docutils literal"><span class="pre">identify()</span></tt></a>, <a class="reference internal" href="quickstart.html#passlib.hash.verify" title="passlib.hash.verify"><tt class="xref py py-func docutils literal"><span class="pre">verify()</span></tt></a>, and <a class="reference internal" href="quickstart.html#passlib.hash.encrypt" title="passlib.hash.encrypt"><tt class="xref py py-func docutils literal"><span class="pre">encrypt()</span></tt></a>
+are all merely wrappers for this object&#8217;s methods
+of the same name.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="passlib.hash.linux_context">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">linux_context</tt><a class="headerlink" href="#passlib.hash.linux_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>This context object contains only the algorithms
+in use on modern linux systems (namely:
+unix-crypt, md5-crypt, sha512-crypt).</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="passlib.hash.bsd_context">
+<tt class="descclassname">passlib.hash.</tt><tt class="descname">bsd_context</tt><a class="headerlink" href="#passlib.hash.bsd_context" title="Permalink to this definition">¶</a></dt>
+<dd><p>This context object contains only the algorithms
+in use on modern BSD systems (namely:
+unix-crypt, md5-crypt, bcrypt).</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../contents.html">
+              <img class="logo" src="../../_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h3><a href="../../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Crypt Contexts</a><ul>
+<li><a class="reference internal" href="#predefined-contexts">Predefined Contexts</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="quickstart.html"
+                        title="previous chapter"><tt class="docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Quick Start</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="algorithms.html"
+                        title="next chapter"><tt class="docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Crypt Algorithms</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/lib/passlib.hash/contexts.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="algorithms.html" title="passlib.hash - Crypt Algorithms"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="quickstart.html" title="passlib.hash - Quick Start"
+             >previous</a> |</li>
+        <li><a href="../../contents.html">PassLib Documentation</a> &raquo;</li>
+          <li><a href="../passlib.hash.html" ><tt class="docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="../../copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>

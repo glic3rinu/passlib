@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: passlib
+Version: 1.3a1
+Summary: utilities for password generation & hashing
+Home-page: http://www.astllc.org/software/passlib
+Author: Eli Collins
+Author-email: elic@astllc.org
+License: BSD
+Description: UNKNOWN
+Keywords: password hash generation secret security sha md5 bcrypt crypt
+Platform: UNKNOWN

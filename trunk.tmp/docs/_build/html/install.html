@@ -1,0 +1,187 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Installation &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="index.html" />
+    <link rel="next" title="Library Overview" href="overview.html" />
+    <link rel="prev" title="PassLib 1.1 documentation" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="overview.html" title="Library Overview"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="PassLib 1.1 documentation"
+             accesskey="P">previous</a> |</li>
+        <li><a href="contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>PassLib tries to use pure-python implementations of things whereever possible,
+and have as few dependancies as possible. The current set of requirements is:</p>
+<blockquote>
+<ul>
+<li><p class="first">Python 2.5 or better is required (Python 2.6 is supported).</p>
+<blockquote>
+<ul class="simple">
+<li>PassLib is no longer tested for Python 2.4.x or earlier,
+no guarantees are made about whether PassLib will work with them.</li>
+<li>Python 3.0 has <strong>not</strong> been assessed for compatibility. It probably won&#8217;t work.</li>
+</ul>
+</blockquote>
+</li>
+</ul>
+</blockquote>
+<p>The following libraries will be used if present, but they are not required:</p>
+<blockquote>
+<ul class="simple">
+<li>If installed, <a class="reference external" href="http://www.mindrot.org/projects/py-bcrypt/">py-bcrypt</a> will be
+used instead of PassLib&#8217;s slower pure-python bcrypt implementation.
+(see <a class="reference internal" href="lib/passlib.hash/algorithms.html#passlib.hash.BCrypt" title="passlib.hash.BCrypt"><tt class="xref py py-class docutils literal"><span class="pre">passlib.hash.BCrypt</span></tt></a>).</li>
+</ul>
+</blockquote>
+</div>
+<div class="section" id="installing">
+<h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h2>
+<p>PassLib can be installed with easy_install, linked/copied into sys.path directly
+from it&#8217;s source directory, or installed using <tt class="docutils literal"><span class="pre">$SOURCE/setup.py</span> <span class="pre">install</span></tt>,
+where <tt class="docutils literal"><span class="pre">$SOURCE</span></tt> is the path to the PassLib source directory.
+PassLib is pure python, there is nothing to compile or configure.</p>
+</div>
+<div class="section" id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Permalink to this headline">¶</a></h2>
+<p>PassLib contains a number of unittests (sadly, coverage is not yet complete).
+all of which are contained within the <tt class="xref py py-mod docutils literal"><span class="pre">passlib.tests</span></tt> module,
+and are designed to be run use the <a class="reference external" href="http://somethingaboutorange.com/mrl/projects/nose">nose</a> library.
+Once PassLib and nose have been installed, you may run the following commands:</p>
+<div class="highlight-python"><pre>#to run the standard passlib test suite:
+nosetests passlib/tests
+
+#to run the standard suite + some additional longer-running tests:
+export PASSLIB_DEV_TESTS=true
+nosetests passlib/tests</pre>
+</div>
+</div>
+<div class="section" id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h2>
+<p>PassLib uses Sphinx to generate it&#8217;s documentation.
+To create your own copy, make sure you have Sphinx 1.0 or better installed,
+as well as PassLib, and run <tt class="docutils literal"><span class="pre">python</span> <span class="pre">$SOURCE/docs/make.py</span> <span class="pre">clean</span> <span class="pre">html</span></tt>,
+where <tt class="docutils literal"><span class="pre">$SOURCE</span></tt> is the path to the PassLib source directory.
+Once this completes, point a browser to the file at <tt class="docutils literal"><span class="pre">$SOURCE/docs/_build/html/index.html</span></tt>
+to access the PassLib documentation in html.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="contents.html">
+              <img class="logo" src="_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Installation</a><ul>
+<li><a class="reference internal" href="#requirements">Requirements</a></li>
+<li><a class="reference internal" href="#installing">Installing</a></li>
+<li><a class="reference internal" href="#testing">Testing</a></li>
+<li><a class="reference internal" href="#documentation">Documentation</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">PassLib 1.1 documentation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="overview.html"
+                        title="next chapter">Library Overview</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/install.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="overview.html" title="Library Overview"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="PassLib 1.1 documentation"
+             >previous</a> |</li>
+        <li><a href="contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>

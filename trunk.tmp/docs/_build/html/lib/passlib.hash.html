@@ -1,0 +1,164 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>passlib.hash - Password Hashing &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="../copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="../index.html" />
+    <link rel="next" title="passlib.hash - Quick Start" href="passlib.hash/quickstart.html" />
+    <link rel="prev" title="Library Overview" href="../overview.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="passlib.hash/quickstart.html" title="passlib.hash - Quick Start"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../overview.html" title="Library Overview"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-passlib.hash">
+<span id="passlib-hash-password-hashing"></span><h1><a class="reference internal" href="#module-passlib.hash" title="passlib.hash: password hashing (unix-crypt, md5-crypt, etc)"><tt class="xref py py-mod docutils literal"><span class="pre">passlib.hash</span></tt></a> - Password Hashing<a class="headerlink" href="#module-passlib.hash" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>This module handles encrypting and verifying password hashes
+(such as from unix shadow files). This module contains implementations of most
+of the modern password hashing algorithms,
+as well as a complex framework for implementing
+new algorithms, managing hashes generated
+within different contexts with different supported
+algorithms, and other features.</p>
+<p>The algorithms currently supported by default in BPS:</p>
+<blockquote>
+<ul class="simple">
+<li>Unix-Crypt</li>
+<li>MD5-Crypt</li>
+<li>BCrypt</li>
+<li>SHA-Crypt (256 &amp; 512 bit modes)</li>
+<li>PostgreSQL &amp; MySQL password hashes</li>
+</ul>
+</blockquote>
+</div>
+<div class="section" id="sections">
+<h2>Sections<a class="headerlink" href="#sections" title="Permalink to this headline">¶</a></h2>
+<p>The documentation for the pwhash module is broken into the following sections:</p>
+<ul class="simple">
+<li><a class="reference internal" href="passlib.hash/quickstart.html"><em>Quick Start</em></a> &#8211; frontend funcs for quickly creating / validating hashes</li>
+<li><a class="reference internal" href="passlib.hash/contexts.html"><em>Crypt Contexts</em></a> &#8211; for using just the algorithms your application needs</li>
+<li><a class="reference internal" href="passlib.hash/algorithms.html"><em>Crypt Algorithms</em></a> &#8211; details of the algorithms BPS implements</li>
+<li><a class="reference internal" href="passlib.hash/implementation.html"><em>Implementing a Custom Crypt Algorithm</em></a> &#8211; Roll your own</li>
+<li><a class="reference internal" href="passlib.hash/utils.html"><em>Helper Functions</em></a></li>
+</ul>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../contents.html">
+              <img class="logo" src="../_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h3><a href="../contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#sections">Sections</a><ul>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../overview.html"
+                        title="previous chapter">Library Overview</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="passlib.hash/quickstart.html"
+                        title="next chapter"><tt class="docutils literal"><span class="pre">passlib.hash</span></tt> - Quick Start</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/lib/passlib.hash.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="passlib.hash/quickstart.html" title="passlib.hash - Quick Start"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../overview.html" title="Library Overview"
+             >previous</a> |</li>
+        <li><a href="../contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="../copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>

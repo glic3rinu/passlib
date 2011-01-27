@@ -1,0 +1,47 @@
+relocated passlib.hash.XXX to passlib.XXX; all UTs pass
+--This line, and those below, will be ignored--
+
+M    docs/copyright.rst
+M    docs/contents.rst
+M    docs/lib/passlib.hash/algorithms.rst
+M    docs/lib/passlib.hash/quickstart.rst
+M    docs/lib/passlib.hash/utils.rst
+M    docs/lib/passlib.hash/implementation.rst
+M    docs/lib/passlib.hash/contexts.rst
+M    docs/lib/passlib.hash.rst
+M    docs/install.rst
+M    docs/index.rst
+A  + passlib/sha_crypt.py
+D    passlib/hash
+R  + passlib/__init__.py
+A  + passlib/bcrypt.py
+A  + passlib/unix_crypt.py
+A  + passlib/mysql.py
+A  + passlib/_slow_bcrypt.py
+A  + passlib/postgres.py
+A  + passlib/md5_crypt.py
+A  + passlib/_slow_unix_crypt.py
+A  + passlib/pbkdf2.py
+M    passlib/gen.py
+A  + passlib/base.py
+A  + passlib/tests/test_sha_crypt.py
+D    passlib/tests/test_hash_sha_crypt.py
+A  + passlib/tests/test_bcrypt.py
+A  + passlib/tests/test_unix_crypt.py
+D    passlib/tests/test_crypt_context.py
+A  + passlib/tests/test_mysql.py
+A  + passlib/tests/test_md5_crypt.py
+A  + passlib/tests/test_postgres.py
+D    passlib/tests/test_hash_bcrypt.py
+D    passlib/tests/test_hash_unix_crypt.py
+D    passlib/tests/test_hash_mysql.py
+A  + passlib/tests/test_pbkdf2.py
+D    passlib/tests/test_hash_md5_crypt.py
+D    passlib/tests/test_hash_postgres.py
+A  + passlib/tests/test_base.py
+D    passlib/tests/test_hash_pbkdf2.py
+D    passlib/tests/test_hash_base.py
+A  + passlib/tests/test_base_context.py
+A  + passlib/tests/test_frontend.py
+D    passlib/tests/test_hash_frontend.py
+M    passlib/util.py

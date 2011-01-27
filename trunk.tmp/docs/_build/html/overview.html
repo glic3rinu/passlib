@@ -1,0 +1,276 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Library Overview &mdash; PassLib v1.1 Documentation</title>
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '1.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/logo.ico"/>
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="PassLib v1.1 Documentation" href="index.html" />
+    <link rel="next" title="passlib.hash - Password Hashing" href="lib/passlib.hash.html" />
+    <link rel="prev" title="Installation" href="install.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="lib/passlib.hash.html" title="passlib.hash - Password Hashing"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="install.html" title="Installation"
+             accesskey="P">previous</a> |</li>
+        <li><a href="contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="library-overview">
+<h1>Library Overview<a class="headerlink" href="#library-overview" title="Permalink to this headline">¶</a></h1>
+<p>BPS started life in 2003 as an in-house collection of small functions
+and tools which were frequently needed by the programmers at
+<a class="reference external" href="http://www.assurancetechnologies.com">Assurance Technologies</a>.
+Over the years, it has accumlated a more small functions,
+but it has also acquired some modules which provide major
+new features that go above and beyond simple utility functions.
+Since we have benefited greatly from open source software,
+this library was released publically in 2009, in order
+to fill a few niches for which there is a need (password hashing,
+desktop interaction), as well as to simply give something
+back to the community.</p>
+<span class="target" id="module-bps"></span><div class="section" id="organization">
+<h2>Organization<a class="headerlink" href="#organization" title="Permalink to this headline">¶</a></h2>
+<p>Everything in BPS falls into two main categories:
+There are modules which contain interconnected
+functions dealing with a specific topic (the <a class="reference internal" href="#service-modules">service modules</a>),
+and there are the modules which contain smaller utility
+functions which aren&#8217;t really connected to eachother,
+but which are grouped together for convience based on a common
+subject (the <a class="reference internal" href="#utility-modules">utility modules</a>). You may read through
+the entirety of the documentation to find any functions
+which might be useful, or jump directly to a submodule
+whose services you already know you need.</p>
+</div>
+<div class="section" id="service-modules">
+<h2>Service Modules<a class="headerlink" href="#service-modules" title="Permalink to this headline">¶</a></h2>
+<p>The following modules contain tightly-knit sets of interconnected functions,
+and each module provides a unique set of services which would not be possible
+without all the functions it contains:</p>
+<blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.fs</span></tt></p>
+<blockquote>
+This provides a &#8220;magic&#8221; filepath object, as well as some other filesystem
+related helpers. The magic filepath object is a string subclass
+which allows you to manipulate filepaths (and interact with the filesystem)
+in an object oriented manner.
+<em>Warning: use of this module can be incredibly addictive.</em></blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.host</span></tt></p>
+<blockquote>
+This provides a wide array of functions for detecting host resource
+paths, managing processes, and interacting with the desktop,
+all in a os-neutral manner.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.logs</span></tt></p>
+<blockquote>
+<p>This module contains a number of helper utilties
+for using python&#8217;s builting logging module:</p>
+<ul class="simple">
+<li>an easier-to-use logging config format for ini files.</li>
+<li>a more programmatic interface for configuring the logging system.</li>
+<li>ability to capture &amp; redirect stdio, and the warnings module.</li>
+</ul>
+</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.security</span></tt></p>
+<blockquote>
+This module contains a sophisticated system for creating &amp; verifying
+password hashes, supporting all the major unix password hashing schemes
+(in native python no less).</blockquote>
+</blockquote>
+</div>
+<div class="section" id="utility-modules">
+<h2>Utility Modules<a class="headerlink" href="#utility-modules" title="Permalink to this headline">¶</a></h2>
+<p>Unlike the service modules, the remaining modules in bps
+are collections of smaller standalone functions, grouped
+together by common theme:</p>
+<blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.basic</span></tt></p>
+<blockquote>
+Utility functions for manipulating
+common python data structures, such as helpers
+for manipulated dicts, sets, and others.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.cache</span></tt></p>
+<blockquote>
+Decorators and helpers
+for doing memoization and related activities.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.error.types</span></tt></p>
+<blockquote>
+Assorted Exceptions classes which are used by BPS
+or which may be generally useful.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.meta</span></tt></p>
+<blockquote>
+Introspection tools,
+decorators for meta-level activities (eg abstract methods),
+and monkeypatching.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.numeric</span></tt></p>
+<blockquote>
+Numeric related helpers,
+mainly as an extension to stdlib&#8217;s math module.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.refs</span></tt></p>
+<blockquote>
+Weak reference helpers and proxy objects.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.security</span></tt></p>
+<blockquote>
+Security tools, mainly password hashing and generation.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.stream</span></tt></p>
+<blockquote>
+Buffer and stream related tools.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.text</span></tt></p>
+<blockquote>
+Tool for manipulating text strings,
+and other language related operations. This includes a noun
+pluralization function, a function for sanitizing user-provided
+filenames, <tt class="docutils literal"><span class="pre">asbool</span></tt>, and more.
+<em>For Python 2.5 users, this also provides a backport of Python 2.6&#8217;s
+&#8220;str.format()&#8221; system.</em></blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.types</span></tt></p>
+<blockquote>
+A collection of assorted classes which are frequently helpful
+in programming, such as <cite>bps.types.BaseClass</cite>, which provides
+automatic super() support.</blockquote>
+<p><tt class="xref py py-mod docutils literal"><span class="pre">bps.warndep</span></tt></p>
+<blockquote>
+Decorators for easily raises deprecation warnings
+when you move / relocate functions, methods, and properties
+in your application.</blockquote>
+<dl class="docutils">
+<dt><tt class="xref py py-mod docutils literal"><span class="pre">bps.misc</span></tt></dt>
+<dd>This module contains any tools which don&#8217;t fit into one of the other
+categories.</dd>
+</dl>
+</blockquote>
+</div>
+<div class="section" id="the-things-left-out">
+<h2>The things left out...<a class="headerlink" href="#the-things-left-out" title="Permalink to this headline">¶</a></h2>
+<p>One other module exists which is purposely not documented:</p>
+<blockquote>
+<dl class="docutils">
+<dt><tt class="xref py py-mod docutils literal"><span class="pre">bps.unstable</span></tt></dt>
+<dd><p class="first">This module contains functions
+which have been added to BPS by the developers, but aren&#8217;t officially
+included and documented for any number of reasons...</p>
+<blockquote>
+<ul class="simple">
+<li>too application specific</li>
+<li>not developed long enough</li>
+<li>not tested enough much</li>
+<li>look neat, but don&#8217;t have any real world use-cases yet</li>
+</ul>
+</blockquote>
+<p class="last">Use them if you dare, they may be removed or recoded on the spur
+of the moment. The same goes for some of the other
+present-but-undocumented functions you may find in the BPS source.</p>
+</dd>
+</dl>
+</blockquote>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="contents.html">
+              <img class="logo" src="_static/masthead.png" alt="Logo"/>
+            </a></p>
+  <h3><a href="contents.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Library Overview</a><ul>
+<li><a class="reference internal" href="#organization">Organization</a></li>
+<li><a class="reference internal" href="#service-modules">Service Modules</a></li>
+<li><a class="reference internal" href="#utility-modules">Utility Modules</a></li>
+<li><a class="reference internal" href="#the-things-left-out">The things left out...</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="install.html"
+                        title="previous chapter">Installation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="lib/passlib.hash.html"
+                        title="next chapter"><tt class="docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal docutils literal"><span class="pre">passlib.hash</span></tt> - Password Hashing</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/overview.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="lib/passlib.hash.html" title="passlib.hash - Password Hashing"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="install.html" title="Installation"
+             >previous</a> |</li>
+        <li><a href="contents.html">PassLib Documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; <a href="copyright.html">Copyright</a> 2008-2010, Assurance Technologies, LLC.
+      Last updated on Jan 06, 2011.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.6.
+    </div>
+  </body>
+</html>
