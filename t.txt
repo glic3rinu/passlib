@@ -1,0 +1,737 @@
+Index: passlib/unix/sun_md5_crypt.py
+===================================================================
+[1;31m--- passlib/unix/sun_md5_crypt.py	(revision 10368)[0;0m
+[1;34m+++ passlib/unix/sun_md5_crypt.py	(working copy)[0;0m
+[1;35m@@ -247,18 +247,31 @@[0;0m
+[0;0m             return "$md5$%s$%s" % (salt, checksum)[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret, salt=None, rounds=None):[0;0m
+[1;31m-        "encrypt an md5-crypt hash"[0;0m
+[1;34m+    def genconfig(cls, salt=None, rounds=None):[0;0m
+[0;0m         salt = cls._norm_salt(salt)[0;0m
+[1;31m-        checksum = cls._raw_encrypt(secret, salt, rounds)[0;0m
+[1;31m-        return cls.render(salt, rounds, checksum)[0;0m
+[1;34m+        rounds = cls._norm_rounds(rounds)[0;0m
+[1;34m+        return cls.render(salt, rounds)[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash):[0;0m
+[1;31m-        "verify an md5-crypt hash"[0;0m
+[1;31m-        info = cls.parse(hash)[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[1;34m+        config = cls._norm_config(config)[0;0m
+[1;34m+        info = cls._parse_config(config)[0;0m
+[0;0m         checksum = cls._raw_encrypt(secret, info['salt'], info['rounds'])[0;0m
+[1;31m-        return checksum == info['checksum'][0;0m
+[1;34m+        return cls.render(checksum=checksum, **info)[0;0m
+[1;34m+[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def encrypt(cls, secret, salt=None, rounds=None):[0;0m
+[1;34m+    ##    "encrypt an md5-crypt hash"[0;0m
+[1;34m+    ##    salt = cls._norm_salt(salt)[0;0m
+[1;34m+    ##    checksum = cls._raw_encrypt(secret, salt, rounds)[0;0m
+[1;34m+    ##    return cls.render(salt, rounds, checksum)[0;0m
+[1;34m+    ##[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def verify(cls, secret, hash):[0;0m
+[1;34m+    ##    "verify an md5-crypt hash"[0;0m
+[1;34m+    ##    info = cls.parse(hash)[0;0m
+[1;34m+    ##    checksum = cls._raw_encrypt(secret, info['salt'], info['rounds'])[0;0m
+[1;34m+    ##    return checksum == info['checksum'][0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+Index: passlib/unix/sha_crypt.py
+===================================================================
+[1;31m--- passlib/unix/sha_crypt.py	(revision 10368)[0;0m
+[1;34m+++ passlib/unix/sha_crypt.py	(working copy)[0;0m
+[1;35m@@ -359,38 +359,59 @@[0;0m
+[0;0m         return out[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret, salt=None, rounds=None, implicit_rounds=True):[0;0m
+[1;31m-        """encrypt using sha256/512-crypt.[0;0m
+[1;31m-[0;0m
+[1;31m-        In addition to the normal options that :meth:`CryptHandler.encrypt` takes,[0;0m
+[1;31m-        this function also accepts the following:[0;0m
+[1;31m-[0;0m
+[1;31m-        :param rounds:[0;0m
+[1;31m-            Optionally specify the number of rounds to use.[0;0m
+[1;31m-            This can be one of "fast", "medium", "slow",[0;0m
+[1;31m-            or an integer in the range 1000...999999999.[0;0m
+[1;31m-[0;0m
+[1;31m-            See :attr:`CryptHandler.has_named_rounds` for details[0;0m
+[1;31m-            on the meaning of "fast", "medium" and "slow".[0;0m
+[1;31m-        """[0;0m
+[1;34m+    def genconfig(cls, salt=None, rounds=None, implicit_rounds=True):[0;0m
+[0;0m         salt = cls._norm_salt(salt)[0;0m
+[0;0m         rounds = cls._norm_rounds(rounds)[0;0m
+[1;34m+        return cls.render(rounds, salt, None, implicit_rounds)[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[1;34m+        config = cls._norm_config(config)[0;0m
+[0;0m         if crypt:[0;0m
+[0;0m             #using system's crypt routine.[0;0m
+[1;31m-            config = cls.render(rounds, salt, None, implicit_rounds)[0;0m
+[0;0m             if isinstance(secret, unicode):[0;0m
+[0;0m                 secret = secret.encode("utf-8")[0;0m
+[0;0m             return crypt(secret, config)[0;0m
+[0;0m         else:[0;0m
+[0;0m             #using builtin routine[0;0m
+[1;31m-            checksum, salt, rounds = cls._raw_crypt(secret, salt, rounds)[0;0m
+[1;31m-            return cls.render(rounds, salt, checksum, implicit_rounds)[0;0m
+[1;31m-[0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash):[0;0m
+[1;31m-        info = cls.parse(hash)[0;0m
+[1;31m-        del info['checksum'][0;0m
+[1;31m-        return hash == cls.encrypt(secret, **info)[0;0m
+[1;34m+            info = cls.parse(config)[0;0m
+[1;34m+            checksum, salt, rounds = cls._raw_crypt(secret, info['salt'], info['rounds'])[0;0m
+[1;34m+            return cls.render(rounds, salt, checksum, info['implicit_rounds'])[0;0m
+[1;34m+[0;0m
+[1;34m+[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def encrypt(cls, secret, salt=None, rounds=None, implicit_rounds=True):[0;0m
+[1;34m+    ##    """encrypt using sha256/512-crypt.[0;0m
+[1;34m+    ##[0;0m
+[1;34m+    ##    In addition to the normal options that :meth:`CryptHandler.encrypt` takes,[0;0m
+[1;34m+    ##    this function also accepts the following:[0;0m
+[1;34m+    ##[0;0m
+[1;34m+    ##    :param rounds:[0;0m
+[1;34m+    ##        Optionally specify the number of rounds to use.[0;0m
+[1;34m+    ##        This can be one of "fast", "medium", "slow",[0;0m
+[1;34m+    ##        or an integer in the range 1000...999999999.[0;0m
+[1;34m+    ##[0;0m
+[1;34m+    ##        See :attr:`CryptHandler.has_named_rounds` for details[0;0m
+[1;34m+    ##        on the meaning of "fast", "medium" and "slow".[0;0m
+[1;34m+    ##    """[0;0m
+[1;34m+    ##    salt = cls._norm_salt(salt)[0;0m
+[1;34m+    ##    rounds = cls._norm_rounds(rounds)[0;0m
+[1;34m+    ##    if crypt:[0;0m
+[1;34m+    ##        #using system's crypt routine.[0;0m
+[1;34m+    ##        config = cls.render(rounds, salt, None, implicit_rounds)[0;0m
+[1;34m+    ##        if isinstance(secret, unicode):[0;0m
+[1;34m+    ##            secret = secret.encode("utf-8")[0;0m
+[1;34m+    ##        return crypt(secret, config)[0;0m
+[1;34m+    ##    else:[0;0m
+[1;34m+    ##        #using builtin routine[0;0m
+[1;34m+    ##        checksum, salt, rounds = cls._raw_crypt(secret, salt, rounds)[0;0m
+[1;34m+    ##        return cls.render(rounds, salt, checksum, implicit_rounds)[0;0m
+[1;34m+[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def verify(cls, secret, hash):[0;0m
+[1;34m+    ##    info = cls.parse(hash)[0;0m
+[1;34m+    ##    del info['checksum'][0;0m
+[1;34m+    ##    return hash == cls.encrypt(secret, **info)[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+Index: passlib/unix/des_crypt.py
+===================================================================
+[1;31m--- passlib/unix/des_crypt.py	(revision 10368)[0;0m
+[1;34m+++ passlib/unix/des_crypt.py	(working copy)[0;0m
+[1;35m@@ -95,7 +95,7 @@[0;0m
+[0;0m     salt_chars = 2[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[1;31m-    #frontend[0;0m
+[1;34m+    #backend[0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m [0;0m
+[0;0m     #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum[0;0m
+[1;35m@@ -105,11 +105,33 @@[0;0m
+[0;0m         (?P<chk>[./a-z0-9]{11})[0;0m
+[0;0m         $""", re.X|re.I)[0;0m
+[0;0m [0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+    #1.4 frontend[0;0m
+[1;34m+    #=========================================================[0;0m
+[0;0m     @classmethod[0;0m
+[0;0m     def identify(cls, hash):[0;0m
+[0;0m         return bool(hash and cls._pat.match(hash))[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;34m+    def genconfig(cls, salt=None):[0;0m
+[1;34m+        return cls._norm_salt(salt)[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[1;34m+        config = cls._norm_config(config)[0;0m
+[1;34m+        return crypt(secret, config)[0;0m
+[1;34m+[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def verify(cls, secret, hash):[0;0m
+[1;34m+    ##    if not cls.identify(hash):[0;0m
+[1;34m+    ##        raise ValueError, "not a des-crypt hash"[0;0m
+[1;34m+    ##    return hash == crypt(secret, hash)[0;0m
+[1;34m+[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+    #frontend[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[0;0m     def parse(cls, hash):[0;0m
+[0;0m         m = cls._pat.match(hash)[0;0m
+[0;0m         if not m:[0;0m
+[1;35m@@ -125,16 +147,10 @@[0;0m
+[0;0m             raise ValueError, "invalid salt"[0;0m
+[0;0m         return "%s%s" % (salt[:2], checksum or '')[0;0m
+[0;0m [0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret, salt=None):[0;0m
+[1;31m-        salt = cls._norm_salt(salt)[0;0m
+[1;31m-        return crypt(secret, salt)[0;0m
+[1;31m-[0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash):[0;0m
+[1;31m-        if not cls.identify(hash):[0;0m
+[1;31m-            raise ValueError, "not a des-crypt hash"[0;0m
+[1;31m-        return hash == crypt(secret, hash)[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def encrypt(cls, secret, salt=None):[0;0m
+[1;34m+    ##    salt = cls._norm_salt(salt)[0;0m
+[1;34m+    ##    return crypt(secret, salt)[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+Index: passlib/unix/bcrypt.py
+===================================================================
+[1;31m--- passlib/unix/bcrypt.py	(revision 10368)[0;0m
+[1;34m+++ passlib/unix/bcrypt.py	(working copy)[0;0m
+[1;35m@@ -74,15 +74,36 @@[0;0m
+[0;0m         """, re.X)[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[1;31m-    #frontend[0;0m
+[1;34m+    #1.4 frontend[0;0m
+[0;0m     #=========================================================[0;0m
+[1;31m-[0;0m
+[0;0m     @classmethod[0;0m
+[0;0m     def identify(cls, hash):[0;0m
+[0;0m         "identify bcrypt hash"[0;0m
+[0;0m         return bool(hash and cls._pat.match(hash))[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;34m+    def genconfig(cls, salt=None, rounds=None, omit_null_suffix=False):[0;0m
+[1;34m+        salt = cls._norm_salt(salt)[0;0m
+[1;34m+        rounds = cls._norm_rounds(rounds)[0;0m
+[1;34m+        return cls.render(rounds, salt, omit_null_suffix=omit_null_suffix)[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[1;34m+        config = cls._norm_config(config)[0;0m
+[1;34m+        return bcrypt.hashpw(secret, config)[0;0m
+[1;34m+[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def verify(cls, secret, hash):[0;0m
+[1;34m+    ##    "verify bcrypt hash"[0;0m
+[1;34m+    ##    if not cls.identify(hash):[0;0m
+[1;34m+    ##        raise ValueError, "not a bcrypt hash"[0;0m
+[1;34m+    ##    return bcrypt.hashpw(secret, hash) == hash[0;0m
+[1;34m+[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+    #frontend[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[0;0m     def parse(cls, hash):[0;0m
+[0;0m         m = cls._pat.match(hash)[0;0m
+[0;0m         if not m:[0;0m
+[1;35m@@ -107,33 +128,26 @@[0;0m
+[0;0m             out += "$" + checksum[0;0m
+[0;0m         return out[0;0m
+[0;0m [0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret, salt=None, rounds=None, omit_null_suffix=False):[0;0m
+[1;31m-        """encrypt using bcrypt.[0;0m
+[1;31m-[0;0m
+[1;31m-        In addition to the normal options that :meth:`CryptHandler.encrypt` takes,[0;0m
+[1;31m-        this function also accepts the following:[0;0m
+[1;31m-[0;0m
+[1;31m-        :param rounds:[0;0m
+[1;31m-            Optionally specify the number of rounds to use[0;0m
+[1;31m-            (technically, bcrypt will actually use ``2**rounds``).[0;0m
+[1;31m-            This can be one of "fast", "medium", "slow",[0;0m
+[1;31m-            or an integer in the range 4..31.[0;0m
+[1;31m-[0;0m
+[1;31m-            See :attr:`CryptHandler.has_named_rounds` for details[0;0m
+[1;31m-            on the meaning of "fast", "medium" and "slow".[0;0m
+[1;31m-        """[0;0m
+[1;31m-        salt = cls._norm_salt(salt)[0;0m
+[1;31m-        rounds = cls._norm_rounds(rounds)[0;0m
+[1;31m-        config = cls.render(rounds, salt, omit_null_suffix=omit_null_suffix)[0;0m
+[1;31m-        return bcrypt.hashpw(secret, config)[0;0m
+[1;31m-[0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash):[0;0m
+[1;31m-        "verify bcrypt hash"[0;0m
+[1;31m-        if not cls.identify(hash):[0;0m
+[1;31m-            raise ValueError, "not a bcrypt hash"[0;0m
+[1;31m-        return bcrypt.hashpw(secret, hash) == hash[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def encrypt(cls, secret, salt=None, rounds=None, omit_null_suffix=False):[0;0m
+[1;34m+    ##    """encrypt using bcrypt.[0;0m
+[1;34m+    ##[0;0m
+[1;34m+    ##    In addition to the normal options that :meth:`CryptHandler.encrypt` takes,[0;0m
+[1;34m+    ##    this function also accepts the following:[0;0m
+[1;34m+    ##[0;0m
+[1;34m+    ##    :param rounds:[0;0m
+[1;34m+    ##        Optionally specify the number of rounds to use[0;0m
+[1;34m+    ##        (technically, bcrypt will actually use ``2**rounds``).[0;0m
+[1;34m+    ##        This can be one of "fast", "medium", "slow",[0;0m
+[1;34m+    ##        or an integer in the range 4..31.[0;0m
+[1;34m+    ##[0;0m
+[1;34m+    ##        See :attr:`CryptHandler.has_named_rounds` for details[0;0m
+[1;34m+    ##        on the meaning of "fast", "medium" and "slow".[0;0m
+[1;34m+    ##    """[0;0m
+[1;34m+    ##    salt = cls._norm_salt(salt)[0;0m
+[1;34m+    ##    rounds = cls._norm_rounds(rounds)[0;0m
+[1;34m+    ##    config = cls.render(rounds, salt, omit_null_suffix=omit_null_suffix)[0;0m
+[1;34m+    ##    return bcrypt.hashpw(secret, config)[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+Index: passlib/unix/md5_crypt.py
+===================================================================
+[1;31m--- passlib/unix/md5_crypt.py	(revision 10368)[0;0m
+[1;34m+++ passlib/unix/md5_crypt.py	(working copy)[0;0m
+[1;35m@@ -177,7 +177,7 @@[0;0m
+[0;0m     _raw_encrypt = staticmethod(raw_md5_crypt)[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[1;31m-    #frontend[0;0m
+[1;34m+    #1.4 frontend[0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     @classmethod[0;0m
+[0;0m     def identify(cls, hash):[0;0m
+[1;35m@@ -185,6 +185,41 @@[0;0m
+[0;0m         return bool(hash and cls._pat.match(hash))[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;34m+    def genconfig(cls, salt=None):[0;0m
+[1;34m+        salt = cls._norm_salt(salt)[0;0m
+[1;34m+        return cls.render(salt)[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[1;34m+        config = cls._norm_config(config)[0;0m
+[1;34m+        if crypt:[0;0m
+[1;34m+            if isinstance(secret, unicode):[0;0m
+[1;34m+                secret = secret.encode("utf-8")[0;0m
+[1;34m+            return crypt(secret, config)[0;0m
+[1;34m+        else:[0;0m
+[1;34m+            info = cls._parse_config(config)[0;0m
+[1;34m+            checksum = cls._raw_encrypt(secret, **info)[0;0m
+[1;34m+            return cls.render(checksum=checksum, **info)[0;0m
+[1;34m+[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def encrypt(cls, secret, salt=None):[0;0m
+[1;34m+    ##    "encrypt an md5-crypt hash"[0;0m
+[1;34m+    ##    salt = cls._norm_salt(salt)[0;0m
+[1;34m+    ##    if crypt:[0;0m
+[1;34m+    ##        #use system implementation[0;0m
+[1;34m+    ##        config = cls.render(salt)[0;0m
+[1;34m+    ##        if isinstance(secret, unicode):[0;0m
+[1;34m+    ##            secret = secret.encode("utf-8")[0;0m
+[1;34m+    ##        return crypt(secret, config)[0;0m
+[1;34m+    ##    else:[0;0m
+[1;34m+    ##        checksum = cls._raw_encrypt(secret, salt)[0;0m
+[1;34m+    ##        return cls.render(salt=salt, checksum=checksum)[0;0m
+[1;34m+[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+    #frontend[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[0;0m     def parse(cls, hash):[0;0m
+[0;0m         "parse an md5-crypt hash"[0;0m
+[0;0m         if not hash:[0;0m
+[1;35m@@ -206,25 +241,25 @@[0;0m
+[0;0m         else:[0;0m
+[0;0m             return "$%s$%s" % (cls._ident, salt)[0;0m
+[0;0m [0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret, salt=None):[0;0m
+[1;31m-        "encrypt an md5-crypt hash"[0;0m
+[1;31m-        salt = cls._norm_salt(salt)[0;0m
+[1;31m-        if crypt:[0;0m
+[1;31m-            #use system implementation[0;0m
+[1;31m-            config = cls.render(salt)[0;0m
+[1;31m-            if isinstance(secret, unicode):[0;0m
+[1;31m-                secret = secret.encode("utf-8")[0;0m
+[1;31m-            return crypt(secret, config)[0;0m
+[1;31m-        else:[0;0m
+[1;31m-            checksum = cls._raw_encrypt(secret, salt)[0;0m
+[1;31m-            return cls.render(salt=salt, checksum=checksum)[0;0m
+[1;31m-[0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash):[0;0m
+[1;31m-        "verify an md5-crypt hash"[0;0m
+[1;31m-        info = cls.parse(hash)[0;0m
+[1;31m-        return hash == cls.encrypt(secret, info['salt'])[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def encrypt(cls, secret, salt=None):[0;0m
+[1;34m+    ##    "encrypt an md5-crypt hash"[0;0m
+[1;34m+    ##    salt = cls._norm_salt(salt)[0;0m
+[1;34m+    ##    if crypt:[0;0m
+[1;34m+    ##        #use system implementation[0;0m
+[1;34m+    ##        config = cls.render(salt)[0;0m
+[1;34m+    ##        if isinstance(secret, unicode):[0;0m
+[1;34m+    ##            secret = secret.encode("utf-8")[0;0m
+[1;34m+    ##        return crypt(secret, config)[0;0m
+[1;34m+    ##    else:[0;0m
+[1;34m+    ##        checksum = cls._raw_encrypt(secret, salt)[0;0m
+[1;34m+    ##        return cls.render(salt=salt, checksum=checksum)[0;0m
+[1;34m+[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def verify(cls, secret, hash):[0;0m
+[1;34m+    ##    "verify an md5-crypt hash"[0;0m
+[1;34m+    ##    info = cls.parse(hash)[0;0m
+[1;34m+    ##    return hash == cls.encrypt(secret, info['salt'])[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+[1;35m@@ -250,6 +285,13 @@[0;0m
+[0;0m         $[0;0m
+[0;0m         """, re.X)[0;0m
+[0;0m [0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[1;34m+        config = cls._norm_config(config)[0;0m
+[1;34m+        info = cls._parse_config(config)[0;0m
+[1;34m+        checksum = cls._raw_encrypt(secret, **info)[0;0m
+[1;34m+        return cls.render(checksum=checksum, **info)[0;0m
+[1;34m+[0;0m
+[0;0m     #TODO: could check for libssl support (openssl passwd -apr)[0;0m
+[0;0m     @classmethod[0;0m
+[0;0m     def _raw_encrypt(cls, secret, salt):[0;0m
+Index: passlib/handler.py
+===================================================================
+[1;31m--- passlib/handler.py	(revision 10368)[0;0m
+[1;34m+++ passlib/handler.py	(working copy)[0;0m
+[1;35m@@ -223,10 +223,78 @@[0;0m
+[0;0m     max_rounds = None #maximum number of rounds (larger values silently ignored)[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[1;31m-    #frontend interface[0;0m
+[1;34m+    #1.4 frontend interface[0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m [0;0m
+[1;34m+    #XXX: should config param be required by protocol?[0;0m
+[0;0m     @abstract_class_method[0;0m
+[1;34m+    def genhash(cls, secret, config=None, **context):[0;0m
+[1;34m+        """encrypt secret to hash[0;0m
+[1;34m+[0;0m
+[1;34m+        takes in a password, optional configuration string,[0;0m
+[1;34m+        and any required contextual information the algorithm needs,[0;0m
+[1;34m+        and returns the encoded hash strings.[0;0m
+[1;34m+[0;0m
+[1;34m+        :arg secret: string containing the password to be encrypted[0;0m
+[1;34m+        :arg config:[0;0m
+[1;34m+            optional configuration to use when encrypting secret.[0;0m
+[1;34m+[0;0m
+[1;34m+            if the algorithm does not have any configuration options,[0;0m
+[1;34m+            these value can be ignored entirely. otherwise...[0;0m
+[1;34m+[0;0m
+[1;34m+            * existing hash - algorithm should extract configuration[0;0m
+[1;34m+              from an existing hash (such as the one stored when password was set).[0;0m
+[1;34m+            * new config string - algorithm should recognize config strings[0;0m
+[1;34m+              returned by :meth:`genconfig`. this does not apply if genconfig[0;0m
+[1;34m+              always returns ``None``.[0;0m
+[1;34m+            * ``None`` - if no configuration is specified, but one is needed,[0;0m
+[1;34m+              the algorithm should automatically generate a new configuration[0;0m
+[1;34m+              by calling :meth:`genconfig`.[0;0m
+[1;34m+[0;0m
+[1;34m+        :param context:[0;0m
+[1;34m+            All other keywords must be external contextual information[0;0m
+[1;34m+            required by the algorithm to create the hash. If any,[0;0m
+[1;34m+            these kwds must be specified in :attr:`context_kwds`.[0;0m
+[1;34m+[0;0m
+[1;34m+        :raises ValueError:[0;0m
+[1;34m+            * if the configuration string is invalid / not recognized.[0;0m
+[1;34m+            * if the secret contains a forbidden character (rare, but some algorithms have limitations, eg: forbidding null characters)[0;0m
+[1;34m+            * if the contextual information is invalid / missing[0;0m
+[1;34m+[0;0m
+[1;34m+        :returns:[0;0m
+[1;34m+            encoded hash matching specified secret, config, and context.[0;0m
+[1;34m+        """[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def genconfig(cls, **config):[0;0m
+[1;34m+        """return configuration string encoding settings[0;0m
+[1;34m+[0;0m
+[1;34m+        Many hashes have configuration options,[0;0m
+[1;34m+        and support a configuration string which encodes them.[0;0m
+[1;34m+        (this is usually an abbreviated version of their encoded hash format).[0;0m
+[1;34m+        If the hash does not support configuration options,[0;0m
+[1;34m+        this should return ``None``.[0;0m
+[1;34m+[0;0m
+[1;34m+        :param settings:[0;0m
+[1;34m+            this function takes in keywords as specified in :attr:`setting_kwds`.[0;0m
+[1;34m+[0;0m
+[1;34m+        :raises ValueError:[0;0m
+[1;34m+            * if any configuration options are required, missing, AND[0;0m
+[1;34m+              a default value cannot be autogenerated.[0;0m
+[1;34m+              (for example: salt strings should be autogenerated if not specified).[0;0m
+[1;34m+            * if any configuration options are invalid, and cannot be[0;0m
+[1;34m+              normalized in a reasonble manner (eg: salt strings clipped to maximum size).[0;0m
+[1;34m+[0;0m
+[1;34m+        :returns:[0;0m
+[1;34m+            configuration string, or ``None`` if no configuration used by hash.[0;0m
+[1;34m+        """[0;0m
+[1;34m+        if cls.settings_kwds:[0;0m
+[1;34m+            raise NotImplementedError, "classes with config kwds must implement genconfig()"[0;0m
+[1;34m+        if config:[0;0m
+[1;34m+            raise TypeError, "%s has no configuration options" % (cls,)[0;0m
+[1;34m+        return None[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[0;0m     def identify(cls, hash):[0;0m
+[0;0m         """identify if a hash string belongs to this algorithm.[0;0m
+[0;0m [0;0m
+[1;35m@@ -238,9 +306,54 @@[0;0m
+[0;0m             this class, otherwise ``False``.[0;0m
+[0;0m             If hash is ``None``, should return ``False``.[0;0m
+[0;0m         """[0;0m
+[1;34m+        if not hash:[0;0m
+[1;34m+            return False[0;0m
+[1;34m+        if cls.context_kwds:[0;0m
+[1;34m+            raise NotImplementedError, "classes with context kwds must implement identify()"[0;0m
+[1;34m+        #NOTE: this default method is going to be *really* slow for most implementations,[0;0m
+[1;34m+        #they should override it. but if genhash() conforms to the specification, this will do.[0;0m
+[1;34m+        try:[0;0m
+[1;34m+            cls.genhash("stub", hash)[0;0m
+[1;34m+        except ValueError:[0;0m
+[1;34m+            return False[0;0m
+[1;34m+        return True[0;0m
+[0;0m [0;0m
+[1;31m-    @abstract_class_method[0;0m
+[1;31m-    def encrypt(cls, secret, **context_and_settings):[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def verify(cls, secret, hash, *context, **context):[0;0m
+[1;34m+        """verify a secret against an existing hash.[0;0m
+[1;34m+[0;0m
+[1;34m+        This checks if a secret matches against the one stored[0;0m
+[1;34m+        inside the specified hash.[0;0m
+[1;34m+[0;0m
+[1;34m+        :param secret:[0;0m
+[1;34m+            A string containing the secret to check.[0;0m
+[1;34m+        :param hash:[0;0m
+[1;34m+            A string containing the hash to check against.[0;0m
+[1;34m+[0;0m
+[1;34m+        :param context:[0;0m
+[1;34m+            Any additional keywords will be passed to the encrypt[0;0m
+[1;34m+            method. These should be limited to those listed[0;0m
+[1;34m+            in :attr:`context_kwds`.[0;0m
+[1;34m+[0;0m
+[1;34m+        :raises ValueError:[0;0m
+[1;34m+            * if the hash not specified[0;0m
+[1;34m+            * if the hash does not match this algorithm's hash format[0;0m
+[1;34m+[0;0m
+[1;34m+        :returns:[0;0m
+[1;34m+            ``True`` if the secret matches, otherwise ``False``.[0;0m
+[1;34m+        """[0;0m
+[1;34m+        if not hash:[0;0m
+[1;34m+            raise ValueError, "no hash specified"[0;0m
+[1;34m+        #NOTE: methods whose hashes have multiple encodings should override this,[0;0m
+[1;34m+        # as the hash will need to be normalized before comparing via string equality.[0;0m
+[1;34m+        return hash == cls.genhash(secret, hash, *context, **context)[0;0m
+[1;34m+[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+    #legacy 1.3 frontend interface[0;0m
+[1;34m+    #=========================================================[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def encrypt(cls, secret, **context_and_config):[0;0m
+[0;0m         """encrypt secret, returning resulting hash string.[0;0m
+[0;0m [0;0m
+[0;0m         :arg secret:[0;0m
+[1;35m@@ -270,31 +383,20 @@[0;0m
+[0;0m         :returns:[0;0m
+[0;0m             Hash encoded in algorithm-specified format.[0;0m
+[0;0m         """[0;0m
+[1;31m-[0;0m
+[1;31m-    @abstract_class_method[0;0m
+[1;31m-    def verify(cls, secret, hash, **context):[0;0m
+[1;31m-        """verify a secret against an existing hash.[0;0m
+[1;31m-[0;0m
+[1;31m-        This checks if a secret matches against the one stored[0;0m
+[1;31m-        inside the specified hash.[0;0m
+[1;31m-[0;0m
+[1;31m-        :param secret:[0;0m
+[1;31m-            A string containing the secret to check.[0;0m
+[1;31m-        :param hash:[0;0m
+[1;31m-            A string containing the hash to check against.[0;0m
+[1;31m-[0;0m
+[1;31m-        :param context:[0;0m
+[1;31m-            Any additional keywords will be passed to the encrypt[0;0m
+[1;31m-            method. These should be limited to those listed[0;0m
+[1;31m-            in :attr:`context_kwds`.[0;0m
+[1;31m-[0;0m
+[1;31m-        :raises ValueError:[0;0m
+[1;31m-            if the hash is omitted or does not belong to this algorithm.[0;0m
+[1;31m-[0;0m
+[1;31m-        :returns:[0;0m
+[1;31m-            ``True`` if the secret matches, otherwise ``False``.[0;0m
+[1;31m-            If hash is ``None``, should return ``False``.[0;0m
+[1;31m-        """[0;0m
+[1;34m+        if cls.context_kwds:[0;0m
+[1;34m+            #extract context kwds[0;0m
+[1;34m+            context = dict([0;0m
+[1;34m+                (k,context_and_config.pop(k))[0;0m
+[1;34m+                for k in cls.context_kwds[0;0m
+[1;34m+                if k in context_and_config[0;0m
+[1;34m+            )[0;0m
+[1;34m+            #generate config string[0;0m
+[1;34m+            config = cls.genconfig(**context_and_config)[0;0m
+[1;34m+            #run through genhash[0;0m
+[1;34m+            return cls.genhash(secret, config, **context)[0;0m
+[1;34m+        else:[0;0m
+[1;34m+            #let genhash create new config if needed.[0;0m
+[1;34m+            return cls.genhash(secret, None, **context_and_settings)[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+[1;35m@@ -454,29 +556,58 @@[0;0m
+[0;0m             return False[0;0m
+[0;0m         return True[0;0m
+[0;0m [0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def verify(cls, secret, hash, **context):[0;0m
+[1;34m+        if not hash:[0;0m
+[1;34m+            raise ValueError, "no hash specified"[0;0m
+[1;34m+        if not cls.identify(hash):[0;0m
+[1;34m+            raise ValueError, "not a %s hash" % (cls.name,)[0;0m
+[1;34m+        return cls._norm_hash(hash) == cls.genhash(secret, hash, **context)[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def _norm_hash(cls, hash):[0;0m
+[1;34m+        "helper for default verify method"[0;0m
+[1;34m+        return hash[0;0m
+[1;34m+[0;0m
+[0;0m     #NOTE: subclasses must still implement encrypt() directly,[0;0m
+[0;0m     # though _norm_salt(), _norm_rounds(), and render()[0;0m
+[0;0m     # are generally helpful when writing an encrypt() method.[0;0m
+[0;0m [0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash, **context):[0;0m
+[1;31m-        #NOTE: this is a default verify() implementation provided[0;0m
+[1;31m-        # by ExtCryptAlgorithm, which should work for most classes.[0;0m
+[1;31m-        #[0;0m
+[1;31m-        # simple string comparison of hashes is used[0;0m
+[1;31m-        # as the default behavior, since most algorithms[0;0m
+[1;31m-        # were designed to be compared in this manner.[0;0m
+[1;31m-        assert all(key in cls.context_kwds for key in context), "one the following not a valid context kwd: %r" % (context,)[0;0m
+[1;31m-        settings = cls.parse(hash)[0;0m
+[1;31m-        settings.pop("checksum", None)[0;0m
+[1;31m-        settings.update(context)[0;0m
+[1;31m-        other = cls.encrypt(secret, **settings)[0;0m
+[1;31m-        return hash == other[0;0m
+[1;34m+    ##@classmethod[0;0m
+[1;34m+    ##def verify(cls, secret, hash, **context):[0;0m
+[1;34m+    ##    #NOTE: this is a default verify() implementation provided[0;0m
+[1;34m+    ##    # by ExtCryptAlgorithm, which should work for most classes.[0;0m
+[1;34m+    ##    #[0;0m
+[1;34m+    ##    # simple string comparison of hashes is used[0;0m
+[1;34m+    ##    # as the default behavior, since most algorithms[0;0m
+[1;34m+    ##    # were designed to be compared in this manner.[0;0m
+[1;34m+    ##    assert all(key in cls.context_kwds for key in context), "one the following not a valid context kwd: %r" % (context,)[0;0m
+[1;34m+    ##    settings = cls.parse(hash)[0;0m
+[1;34m+    ##    settings.pop("checksum", None)[0;0m
+[1;34m+    ##    settings.update(context)[0;0m
+[1;34m+    ##    other = cls.encrypt(secret, **settings)[0;0m
+[1;34m+    ##    return hash == other[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #configuration helpers[0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     @classmethod[0;0m
+[1;34m+    def _parse_config(cls, config):[0;0m
+[1;34m+        info = cls.parse(config)[0;0m
+[1;34m+        info.pop("checksum", None)[0;0m
+[1;34m+        return info[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[1;34m+    def _norm_config(cls, config):[0;0m
+[1;34m+        """normalize config string"""[0;0m
+[1;34m+        if config and cls.setting_kwds:[0;0m
+[1;34m+            kwds = cls.parse(config)[0;0m
+[1;34m+            kwds.pop("checksum", None)[0;0m
+[1;34m+            return cls.genconfig(**kwds)[0;0m
+[1;34m+        else:[0;0m
+[1;34m+            return cls.genconfig()[0;0m
+[1;34m+[0;0m
+[1;34m+    @classmethod[0;0m
+[0;0m     def _norm_rounds(cls, rounds):[0;0m
+[0;0m         """helper routine for normalizing rounds[0;0m
+[0;0m [0;0m
+Index: passlib/mysql.py
+===================================================================
+[1;31m--- passlib/mysql.py	(revision 10368)[0;0m
+[1;34m+++ passlib/mysql.py	(working copy)[0;0m
+[1;35m@@ -55,7 +55,7 @@[0;0m
+[0;0m         return bool(hash and cls._pat.match(hash))[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret):[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[0;0m         nr1 = 1345345333[0;0m
+[0;0m         nr2 = 0x12345671[0;0m
+[0;0m         add = 7[0;0m
+[1;35m@@ -69,10 +69,8 @@[0;0m
+[0;0m         return "%08x%08x" % (nr1 & 0x7fffffff, nr2 & 0x7fffffff)[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash):[0;0m
+[1;31m-        if not cls.identify(hash):[0;0m
+[1;31m-            raise ValueError, "not a mysql-10 hash"[0;0m
+[1;31m-        return hash.lower() == cls.encrypt(secret)[0;0m
+[1;34m+    def _norm_hash(cls, hash):[0;0m
+[1;34m+        return hash.lower()[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+[1;35m@@ -105,14 +103,12 @@[0;0m
+[0;0m         return bool(hash and cls._pat.match(hash))[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret):[0;0m
+[1;34m+    def genhash(cls, secret, config=None):[0;0m
+[0;0m         return '*' + hashlib.sha1(hashlib.sha1(secret).digest()).hexdigest().upper()[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash):[0;0m
+[1;31m-        if not cls.identify(hash):[0;0m
+[1;31m-            raise ValueError, "not a mysql-41 hash"[0;0m
+[1;31m-        return hash.upper() == cls.encrypt(secret)[0;0m
+[1;34m+    def _norm_hash(cls, hash):[0;0m
+[1;34m+        return hash.upper()[0;0m
+[0;0m [0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+Index: passlib/postgres.py
+===================================================================
+[1;31m--- passlib/postgres.py	(revision 10368)[0;0m
+[1;34m+++ passlib/postgres.py	(working copy)[0;0m
+[1;35m@@ -64,17 +64,11 @@[0;0m
+[0;0m         return bool(hash and cls._pat.match(hash))[0;0m
+[0;0m [0;0m
+[0;0m     @classmethod[0;0m
+[1;31m-    def encrypt(cls, secret, user):[0;0m
+[1;34m+    def genhash(cls, secret, config=None, user=None):[0;0m
+[0;0m         if not user:[0;0m
+[0;0m             raise ValueError, "user keyword must be specified for this algorithm"[0;0m
+[0;0m         return "md5" + hashlib.md5(secret + user).hexdigest().lower()[0;0m
+[0;0m [0;0m
+[1;31m-    @classmethod[0;0m
+[1;31m-    def verify(cls, secret, hash, user):[0;0m
+[1;31m-        if not cls.identify(hash):[0;0m
+[1;31m-            raise ValueError, "invalid postgres-md5 hash"[0;0m
+[1;31m-        return hash == cls.encrypt(secret, user)[0;0m
+[1;31m-[0;0m
+[0;0m     #=========================================================[0;0m
+[0;0m     #eoc[0;0m
+[0;0m     #=========================================================[0;0m
