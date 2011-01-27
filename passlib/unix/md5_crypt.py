@@ -157,8 +157,6 @@ class Md5Crypt(ExtCryptHandler):
 
     setting_kwds = ("salt",)
 
-    secret_chars = -1
-
     salt_chars = 8
     min_salt_chars = 0
 

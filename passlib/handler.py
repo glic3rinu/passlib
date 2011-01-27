@@ -107,118 +107,81 @@ def is_ext_crypt_handler(obj):
 class CryptHandler(object):
     """base class for implementing a password algorithm.
 
-    The following should be filled out for all crypt algorithm subclasses.
-    Additional methods, attributes, and features may vary.
+    Overview
+    ========
+    All passlib-compatible password hash handlers must follow
+    the interface specified by this class.
+
+    Frontend Interface
+    ==================
+    The following 3 methods should be implemented for all classes,
+    and provide a simple interface for users wishes
+    to quickly manipulation passwords and hashes:
+
+    .. automethod:: encrypt
+    .. automethod:: verify
+    .. automethod:: identify
+
+    Backend Interface
+    =================
+    The frontend for most handlers is built upon the following
+    backend methods, whose semantics are closer to the traditional unix crypt
+    interface, but require the user's code to have more
+    knowledge of the specific algorithm in use.
+
+    .. automethod:: genconfig
+    .. automethod:: genhash
+
 
     Informational Attributes
     ========================
     .. attribute:: name
 
-        This should be a globally unique name to identify
-        the hash algorithm with.
+        A unique name used to identify
+        the particular algorithm this handler implements.
 
-    .. attribute:: salt_bytes
+        These names should consist only of lowercase a-z, the digits 0-9, and underscores.
 
-        This is a purely informational attribute
-        listing how many bytes are in the salt your algorithm uses.
+        Examples: ``"des_crypt"``, ``"md5_crypt"``.
 
-    .. attribute:: hash_bytes
+    .. attribute:: setting_kwds
 
-        This is a purely informational attribute
-        listing how many bytes are in the cheksum part of your algorithm's hash.
+        If the algorithm supports per-hash configuration
+        (such as salts, variable rounds, etc), this attribute
+        should contain a tuple of keywords corresponding
+        to each of those configuration options.
 
-    .. note::
+        This should correspond with the keywords accepted
+        by that algorithm's :meth:`genconfig` method,
+        see that method for details.
 
-        Note that all the bit counts should measure
-        the number of bits of entropy, not the number of bits
-        a given encoding takes up.
+        If no settings are supported, this attribute
+        should be an empty tuple.
 
-    .. attribute:: has_salt
+    .. attribute:: context_kwds
 
-        This is a virtual attribute,
-        calculated based on the value of the salt_bytes attribute.
-        It returns ``True`` if the algorithm contains any salt bytes,
-        else ``False``.
+        Some algorithms require external contextual information
+        in order to generate a checksum for a password.
+        An example of this is postgres' md5 algorithm,
+        which requires the username to use as a salt.
 
-    .. attribute:: secret_chars
+        This attribute should contain a tuple of keywords
+        which should be passed into :meth:`encrypt`, :meth:`verify`,
+        and :meth:`genhash` in order to encrypt a password.
 
-        Number of characters in secret which are used.
-        If ``None`` (the default), all chars are used.
-        BCrypt, for example, only uses the first 55 chars.
-
-    .. attribute:: has_rounds
-
-        This is a purely informational attribute
-        listing whether the algorithm can be scaled
-        by increasing the number of rounds it contains.
-        It is not required (defaults to False).
-
-    .. attribute:: has_named_rounds
-
-        If this flag is true, then the algorithm's
-        encrypt method supports a ``rounds`` keyword
-        which (at the very least) accepts the following
-        strings as possible values:
-
-            * ``fast`` -- number of rounds will be selected
-                to provide adequate security for most user accounts.
-                This is retuned perodically to take around .25 seconds.
-
-            * ``medium`` -- number of rounds will be selected
-                to provide adequate security for most root/administrative accounts
-                This is retuned perodically to take around .75 seconds.
-
-            * ``slow`` -- number of rounds will be selected
-                to require a large amount of calculation time.
-                This is retuned perodically to take around 1.5 seconds.
-
-        .. note::
-            Last retuning of the default round sizes was done
-            on 2009-07-06 using a 2ghz system.
-
-    Common Methods
-    ==============
-    .. automethod:: identify
-
-    .. automethod:: encrypt
-
-    .. automethod:: verify
-
-    Implementing a new crypt algorithm
-    ==================================
-    Subclass this class, and implement :meth:`identify`
-    and :meth:`encrypt` so that they implement your
-    algorithm according to it's documentation
-    and the specifications of the methods themselves.
-    You must also specify :attr:``name``.
-    Optionally, you may override :meth:`verify`
-    and set various informational attributes.
-
+        Since most password hashes require no external information,
+        this tuple will usually be empty.
     """
 
     #=========================================================
     #class attrs
     #=========================================================
 
-    #---------------------------------------------------------
-    #registry
-    #---------------------------------------------------------
     name = None #globally unique name to identify algorithm. should be lower case and hyphens only
     aliases = () #optional list of aliases (other names) this hash should be recognized by
+
     context_kwds = () #tuple of additional kwds required for any encrypt / verify operations; eg "realm" or "user"
     setting_kwds = () #tuple of additional kwds that encrypt accepts for configuration algorithm; eg "salt" or "rounds"
-
-    #---------------------------------------------------------
-    #optional informational attributes
-    #---------------------------------------------------------
-    secret_chars = -1 #max number of chars of secret that are used in hash. -1 if all chars used.
-
-    #---------------------------------------------------------
-    #algorithm rounds information - only required if alg supports rounds
-    #---------------------------------------------------------
-    default_rounds = None #default number of rounds to use if none specified (can be name of a preset)
-    min_rounds = None #minimum number of rounds (smaller values silently ignored)
-    max_rounds = None #maximum number of rounds (larger values silently ignored)
 
     #=========================================================
     #primary interface - primary methods implemented by each handler
@@ -228,10 +191,14 @@ class CryptHandler(object):
     def genhash(cls, secret, config, **context_kwds):
         """encrypt secret to hash
 
+        Overview
+        ========
         takes in a password, optional configuration string,
         and any required contextual information the algorithm needs,
         and returns the encoded hash strings.
 
+        Call Syntax
+        ===========
         :arg secret: string containing the password to be encrypted
         :arg config:
             configuration string to use when encrypting secret.
@@ -261,9 +228,43 @@ class CryptHandler(object):
     def genconfig(cls, **settings):
         """return configuration string encoding settings for hash generation
 
-        Many hashes have configuration options,
-        and support a configuration string which encodes them.
-        (This is usually an abbreviated version of their encoded hash format, sans the actual checksum).
+        Overview
+        ========
+        Many hashes have configuration options,  and support a format
+        which encodes them into a single configuration string.
+        (This configuration string is usually an abbreviated version of their
+        encoded hash format, sans the actual checksum, and is commonly
+        referred to as a ``salt string``, though it may contain much more
+        than just a salt).
+
+        This function takes in optional configuration options (a complete list
+        of which should be found in :attr:`setting_kwds`), validates
+        the inputs, fills in defaults where appropriate, and returns
+        a configuration string.
+
+        For algorithms which do not have any configuration options,
+        this function should always return ``None``.
+
+        While each algorithm may have it's own configuration options,
+        the following keywords (if supported) should always have a consistent
+        meaning:
+
+        * ``salt`` - algorithm uses a salt. if passed into genconfig,
+          should contain an encoded salt string of length and character set
+          required by the specific handler.
+
+          salt strings which are too small or have invalid characters
+          should cause an error, salt strings which are too large
+          should be truncated but accepted.
+
+        * ``rounds`` - algorithm uses a variable number of rounds. if passed
+          into genconfig, should contain an integer number of rounds
+          (this may represent logarithmic rounds, eg bcrypt, or linear, eg sha-crypt).
+          if the number of rounds is too small or too large, it should
+          be clipped but accepted.
+
+        Call Syntax
+        ===========
 
         :param settings:
             this function takes in keywords as specified in :attr:`setting_kwds`.
@@ -279,7 +280,7 @@ class CryptHandler(object):
         :returns:
             the configuration string, or ``None`` if the algorithm does not support any configuration options.
         """
-        #NOTE: this implements a default method suitable ONLY for classes with no configuration.
+        #NOTE: this implements a default method which is suitable ONLY for classes with no configuration.
         if cls.setting_kwds:
             raise NotImplementedError, "classes with config kwds must implement genconfig()"
         if settings:
@@ -462,6 +463,13 @@ class ExtCryptHandler(CryptHandler):
     @classproperty
     def min_salt_chars(cls):
         return cls.salt_chars
+
+    #---------------------------------------------------------
+    #_norm_rounds() configuration
+    #---------------------------------------------------------
+    default_rounds = None #default number of rounds to use if none specified (can be name of a preset)
+    min_rounds = None #minimum number of rounds (smaller values silently ignored)
+    max_rounds = None #maximum number of rounds (larger values silently ignored)
 
     #=========================================================
     #backend parsing routines - used by helpers below

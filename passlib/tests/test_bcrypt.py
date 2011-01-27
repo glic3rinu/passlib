@@ -220,6 +220,7 @@ if pybcrypt and enable_test("backends"):
 #=========================================================
 class BCryptTest(_HandlerTestCase):
     handler = mod.BCrypt
+    secret_chars = 72
 
     known_correct = (
         #selected subset of backend test vectors (see above)

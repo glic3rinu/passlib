@@ -89,11 +89,9 @@ class DesCrypt(ExtCryptHandler):
     name = "des-crypt"
     aliases = ("unix-crypt",)
 
-    #stats: 66 bit checksum, 12 bit salt
+    #stats: 66 bit checksum, 12 bit salt, max 8 chars of secret
 
     setting_kwds = ("salt")
-
-    secret_chars = 8
 
     salt_chars = 2
 
@@ -174,8 +172,6 @@ class ExtDesCrypt(ExtCryptHandler):
     #stats: 66 bit checksum, 24 bit salt
 
     setting_kwds = ("salt", "rounds")
-
-    secret_chars = -1
 
     salt_chars = 4
 

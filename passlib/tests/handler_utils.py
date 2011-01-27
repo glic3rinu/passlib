@@ -33,6 +33,10 @@ class _HandlerTestCase(TestCase):
     #NOTE: would like unicode support for all hashes. until then, this flag is set for those which aren't.
     supports_unicode = False
 
+    #maximum number of chars which hash will include in checksum
+    #override this only if hash doesn't use all chars (the default)
+    secret_chars = -1
+
     #list of (secret,hash) pairs which handler should verify as matching
     known_correct = []
 
@@ -106,9 +110,6 @@ class _HandlerTestCase(TestCase):
         self.assert_(name, "name not defined:")
         self.assert_(name.lower() == name, "name not lower-case:")
         self.assert_(re.match("^[a-z0-9-]+$", name), "name must be alphanum + hyphen:")
-
-        value = ga("secret_chars")
-        self.assert_(value is not None and (value == -1 or value > 0), "secret_chars must be -1 or positive integer")
 
     #=========================================================
     #identify
@@ -232,8 +233,8 @@ class _HandlerTestCase(TestCase):
     #test secret handling
     #---------------------------------------------------------
     def test_37_secret_chars(self):
-        "test secret_chars limitation"
-        sc = self.handler.secret_chars
+        "test secret_chars limit"
+        sc = self.secret_chars
 
         base = "too many secrets"
         alt = 'x' #char that's not in base string

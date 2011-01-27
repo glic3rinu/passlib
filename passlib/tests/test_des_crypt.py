@@ -21,6 +21,8 @@ log = getLogger(__name__)
 class DesCryptTest(_HandlerTestCase):
     "test DesCrypt algorithm"
     handler = mod.DesCrypt
+    secret_chars = 8
+
     known_correct = (
         #secret, example hash which matches secret
         ('', 'OgAwTx2l6NADI'),

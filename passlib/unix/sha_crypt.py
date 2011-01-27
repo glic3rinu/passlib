@@ -275,8 +275,6 @@ class _ShaCrypt(ExtCryptHandler):
     #name - provided by subclass
     setting_kwds = ("salt", "rounds")
 
-    secret_chars = -1
-
     min_salt_chars = 0
     salt_chars = 16
 
