@@ -3,7 +3,7 @@
 #imports
 #=========================================================
 #core
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 import sys
 import random
 #site
@@ -99,7 +99,7 @@ class DesTest(TestCase):
 
     #(key, plaintext, ciphertext) all as 64 bit
     test_des_vectors = [
-        (int(line[4:21],16), int(line[21:38],16), int(line[38:],16))
+        (line[4:20], line[21:37], line[38:54])
         for line in
  """    0000000000000000 0000000000000000 8CA64DE9C1B123A7
     FFFFFFFFFFFFFFFF FFFFFFFFFFFFFFFF 7359B2163E4EDC58
@@ -138,12 +138,24 @@ class DesTest(TestCase):
     """.split("\n") if line.strip()
     ]
 
-    def test_des_encrypt_int_block(self):
+    def test_des_encrypt_block(self):
         for k,p,c in self.test_des_vectors:
-            result = des.des_encrypt_int_block(k,p)
+            k = unhexlify(k)
+            p = unhexlify(p)
+            c = unhexlify(c)
+            result = des.des_encrypt_block(k,p)
             self.assertEqual(result, c, "key=%r p=%r:" % (k,p))
 
-    #TODO: test other des methods (eg: mdes_encrypt_int_block)
+    def test_mdes_encrypt_int_block(self):
+        for k,p,c in self.test_des_vectors:
+            k = int(k,16)
+            p = int(p,16)
+            c = int(c,16)
+            result = des.mdes_encrypt_int_block(k,p, salt=0, rounds=1)
+            self.assertEqual(result, c, "key=%r p=%r:" % (k,p))
+
+    #TODO: test other des methods (eg: mdes_encrypt_int_block w/ salt & rounds)
+    # though des-crypt builtin backend test should thump it well enough
 
 #=========================================================
 #hash64

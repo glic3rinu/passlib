@@ -23,6 +23,8 @@ class DesCryptTest(_HandlerTestCase):
     handler = mod
     secret_chars = 8
 
+    #TODO: test
+
     known_correct = (
         #secret, example hash which matches secret
         ('', 'OgAwTx2l6NADI'),
@@ -37,6 +39,20 @@ class DesCryptTest(_HandlerTestCase):
         #bad char in otherwise correctly formatted hash
         '!gAwTx2l6NADI',
         )
+
+if mod.backend != "builtin" and enable_option("all-backends"):
+
+    #monkeypatch des-crypt mod so it uses builtin backend
+
+    class BuiltinDesCryptTest(DesCryptTest):
+        case_prefix = "des-crypt (builtin backend)"
+
+        def setUp(self):
+            self.tmp = mod.crypt
+            mod.crypt = None
+
+        def cleanUp(self):
+            mod.crypt = self.tmp
 
 class ExtDesCryptTest(_HandlerTestCase):
     "test ExtDesCrypt algorithm"
@@ -56,7 +72,7 @@ class ExtDesCryptTest(_HandlerTestCase):
 #=========================================================
 #test activate backend (stored in mod._crypt)
 #=========================================================
-#TODO: make these tests work again
+#TODO: make these tests work again, or merge them into above.
 ##class _DesCryptBackendTest(TestCase):
 ##    "test builtin unix crypt backend"
 ##

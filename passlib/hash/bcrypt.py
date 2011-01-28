@@ -56,7 +56,7 @@ except ImportError:
                     #means config was wrong
                     raise ValueError, "not a bcrypt hash"
                 return hash
-            backend = "stdlib"
+            backend = "os-crypt"
 
 #XXX: should issue warning when _slow_bcrypt is first used.
 
@@ -79,7 +79,7 @@ max_rounds = 31 # 32-bit integer limit (real_rounds=1<<rounds)
 _pat = re.compile(r"""
     ^
     \$(?P<ident>2a?)
-    \$(?P<rounds>\d+)
+    \$(?P<rounds>\d{2})
     \$(?P<salt>[A-Za-z0-9./]{22})
     (?P<chk>[A-Za-z0-9./]{31})?
     $
@@ -103,9 +103,9 @@ def parse(hash):
 
 def render(rounds, salt, checksum=None, omit_null_suffix=False):
     if omit_null_suffix:
-        out = "$2$%d$%s" % (rounds, salt)
+        out = "$2$%02d$%s" % (rounds, salt)
     else:
-        out = "$2a$%d$%s" % (rounds, salt)
+        out = "$2a$%02d$%s" % (rounds, salt)
     if checksum is not None:
         out += "$" + checksum
     return out

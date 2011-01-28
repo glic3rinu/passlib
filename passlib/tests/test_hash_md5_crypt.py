@@ -9,6 +9,7 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.handler_utils import _HandlerTestCase
+from passlib.tests.utils import enable_option
 import passlib.hash.md5_crypt as mod
 import passlib.hash.apr_md5_crypt as apr
 #module
@@ -34,8 +35,19 @@ class Md5CryptTest(_HandlerTestCase):
         '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o!',
         )
 
-#TODO: if os crypt backend selected,
-# should disable temporarily and test builtin backend.
+if mod.backend != "builtin" and enable_option("all-backends"):
+
+    #monkeypatch md5-crypt mod so it uses builtin backend
+
+    class BuiltinMd5CryptTest(Md5CryptTest):
+        case_prefix = "md5-crypt (builtin backend)"
+
+        def setUp(self):
+            self.tmp = mod.crypt
+            mod.crypt = None
+
+        def cleanUp(self):
+            mod.crypt = self.tmp
 
 #=========================================================
 #apr md5 crypt

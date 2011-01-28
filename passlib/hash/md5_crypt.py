@@ -32,7 +32,8 @@ def raw_md5_crypt(secret, salt, apr=False):
     # implementation of $1$ wasn't sufficient.
 
     #validate secret
-    assert isinstance(secret, str) #should have been converted to unicode
+    if not isinstance(secret, str):
+        raise TypeError, "secret must be string"
 
     #validate salt
     if len(salt) > 8:
@@ -60,7 +61,7 @@ def raw_md5_crypt(secret, salt, apr=False):
     # sha-crypt replaced this step with
     # something more useful, anyways
     idx = len(secret)
-    evenchar = secret[0]
+    evenchar = secret[:1] #NOTE: empty string if secret is empty
     while idx > 0:
         h.update('\x00' if idx & 1 else evenchar)
         idx >>= 1
@@ -165,7 +166,6 @@ def parse(hash):
         raise ValueError, "no hash specified"
     m = _pat.match(hash)
     if not m:
-        print hash
         raise ValueError, "invalid md5-crypt hash"
     salt, chk = m.group("salt", "chk")
     return dict(
