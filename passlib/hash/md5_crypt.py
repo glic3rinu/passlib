@@ -1,28 +1,28 @@
-"""passlib - implementation of various password hashing functions
+"""passlib.hash.md5_crypt - md5-crypt algorithm
 """
 #=========================================================
 #imports
 #=========================================================
-from __future__ import with_statement
 #core
-import inspect
-import re
 from hashlib import md5
+import re
 import logging; log = logging.getLogger(__name__)
-import time
-import os
+from warnings import warn
 #site
 #libs
-from passlib.utils import h64_encode_3_offsets, h64_encode_1_offset
-from passlib.handler import ExtCryptHandler, register_crypt_handler
+from passlib.utils import norm_rounds, norm_salt, h64
 #pkg
 #local
 __all__ = [
-    'Md5Crypt',
+    "genhash",
+    "genconfig",
+    "encrypt",
+    "identify",
+    "verify",
 ]
 
 #=========================================================
-#default backend
+#pure-python backend
 #=========================================================
 def raw_md5_crypt(secret, salt, apr=False):
     "perform raw md5 encryption"
@@ -32,9 +32,7 @@ def raw_md5_crypt(secret, salt, apr=False):
     # implementation of $1$ wasn't sufficient.
 
     #validate secret
-    #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
-    if isinstance(secret, unicode):
-        secret = secret.encode("utf-8")
+    assert isinstance(secret, str) #should have been converted to unicode
 
     #validate salt
     if len(salt) > 8:
@@ -109,18 +107,18 @@ def raw_md5_crypt(secret, salt, apr=False):
 
     #encode resulting hash
     out = ''.join(
-        h64_encode_3_offsets(result,
+        h64.encode_3_offsets(result,
             idx+12 if idx < 4 else 5,
             idx+6,
             idx,
         )
         for idx in xrange(5)
-        ) + h64_encode_1_offset(result, 11)
+        ) + h64.encode_1_offset(result, 11)
 
     return out
 
 #=========================================================
-#choose backend for md5-crypt
+#choose backend
 #=========================================================
 
 #fallback to default backend (defined above)
@@ -136,122 +134,102 @@ except ImportError:
     crypt = None
 else:
     if crypt("test", "$1$test") == '$1$test$pi/xDtU5WFVRqYS6BMU8X/':
-        backend = "stdlib"
+        backend = "os-crypt"
     else:
         crypt = None
 
 #TODO: could check for libssl support (openssl passwd -1)
 
 #=========================================================
-#id 1 -- md5
+#algorithm information
 #=========================================================
-class Md5Crypt(ExtCryptHandler):
-    """This provides the MD5-crypt algorithm, used in many 1990's era unix systems.
-    It should be byte compatible with unix shadow hashes beginning with ``$1$``.
+name = "md5-crypt"
+#stats: 96 bit checksum, 48 bit salt
+
+setting_kwds = ("salt",)
+context_kwds = ()
+
+#=========================================================
+#internal helpers
+#=========================================================
+_pat = re.compile(r"""
+    ^
+    \$1
+    \$(?P<salt>[A-Za-z0-9./]{,8})
+    (\$(?P<chk>[A-Za-z0-9./]{22})?)?
+    $
+    """, re.X)
+
+def parse(hash):
+    if not hash:
+        raise ValueError, "no hash specified"
+    m = _pat.match(hash)
+    if not m:
+        print hash
+        raise ValueError, "invalid md5-crypt hash"
+    salt, chk = m.group("salt", "chk")
+    return dict(
+        salt=salt,
+        checksum=chk,
+    )
+
+def render(salt, checksum=None):
+    return "$1$%s$%s" % (salt, checksum or '')
+
+#=========================================================
+#primary interface
+#=========================================================
+def genconfig(salt=None, rounds=None):
+    """generate md5-crypt configuration string
+
+    :param salt:
+        optional salt string to use.
+
+        if omitted, one will be automatically generated (recommended).
+
+        length must be between 0 and 8 characters inclusive.
+        characters must be in range ``A-Za-z0-9./``.
+
+    :returns:
+        md5-crypt configuration string.
     """
-    #=========================================================
-    #crypt info
-    #=========================================================
-    name = 'md5-crypt'
-    #stats: 96 bit checksum, 48 bit salt
+    salt = norm_salt(salt, 0, 8, name=name)
+    return render(salt, None)
 
-    setting_kwds = ("salt",)
+def genhash(secret, config):
+    #parse and run through genconfig to validate configuration
+    info = parse(config)
+    info.pop("checksum")
+    config = genconfig(**info)
 
-    salt_chars = 8
-    min_salt_chars = 0
+    #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
+    if isinstance(secret, unicode):
+        secret = secret.encode("utf-8")
 
-    #=========================================================
-    #helpers
-    #=========================================================
-    _ident = "1"
+    #run through chosen backend
+    if crypt:
+        #use OS's crypt(), should be faster than builtin backend
+        return crypt(secret, config)
 
-    _pat = re.compile(r"""
-        ^
-        \$1
-        \$(?P<salt>[A-Za-z0-9./]{,8})
-        \$(?P<chk>[A-Za-z0-9./]{22})
-        $
-        """, re.X)
-
-    @classmethod
-    def parse(cls, hash):
-        "parse an md5-crypt hash or config string"
-        if not hash:
-            raise ValueError, "no %s hash specified" % (cls.name,)
-        m = cls._pat.match(hash)
-        if not m:
-            raise ValueError, "invalid %s hash" % (cls.name,)
-        salt, chk = m.group("salt", "chk")
-        return dict(
-            salt=salt,
-            checksum=chk,
-        )
-
-    @classmethod
-    def render(cls, salt, checksum=None):
-        "render md5-crypt hash or config string"
-        return "$%s$%s$%s" % (cls._ident, salt, checksum or '')
-
-    #=========================================================
-    #1.4 frontend
-    #=========================================================
-    @classmethod
-    def identify(cls, hash):
-        "identify md5-crypt hash"
-        return bool(hash and cls._pat.match(hash))
-
-    @classmethod
-    def genconfig(cls, salt=None):
-        salt = cls._norm_salt(salt)
-        return cls.render(salt)
-
-    @classmethod
-    def genhash(cls, secret, config):
-        if crypt:
-            #use OS's crypt(), should be faster than builtin backend
-            config = cls._norm_config(config)
-            if isinstance(secret, unicode):
-                secret = secret.encode("utf-8")
-            return crypt(secret, config)
-        else:
-            #fallback to builtin backend
-            info = cls._parse_norm_config(config)
-            checksum = raw_md5_crypt(secret, info['salt'])
-            return cls.render(checksum=checksum, **info)
-
-    #=========================================================
-    #eoc
-    #=========================================================
-
-register_crypt_handler(Md5Crypt)
+    else:
+        #fallback to builtin backend
+        info = parse(config)
+        salt = info['salt']
+        checksum = raw_md5_crypt(secret, salt)
+        return render(salt, checksum)
 
 #=========================================================
-#apache variant of md5 crypt
+#secondary interface
 #=========================================================
-class AprMd5Crypt(Md5Crypt):
-    "Apache variant of md5-crypt, used in htpasswd files"
+def encrypt(secret, **settings):
+    return genhash(secret, genconfig(**settings))
 
-    name = "apr-md5-crypt"
+def verify(secret, hash):
+    return hash == genhash(secret, hash)
 
-    _ident = "apr1"
-
-    _pat = re.compile(r"""
-        ^
-        \$apr1
-        \$(?P<salt>[A-Za-z0-9./]{,8})
-        \$(?P<chk>[A-Za-z0-9./]{22})
-        $
-        """, re.X)
-
-    @classmethod
-    def genhash(cls, secret, config):
-        #TODO: could check for libssl support (openssl passwd -apr)
-        info = cls._parse_norm_config(config)
-        checksum = raw_md5_crypt(secret, info['salt'], apr=True)
-        return cls.render(checksum=checksum, **info)
-
-register_crypt_handler(AprMd5Crypt)
+def identify(hash):
+    return bool(hash and _pat.match(hash))
 
 #=========================================================
-# eof
+#eof
 #=========================================================

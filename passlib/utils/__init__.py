@@ -11,8 +11,10 @@ import os
 import sys
 import random
 import time
+from warnings import warn
 #site
 #pkg
+import passlib.utils.h64
 #local
 __all__ = [
     #decorators
@@ -25,9 +27,10 @@ __all__ = [
     "list_to_bytes",
     "xor_bytes",
 
-    #hash64 encoding
-    'generate_h64_salt',
-    'validate_h64_salt',
+    #misc helpers
+    'gen_salt',
+    'norm_salt',
+    'norm_rounds',
 ]
 #=================================================================================
 #decorators
@@ -312,73 +315,102 @@ def getrandstr(rng, alphabet, count):
     return buf.getvalue()
 
 #=================================================================================
-# "hash64" encoding helpers
-#
-# many of the password hash algorithms in this module
-# use a encoding that maps chunks of 3 bytes ->
-# chunks of 4 characters, in a manner similar (but not compatible with) base64.
-#
-# this encoding system appears to have originated with unix-crypt,
-# but is used by md5-crypt, sha-xxx-crypt, and others.
-# this encoded is referred to (within passlib) as hash64 encoding,
-# due to it's use of a strict set of 64 ascii characters.
-#
-# notably, bcrypt uses the same scheme, but with a different
-# ordering of the characters. bcrypt hashes cannot be decoded properly
-# with the following rountines (though h64_gensalt & h64_validate work fine)
-#
+#misc helpers
+#=================================================================================
+def norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name="this crypt"):
+    """helper routine for normalizing rounds
+
+    * falls back to :attr:`default_rounds`
+    * raises ValueError if no fallback
+    * clips to min_rounds / max_rounds
+    * issues warnings if rounds exists min/max
+
+    :returns: normalized rounds value
+    """
+    if rounds is None:
+        rounds = default_rounds
+        if rounds is None:
+            raise ValueError, "rounds must be specified explicitly"
+
+    if rounds > max_rounds:
+        warn("%s algorithm does not allow more than %d rounds: %d" % (name, max_rounds, rounds))
+        rounds = max_rounds
+
+    if rounds < min_rounds:
+        warn("%s algorithm does not allow less than %d rounds: %d" % (name, min_rounds, rounds))
+        rounds = min_rounds
+
+    return rounds
+
+def gen_salt(count, charset=h64.CHARS):
+    global rng
+    return getrandstr(rng, charset, count)
+
+def norm_salt(salt, min_chars, max_chars=None, charset=h64.CHARS, gen_charset=None, name="specified"):
+    """helper to normalize & validate user-provided salt string
+
+    required salt_charset & salt_chars attrs to be filled in,
+    along with optional min_salt_chars attr (defaults to salt_chars).
+
+    * generates salt if none provided
+    * clips salt to maximum length of salt_chars
+
+    :arg salt: user-provided salt
+    :arg min_chars: minimum number of chars in salt
+    :arg max_chars: maximum number of chars in salt (if omitted, same as min_chars)
+    :param charset: character set that salt MUST be subset of
+    :param gen_charset: optional character set to restrict to when generating new salts (defaults to charset)
+    :param name: optional name of handler, for inserting into error messages
+
+    :raises ValueError:
+        * if salt contains chars that aren't in salt_charset.
+        * if salt contains less than min_salt_chars characters.
+
+    :returns:
+        resulting or generated salt
+    """
+    #generate one if needed
+    if salt is None:
+        return gen_salt(max_chars or min_chars, gen_charset or charset)
+
+    #check character set
+    for c in salt:
+        if c not in charset:
+            raise ValueError, "invalid character in %s salt: %r"  % (name, c)
+
+    #check min size
+    if len(salt) < min_chars:
+        raise ValueError, "%s salt must be at least %d chars" % (name, min_chars)
+
+    if max_chars is None:
+        max_chars = min_chars
+    if len(salt) > max_chars:
+        #automatically clip things to specified number of chars
+        return salt[:max_chars]
+    else:
+        return salt
+
+#=================================================================================
+#errors
 #=================================================================================
 
-H64_CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+###NOTE: not all handlers will raise these errors,
+### the only thing currently guaranteed is that they
+### will
+##
+##class HandlerError(ValueError):
+##    "helper class for various errors used by some CryptHandlers"
+##    message = None
+##
+##    def __init__(self, msg=None):
+##        ValueError.__init__(self, msg or self.message)
+##
+##class NoChecksumError(HandlerError):
+##    "helper raised by CryptHandler.verify() when config string passed in instead of hash"
+##    #helper for common message raised by handlers
+##
+##    message = "hash lacks checksum (did you pass a config string into verify?)"
 
-def generate_h64_salt(count):
-    "return base64 salt containing specified number of characters"
-    return getrandstr(rng, H64_CHARS, count)
-
-def validate_h64_salt(value, count):
-    "validate base64 encoded salt is of right size & charset"
-    if not value:
-        raise ValueError, "no salt specified"
-    if len(value) != count:
-        raise ValueError, "salt must have %d chars: %r" % (count, value)
-    for c in value:
-        if c not in H64_CHARS:
-            raise ValueError, "invalid %r character in salt: %r" % (c, value)
-    return True
-
-def h64_encode_3_offsets(buffer, o1, o2, o3):
-    "do hash64 encode of three bytes at specified offsets in buffer; returns 4 chars"
-    #how 4 char output corresponds to 3 byte input:
-    #
-    #1st character: the six low bits of the first byte (0x3F)
-    #
-    #2nd character: four low bits from the second byte (0x0F) shift left 2
-    #               the two high bits of the first byte (0xC0) shift right 6
-    #
-    #3rd character: the two low bits from the third byte (0x03) shift left 4
-    #               the four high bits from the second byte (0xF0) shift right 4
-    #
-    #4th character: the six high bits from the third byte (0xFC) shift right 2
-    v1 = ord(buffer[o1])
-    v2 = ord(buffer[o2])
-    v3 = ord(buffer[o3])
-    return  H64_CHARS[v1&0x3F] + \
-            H64_CHARS[((v2&0x0F)<<2) + (v1>>6)] + \
-            H64_CHARS[((v3&0x03)<<4) + (v2>>4)] + \
-            H64_CHARS[v3>>2]
-
-def h64_encode_2_offsets(buffer, o1, o2):
-    "do hash64 encode of two bytes at specified offsets in buffer; 2 missing msg set null; returns 3 chars"
-    v1 = ord(buffer[o1])
-    v2 = ord(buffer[o2])
-    return  H64_CHARS[v1&0x3F] + \
-            H64_CHARS[((v2&0x0F)<<2) + (v1>>6)] + \
-            H64_CHARS[(v2>>4)]
-
-def h64_encode_1_offset(buffer, o1):
-    "do hash64 encode of single byte at specified offset in buffer; 4 missing msb set null; returns 2 chars"
-    v1 = ord(buffer[o1])
-    return H64_CHARS[v1&0x3F] + H64_CHARS[v1>>6]
 
 #=================================================================================
 #eof

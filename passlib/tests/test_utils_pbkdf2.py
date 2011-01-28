@@ -10,7 +10,7 @@ import hmac
 from logging import getLogger
 #site
 #pkg
-from passlib.tests.utils import TestCase, enable_test
+from passlib.tests.utils import TestCase, enable_option
 import passlib.utils.pbkdf2 as mod
 #module
 log = getLogger(__name__)
@@ -118,12 +118,12 @@ class _Pbkdf2BackendTest(TestCase):
             ),
         ])
 
-if enable_test("fallback-backends" if mod._EVP else "backends"):
+if enable_option("all-backends" if mod._EVP else "backends"):
     class Builtin_Pbkdf2BackendTest(_Pbkdf2BackendTest):
         case_prefix = "builtin pbkdf2() backend"
         disable_m2crypto = True
 
-if mod._EVP and enable_test("backends"):
+if mod._EVP and enable_option("backends"):
 
     class M2Crypto_Pbkdf2BackendTest(_Pbkdf2BackendTest):
         case_prefix = "m2crypto pbkdf2() backend"

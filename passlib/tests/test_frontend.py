@@ -20,10 +20,10 @@ def get_crypt_cases():
 
     #this test suite uses info stored in the specific hash algs' test suites,
     #so we have to import them here.
-    from passlib.tests.test_sha_crypt import Sha256CryptTest, Sha512CryptTest
-    from passlib.tests.test_des_crypt import DesCryptTest
-    from passlib.tests.test_bcrypt import BCryptTest
-    from passlib.tests.test_md5_crypt import Md5CryptTest
+    from passlib.tests.test_hash_sha_crypt import Sha256CryptTest, Sha512CryptTest
+    from passlib.tests.test_hash_des_crypt import DesCryptTest
+    from passlib.tests.test_hash_bcrypt import BCryptTest
+    from passlib.tests.test_hash_md5_crypt import Md5CryptTest
 
     crypt_cases = [ DesCryptTest, Md5CryptTest, Sha256CryptTest]
     if BCryptTest:

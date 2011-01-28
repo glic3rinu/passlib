@@ -12,7 +12,7 @@ from passlib.context import CryptContext
 from passlib.tests.utils import TestCase
 ##from passlib.unix.des_crypt import DesCrypt
 ##from passlib.unix.sha_crypt import Sha512Crypt
-from passlib.unix.md5_crypt import Md5Crypt as AnotherHash
+import passlib.hash.md5_crypt as AnotherHash
 from passlib.tests.test_handler import UnsaltedHash, SaltedHash
 #module
 log = getLogger(__name__)

@@ -9,15 +9,16 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.handler_utils import _HandlerTestCase
-import passlib.mysql as mod
+import passlib.hash.mysql_323 as mod3
+import passlib.hash.mysql_41 as mod4
 #module
 log = getLogger(__name__)
 
 #=========================================================
 #database hashes
 #=========================================================
-class Mysql10CryptTest(_HandlerTestCase):
-    handler = mod.Mysql10Crypt
+class Mysql323CryptTest(_HandlerTestCase):
+    handler = mod3
 
     #remove single space from secrets, since mysql-10 DISCARDS WHITESPACE !?!
     standard_secrets = [ x for x in _HandlerTestCase.standard_secrets if x != ' ' ]
@@ -37,7 +38,7 @@ class Mysql10CryptTest(_HandlerTestCase):
         self.assertEqual(h, h2)
 
 class Mysql41CryptTest(_HandlerTestCase):
-    handler = mod.Mysql41Crypt
+    handler = mod4
     known_correct = (
         ('mypass', '*6C8989366EAF75BB670AD8EA7A7FC1176A95CEF4'),
     )

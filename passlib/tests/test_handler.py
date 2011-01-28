@@ -11,17 +11,17 @@ from logging import getLogger
 #pkg
 from passlib.handler import CryptHandler
 from passlib.tests.handler_utils import _HandlerTestCase
-from passlib.utils import generate_h64_salt
+from passlib.utils import gen_salt
 #module
 log = getLogger(__name__)
 
 #=========================================================
 #sample algorithms - these serve as known quantities
 # to test the unittests themselves, as well as other
-# parts of passlib
+# parts of passlib. they shouldn't be used as actual password schemes.
 #=========================================================
 class UnsaltedHash(CryptHandler):
-    "example algorithm which lacks a salt [REALLY INSECURE - DO NOT USE]"
+    "example algorithm which lacks a salt"
     name = "unsalted-example"
     #stats: 160 bit checksum, no salt
 
@@ -34,7 +34,7 @@ class UnsaltedHash(CryptHandler):
         return hashlib.sha1("boblious" + secret).hexdigest()
 
 class SaltedHash(CryptHandler):
-    "example algorithm with a salt [REALLY INSECURE - DO NOT USE]"
+    "example algorithm with a salt"
     name = "salted-example"
     #stats: 160 bit checksum, 12 bit salt
 
@@ -45,7 +45,7 @@ class SaltedHash(CryptHandler):
         return bool(hash and re.match("^@salt[0-9a-zA-Z./]{2}[0-9a-f]{40}$", hash))
 
     @classmethod
-    def _parse(cls, hash):
+    def parse(cls, hash):
         if not cls.identify(hash):
             raise ValueError, "not a salted-example hash"
         return dict(
@@ -54,7 +54,7 @@ class SaltedHash(CryptHandler):
         )
 
     @classmethod
-    def _render(cls, salt, checksum):
+    def render(cls, salt, checksum):
         assert len(salt) == 2
         assert len(checksum) == 40
         return "@salt%s%s" % (salt, checksum)
@@ -62,17 +62,17 @@ class SaltedHash(CryptHandler):
     @classmethod
     def genconfig(cls, salt=None):
         if not salt:
-            salt = generate_h64_salt(2)
-        return cls._render(salt[:2], '0' * 40)
+            salt = gen_salt(2)
+        return cls.render(salt[:2], '0' * 40)
 
     @classmethod
     def genhash(cls, secret, config):
-        salt = cls._parse(config)['salt']
-        checksum = hashlib.sha1(salt+secret).hexdigest()
-        return cls._render(salt, checksum)
+        salt = cls.parse(config)['salt']
+        checksum = hashlib.sha1(salt + secret + salt).hexdigest()
+        return cls.render(salt, checksum)
 
 #=========================================================
-#test sample algorithms
+#test sample algorithms - really a self-test of _HandlerTestCase
 #=========================================================
 
 #TODO: provide data samples for algorithms

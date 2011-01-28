@@ -175,8 +175,9 @@ nt-hash
 
     $3$hash
 
-
-http://search.cpan.org/~zefram/Authen-Passphrase-0.007/lib/Authen/Passphrase.pm
+references for hashes & passwords
+    http://cpansearch.perl.org/src/CHANSEN/Authen-Simple-0.4/lib/Authen/Simple/Password.pm
+    http://search.cpan.org/~zefram/Authen-Passphrase-0.007/lib/Authen/Passphrase.pm
 ======================================================================
 OS notes
 

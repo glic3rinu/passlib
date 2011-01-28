@@ -11,7 +11,7 @@ import logging; log = logging.getLogger(__name__)
 __all__ = [
     'TestCase',
     'Param',
-    'enable_test',
+    'enable_option',
 ]
 
 #=========================================================
@@ -154,7 +154,7 @@ class TestCase(unittest.TestCase):
 #helper funcs
 #=========================================================
 
-DEFAULT_TESTS = "backends"
+DEFAULT_TESTS = "active-backends"
 
 tests = [
     v.strip()
@@ -162,13 +162,13 @@ tests = [
     in os.environ.get("PASSLIB_TESTS", DEFAULT_TESTS).lower().split(",")
     ]
 
-def enable_test(*names):
+def enable_option(*names):
     """check if a given test should be included based on the env var.
 
     test flags:
         all                 run ALL tests
-        backends            test active backends
-        fallback-backends   test inactive backends
+        active-backends     test active backends
+        all-backends        test ALL backends, even the inactive ones
 
         slow                required to enable really slow tests (eg builtin bcrypt backend)
     """

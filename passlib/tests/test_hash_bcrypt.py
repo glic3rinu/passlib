@@ -25,7 +25,7 @@ try:
 except ImportError:
     pybcrypt = None
 #pkg
-from passlib.tests.utils import TestCase, enable_test
+from passlib.tests.utils import TestCase, enable_option
 from passlib.utils import _slow_bcrypt as slow_bcrypt
 from passlib.tests.handler_utils import _HandlerTestCase
 import passlib.unix.bcrypt as mod
@@ -200,13 +200,13 @@ class _BCryptTestBase(TestCase):
     #eoc
     #=========================================================
 
-if enable_test("slow") and enable_test("fallback-backends" if pybcrypt else "backends"):
+if enable_option("slow") and enable_option("all-backends" if pybcrypt else "backends"):
     class SlowBcryptTest(_BCryptTestBase):
         "test slow bcrypt module"
         case_prefix = "builtin bcrypt() backend"
         mod = slow_bcrypt
 
-if pybcrypt and enable_test("backends"):
+if pybcrypt and enable_option("backends"):
     #if pybcrypt is installed, run our unitest on them too,
     #just to ensure slow_bcrypt's interface is compatible.
     class PyBcryptTest(_BCryptTestBase):

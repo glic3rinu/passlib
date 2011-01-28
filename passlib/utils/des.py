@@ -9,6 +9,7 @@ such as ``lmhash`` and ``des-crypt``.
 .. function:: expand_des_key
 .. function:: des_encrypt_block
 .. function:: mdes_encrypt_int_block
+
 """
 
 """
@@ -45,6 +46,9 @@ The copyright & license for that source is as follows::
     @version $Id: UnixCrypt2.txt,v 1.1.1.1 2005/09/13 22:20:13 christos Exp $
     @author Greg Wilkins (gregw)
 """
+
+#TODO: could use an accelerated C version of this module to speed up lmhash, des-crypt, and ext-des-crypt
+
 #=========================================================
 #imports
 #=========================================================

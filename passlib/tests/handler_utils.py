@@ -5,6 +5,7 @@
 #core
 import re
 #site
+from nose.plugins.skip import SkipTest
 #pkg
 from passlib.tests.utils import TestCase
 #module
@@ -73,7 +74,11 @@ class _HandlerTestCase(TestCase):
     #useful when multiple handler test classes being run.
     #default behavior should be sufficient
     def case_prefix(self):
-        return self.handler.name if self.handler else self.__class__.__name__
+        name = self.handler.name if self.handler else self.__class__.__name__
+        backend = getattr(self.handler, "backend", None) #set by some of the builtin handlers
+        if backend:
+            name += " (%s backend)" % (backend,)
+        return name
 
     #=========================================================
     #alg interface helpers - allows subclass to overide how
@@ -109,7 +114,7 @@ class _HandlerTestCase(TestCase):
         name = ga("name")
         self.assert_(name, "name not defined:")
         self.assert_(name.lower() == name, "name not lower-case:")
-        self.assert_(re.match("^[a-z0-9-]+$", name), "name must be alphanum + hyphen:")
+        self.assert_(re.match("^[a-z0-9-]+$", name), "name must be alphanum + hyphen: %r" % (name,))
 
     #=========================================================
     #identify
@@ -220,7 +225,7 @@ class _HandlerTestCase(TestCase):
     def test_33_encrypt_gensalt(self):
         "test encrypt() generates new salt each time"
         if 'salt' not in self.handler.setting_kwds:
-            return
+            raise SkipTest
         for secret, hash in self.known_correct:
             hash2 = self.do_encrypt(secret)
             self.assertNotEqual(hash, hash2)
@@ -276,8 +281,12 @@ class _HandlerTestCase(TestCase):
     #
     #=========================================================
 
+    #TODO: check genhash works
+    #TODO: check genconfig works
+
     #TODO: check parse method works
     #TODO: check render method works
+    #TODO: check default/min/max_rounds valid if present
 
     #=========================================================
     #eoc

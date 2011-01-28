@@ -9,7 +9,7 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.handler_utils import _HandlerTestCase
-import passlib.postgres as mod
+import passlib.hash.postgres_md5 as mod
 #module
 log = getLogger(__name__)
 
@@ -17,7 +17,7 @@ log = getLogger(__name__)
 #database hashes
 #=========================================================
 class PostgresMd5CryptTest(_HandlerTestCase):
-    handler = mod.PostgresMd5Crypt
+    handler = mod
     known_correct = (
         # ((secret,user),hash)
         (('mypass', 'postgres'), 'md55fba2ea04fd36069d2574ea71c8efe9d'),
