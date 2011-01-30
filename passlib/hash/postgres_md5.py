@@ -48,7 +48,7 @@ __all__ = [
 #=========================================================
 #algorithm information
 #=========================================================
-name = "postgres-md5"
+name = "postgres_md5"
 #stats: 512 bit checksum, username used as salt
 
 setting_kwds = ()

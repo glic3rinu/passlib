@@ -1,9 +1,20 @@
-"""passlib - implementation of various password hashing functions"""
+"""passlib - implementation of various password hashing functions
+
+Context options
+
+    schemes - list of names or handler instances which should be recognized by context
+    deprecated - list names of handlers which should context should only use to validate *old* hashes
+    default - optional name of handler to use for encrypting new hashes.
+
+Many schemes support their own options, such as min/max/default rounds.
+
+"""
 #=========================================================
 #imports
 #=========================================================
 from __future__ import with_statement
 #core
+from ConfigParser import ConfigParser
 import inspect
 import re
 import hashlib
@@ -12,14 +23,40 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstract_class_method, Undef
-from passlib.handler import get_crypt_handler, is_crypt_handler
+from passlib.utils import abstract_class_method, Undef, is_crypt_handler, splitcomma
+from passlib.handler import get_crypt_handler
 #pkg
 #local
 __all__ = [
     'CryptContext',
-    "is_crypt_context",
 ]
+
+#=========================================================
+#policy
+#=========================================================
+"""
+
+context file format -
+
+config ini
+
+[passlib]
+allow = des-crypt, md5-crypt, sha256-crypt, sha512-crypt
+default = sha512-crypt
+deprecate = des-crypt, md5-crypt
+
+sha256_crypt/min_rounds = 10000
+sha256_crypt/default_rounds = 40000
+
+admin/sha256_crypt/default_rounds = 50000
+
+CryptContext(
+    allow=["des-crypt", "md5-crypt", "sha256-crypt", "sha512-crypt"],
+    default="sha512-crypt",
+    deprecate=["des-crypt", "md5-crypt"],
+    sha256_crypt__default_rounds = 40000,
+)
+"""
 
 #=========================================================
 #
@@ -81,41 +118,217 @@ class CryptContext(object):
         >>> bc
         <passlib.BCrypt object, name="bcrypt">
     """
+    #===================================================================
+    #instance attrs
+    #===================================================================
 
-    def __init__(self, handlers):
-        self._handlers = map(self._norm_handler, handlers)
-
-    def _norm_handler(self, handler):
-        if isinstance(handler, str):
-            handler = get_crypt_handler(handler)
-        if not is_crypt_handler(handler):
-            raise TypeError, "handler must be CryptHandler class or name: %r" % (handler,)
-        return handler
+    #===================================================================
+    #init
+    #===================================================================
+    def __init__(self, schemes, **kwds):
+        self.set_config(schemes, **kwds)
 
     def __repr__(self):
         names = [ handler.name for handler in self._handlers ]
         return "CryptContext(%r)" % (names,)
 
+    #===================================================================
+    #setting policy configuration
+    #===================================================================
+
+    ##@staticmethod
+    ##def _norm_option_key(key):
+    ##    "helper to normalize & parse an option key into (policy name, scheme name, param name) tuple"
+    ##    ##if isinstance(key, tuple):
+    ##    ##    if len(key) == 3:
+    ##    ##        return key
+    ##    ##    else:
+    ##    ##        raise ValueError, "tuple size must be 3"
+    ##    ##elif not isinstance(key, (str,unicode)):
+    ##    ##    raise TypeError, "key must be string"
+    ##    if '__' in key: #alt format accepted for pure-python implementations
+    ##        key = key.replace("__","/")
+    ##    parts = key.split("/")
+    ##    #returns (scheme, param, policy)
+    ##    if len(parts) == 1:
+    ##        scheme, param = None, parts[0]
+    ##    elif len(parts) == 2:
+    ##        scheme, param = parts
+    ##    else:
+    ##        raise KeyError, "keys may have at most 2 sections"
+    ##    if scheme == "context":
+    ##        scheme = None
+    ##    if not param:
+    ##        raise KeyError, "invalid key: %r"  %(key,)
+    ##    return scheme, param
+    ##
+    ##_option_types = {
+    ##    ("context", "allow"): "scheme-list",
+    ##    ("context", "deprecate"): "scheme-list",
+    ##    ("scheme", "min-rounds"): "int",
+    ##    ("scheme", "max-rounds"): "int",
+    ##    ("scheme", "default-rounds"): "int",
+    ##}
+    ##
+    ##@classmethod
+    ##def _get_option_type(cls, opt):
+    ##    "return datatype associated with option"
+    ##    c,s,p = opt
+    ##    if s == "context":
+    ##        k = ("context", p)
+    ##    else:
+    ##        k = ("scheme", p)
+    ##    return cls._option_types.get(k, "string")
+    ##
+    ##@classmethod
+    ##def _norm_option_value(cls, option, value):
+    ##    type = self._get_option_type(option)
+    ##    if type == "int":
+    ##        value = int(value)
+    ##    elif type == "scheme-list":
+    ##        if isinstance(value, str):
+    ##            value = [ x.strip() for x in value.split(",") if x.strip() ]
+    ##    elif type == "string":
+    ##        pass
+    ##    else:
+    ##        raise AssertionError, "unknown option datatype: %r" % (type,)
+    ##    return value
+
+    def _add_scheme(self, scheme):
+        "helper to add scheme to internal config"
+        #resolve & validate handler
+        if is_crypt_handler(scheme):
+            handler = scheme
+        else:
+            handler = get_crypt_handler(scheme)
+        name = handler.name
+        if not name:
+            raise KeyError, "handler lacks name: %r" % (handler,)
+
+        #check name->handler mapping
+        hmap = self._hmap
+        other = hmap.get(name)
+        if other:
+            if other is handler: #quit if already added to config
+                return handler
+            raise KeyError, "multiple handlers with same name: %r" % (handler, other)
+        hmap[name] = handler
+
+        #add to handler list
+        self._handlers.append(handler)
+
+        return handler
+
+    def set_config(self, schemes, deprecated=None, default=None, **kwds):
+        "set configuration from dictionary of options"
+
+        #init handler state
+        self._handlers = []
+        self._hmap = {}
+
+        #parse scheme list
+        if not schemes:
+            raise ValueError, "no schemes defined"
+        if isinstance(schemes, str):
+            schemes = splitcomma(schemes)
+        for scheme in reversed(schemes): #NOTE: reversed() just so last entry is used as default.
+            self._add_scheme(scheme)
+
+        #parse deprecated set
+        dset = self._dset = set()
+        if deprecated:
+            if isinstance(deprecated, str):
+                deprecated = splitcomma(deprecated)
+            for scheme in deprecated:
+                handler = self._add_scheme(scheme)
+                dset.add(handler)
+
+        #take care of default
+        if default:
+            self._default = self._add_scheme(default)
+        else:
+            self._default = self._handlers[0]
+
+        #all other keywords should take form "name__param" or "name/param",
+        #where name is a handler name, and param is a parameter for settings name's policy behavior.
+        config = self._config = {}
+        hmap = self._hmap
+        for key, value in kwds.iteritems():
+            if '__' in key:
+                name, param = key.split("__")
+            elif '/' in key:
+                name, param = key.split("/")
+            else:
+                raise KeyError, "unknown keyword: %r" % (key,)
+            if name not in hmap:
+                raise KeyError, "unknown scheme: %r" % (scheme,)
+            if name in config:
+                opts = config[name]
+            else:
+                opts = config[name] = {}
+            opts[param] = value
+
+    def load_config_from_file(self, path, section="passlib"):
+        "load context configuration from section of ConfigParser file"
+        p = ConfigParser()
+        if not p.read([path]):
+            raise EnvironmentError, "failed to read path"
+        self.set_config(**dict(p.items(section)))
+
+    #===================================================================
+    #exporting policy configuration
+    #===================================================================
+    def get_config(self):
+        "get configuration as dictionary"
+        out = {}
+        out['schemes'] =[
+            handler.name if get_crypt_handler(handler.name,None) is handler else handler
+            for handler in self._handlers
+        ]
+        if self._dset:
+            out['deprecated'] = [h.name for h in self._dset]
+        if self._default is not self._handlers[0]:
+            out['default'] = self._default.name
+        for name, opts in self._config:
+            for k,v in opts.iteritems():
+                out["%s__%s" % (name, k)] = v
+        return out
+
+    def write_config_to_file(self, path, section="passlib"):
+        "save context configuration to section of ConfigParser file"
+        p = ConfigParser()
+        if os.path.exists(path):
+            if not p.read([path]):
+                raise EnvironmentError, "failed to read config file"
+            p.remove_section(section)
+        for k,v in self.get_config().items():
+            if k == "schemes":
+                if any(hasattr(h,"name") for h in v):
+                    raise ValueError, "can't write to config file, unregistered handlers in use"
+            if k in ["schemes", "deprecated"]:
+                v = ", ".join(v)
+            k = k.replace("__", "/")
+            p.set(k, v)
+        fh = file(path, "w")
+        p.write(fh)
+        fh.close()
+
+    #===================================================================
+    #
+    #===================================================================
     def lookup(self, name=None, required=False):
         """given an algorithm name, return CryptHandler instance which manages it.
         if no match is found, returns None.
 
         if name is None, will return default algorithm
         """
-        handlers = self._handlers
-        if not handlers:
-            if required:
-                raise KeyError, "no crypt algorithms registered with context"
-            return None
         if name and name != "default":
-            for handler in handlers:
+            for handler in self._handlers:
                 if handler.name == name:
                     return handler
-            for handler in handlers:
-                if name in handler.aliases:
-                    return handler
         else:
-            return self._handlers[-1]
+            assert self._default
+            return self._default
         if required:
             raise KeyError, "no crypt algorithm by that name in context: %r" % (name,)
         return None
@@ -144,7 +357,7 @@ class CryptContext(object):
         #NOTE: going in reverse order so default handler gets checked first,
         # also so if handler 0 is a legacy "plaintext" handler or some such,
         # it doesn't match *everything* that's passed into this function.
-        for handler in reversed(self._handlers):
+        for handler in self._handlers:
             if handler.identify(hash):
                 if name:
                     return handler.name
@@ -154,13 +367,13 @@ class CryptContext(object):
             raise ValueError, "hash could not be identified"
         return None
 
-    def encrypt(self, secret, alg=None, **kwds):
+    def encrypt(self, secret, scheme=None, **kwds):
         """encrypt secret, returning resulting hash.
 
         :arg secret:
             String containing the secret to encrypt
 
-        :param alg:
+        :param scheme:
             Optionally specify the name of the algorithm to use.
             If no algorithm is specified, an attempt is made
             to guess from the hash string. If no hash string
@@ -175,36 +388,63 @@ class CryptContext(object):
         """
         if not self:
             raise ValueError, "no algorithms registered"
-        handler = self.lookup(alg, required=True)
+        handler = self.lookup(scheme, required=True)
+        #strip context kwds if scheme doesn't use them
+        ##for k in kwds.keys():
+        ##    if k not in handler.context_kwds and k not in handler.setting_kwds:
+        ##        del context[k]
+        #TODO: check policy for default options.
         return handler.encrypt(secret, **kwds)
 
-    def verify(self, secret, hash, alg=None, **kwds):
+    def verify(self, secret, hash, scheme=None, **context):
         """verify secret against specified hash
 
         :arg secret:
             the secret to encrypt
         :arg hash:
             hash string to compare to
-        :param alg:
-            optionally specify which algorithm(s) should be considered.
+        :param scheme:
+            optional force context to use specfic scheme (must be allowed by context)
         """
+        #quick checks
         if not self:
-            raise ValueError, "no algorithms registered"
+            raise ValueError, "no crypt schemes registered"
         if hash is None:
             return False
-        if alg:
-            handler = self.lookup(alg, required=True)
+
+        #locate handler
+        if scheme:
+            handler = self.lookup(scheme, required=True)
         else:
             handler = self.identify(hash, required=True)
-        return handler.verify(secret, hash, **kwds)
 
-def is_crypt_context(obj):
-    "check if obj following CryptContext protocol"
-    #NOTE: this isn't an exhaustive check of all required attrs,
-    #just a quick check of the most uniquely identifying ones
-    return all(hasattr(obj, name) for name in (
-        "lookup", "verify", "encrypt", "identify",
-        ))
+        #strip context kwds if scheme doesn't use them
+        ##for k in context.keys():
+        ##    if k not in handler.context_kwds:
+        ##        del context[k]
+
+        #use handler to verify secret
+        return handler.verify(secret, hash, **context)
+
+    def verify_and_update(self, secret, hash, **context):
+        """verify secret against specified hash, and re-encrypt secret if needed"""
+        ok = self.verify(secret, hash, **context)
+        if ok and self.needs_update(hash):
+            return True, self.encrypt(secret, **context)
+        else:
+            return ok, None
+
+    def needs_update(self, hash):
+        """check if hash is allowed by current policy, or should be re-encrypted"""
+        handler = self.identify(hash, required=True)
+        if handler in self._dset:
+            return True
+        #TODO: check specific policy for hash
+        return False
+
+    #=========================================================
+    #eoc
+    #=========================================================
 
 #=========================================================
 # eof

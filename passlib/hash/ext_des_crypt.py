@@ -75,7 +75,7 @@ def raw_ext_crypt(secret, rounds, salt):
 #=========================================================
 #algorithm information
 #=========================================================
-name = "ext-des-crypt"
+name = "ext_des_crypt"
 #stats: ??? bit checksum, ??? bit salt, ??? rounds, max ??? chars of secret
 
 setting_kwds = ("salt", "rounds")

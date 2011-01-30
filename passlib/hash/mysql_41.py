@@ -35,7 +35,7 @@ __all__ = [
 #=========================================================
 #algorithm information
 #=========================================================
-name = "mysql-41"
+name = "mysql_41"
 #stats: 160 bit checksum, no salt
 
 setting_kwds = ()

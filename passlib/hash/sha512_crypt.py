@@ -50,7 +50,7 @@ else:
 #=========================================================
 #algorithm information
 #=========================================================
-name = "sha512-crypt"
+name = "sha512_crypt"
 #stats: 512 bit checksum, 96 bit salt, 1000..10e8-1 rounds
 
 setting_kwds = ("salt", "rounds")

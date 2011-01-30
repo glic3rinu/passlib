@@ -88,7 +88,7 @@ except ImportError:
 #=========================================================
 #algorithm information
 #=========================================================
-name = "des-crypt"
+name = "des_crypt"
 #stats: 66 bit checksum, 12 bit salt, max 8 chars of secret
 
 setting_kwds = ("salt",)

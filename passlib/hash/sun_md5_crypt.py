@@ -187,7 +187,7 @@ def raw_sun_md5_crypt(secret, rounds, salt):
 #=========================================================
 #algorithm information
 #=========================================================
-name = "sun-md5-crypt"
+name = "sun_md5_crypt"
 #stats: 128 bit checksum, 48 bit salt, 0..2**32-4095 rounds
 
 setting_kwds = ("salt", "rounds")

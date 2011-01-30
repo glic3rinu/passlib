@@ -40,7 +40,7 @@ __all__ = [
 #=========================================================
 #algorithm information
 #=========================================================
-name = "apr-md5-crypt"
+name = "apr_md5_crypt"
 #stats: 96 bit checksum, 48 bit salt
 
 setting_kwds = ("salt",)

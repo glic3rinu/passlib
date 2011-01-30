@@ -22,7 +22,7 @@ log = getLogger(__name__)
 #=========================================================
 class UnsaltedHash(CryptHandler):
     "example algorithm which lacks a salt"
-    name = "unsalted-example"
+    name = "unsalted_example"
     #stats: 160 bit checksum, no salt
 
     @classmethod
@@ -35,7 +35,7 @@ class UnsaltedHash(CryptHandler):
 
 class SaltedHash(CryptHandler):
     "example algorithm with a salt"
-    name = "salted-example"
+    name = "salted_example"
     #stats: 160 bit checksum, 12 bit salt
 
     setting_kwds = ("salt",)

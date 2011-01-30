@@ -12,7 +12,8 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstract_class_method, classproperty, h64, getrandstr, rng, Undef
+from passlib.utils import abstract_class_method, classproperty, h64, \
+    getrandstr, rng, Undef, is_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -20,9 +21,6 @@ __all__ = [
     'register_crypt_handler',
     'get_crypt_handler',
     'list_crypt_handlers'
-
-    'is_crypt_handler',
-    'is_ext_crypt_handler',
 
     #framework for implementing handlers
     'CryptHandler',
@@ -36,9 +34,9 @@ __all__ = [
 #list of builtin hashes (for list_crypt_handlers, to work around lazy loading)
 #XXX: could write some code in setup.py that generates this from package listing.
 _builtin_names = set([
-    "apr-md5-crypt", "bcrypt", "des-crypt", "ext-des-crypt",
-    "md5-crypt", "mysql-323", "mysql-41", "postgres-md5",
-    "sha256-crypt", "sha512-crypt", "sun-md5-crypt",
+    "apr_md5_crypt", "bcrypt", "des_crypt", "ext_des_crypt",
+    "md5_crypt", "mysql_323", "mysql_41", "postgres_md5",
+    "sha256_crypt", "sha512_crypt", "sun_md5_crypt",
     ])
 
 #dict mapping names & aliases -> loaded crypt algorithm handlers
@@ -47,7 +45,7 @@ _handler_map = {}
 #list of keys in _handler_map which are names not aliases
 _name_set = set()
 
-def register_crypt_handler(obj, aliases=None):
+def register_crypt_handler(obj): ##, aliases=None):
     "register CryptHandler handler"
     global _handler_map, _name_set
 
@@ -64,20 +62,20 @@ def register_crypt_handler(obj, aliases=None):
     _handler_map[name] = obj
     _name_set.add(name)
 
-    if aliases:
-        out = []
-        for alias in aliases:
-            if alias == name:
-                continue
-            if alias in _name_set:
-                continue
-            _validate_name(alias)
-            _handler_map[alias] = obj
-            out.append(alias)
-
-        log.info("registered crypt handler: obj=%r name=%r aliases=%r", obj, obj.name, out)
-    else:
-        log.info("registered crypt handler: obj=%r name=%r", obj, obj.name)
+    ##if aliases:
+    ##    out = []
+    ##    for alias in aliases:
+    ##        if alias == name:
+    ##            continue
+    ##        if alias in _name_set:
+    ##            continue
+    ##        _validate_name(alias)
+    ##        _handler_map[alias] = obj
+    ##        out.append(alias)
+    ##
+    ##    log.info("registered crypt handler: obj=%r name=%r aliases=%r", obj, obj.name, out)
+    ##else:
+    log.info("registered crypt handler: obj=%r name=%r", obj, obj.name)
 
 def _validate_name(name):
     "validate crypt algorithm name"
@@ -85,8 +83,8 @@ def _validate_name(name):
         raise ValueError, "name is null: %r" % (name,)
     if name.lower() != name:
         raise ValueError, "name must be lower-case: %r" %(name,)
-    if re.search("[^-a-zA-Z0-9]",name):
-        raise ValueError, "names must consist of the characters -, a-z, A-Z, and 0-9: %r" % (name,)
+    if re.search("[^_a-zA-Z0-9]",name):
+        raise ValueError, "names must consist of the characters _, a-z, A-Z, and 0-9: %r" % (name,)
     return True
 
 def get_crypt_handler(name, default=Undef):
@@ -99,21 +97,23 @@ def get_crypt_handler(name, default=Undef):
         return handler
 
     #try to lazy load from passlib.hash.xxx
-    modname = name.replace("-","_")
     try:
-        mod = __import__("passlib.hash." + modname, None, None, ['dummy'], 0)
+        mod = __import__("passlib.hash." + name, None, None, ['dummy'], 0)
     except ImportError, err:
         #make sure we don't hide failure to import dependancy
-        if str(err) != "No module named " + modname:
+        if str(err) != "No module named " + name:
             raise
     else:
         #module itself should be handler, so register it.
         #if it was under a different name, treat that as an alias.
-        if getattr(mod,"name",None) != name:
-            aliases = (name,)
-        else:
-            aliases = ()
-        register_crypt_handler(mod, aliases)
+        if getattr(mod, "name", None) != name:
+            raise EnvironmentError, "module & CryptHandler name don't match: module=%r" % (mod,)
+        register_crypt_handler(mod)
+        ##if getattr(mod,"name",None) != name:
+        ##    aliases = (name,)
+        ##else:
+        ##    aliases = ()
+        ##register_crypt_handler(mod, aliases)
 
         #assume crypt handler loaded. error shouldn't happen here,
         #since register_crypt_handler() should throw error if mod wasn't crypt handler.
@@ -129,18 +129,6 @@ def list_crypt_handlers():
     "return sorted list of all known crypt algorithm names"
     global _name_set, _builtin_names
     return sorted(_name_set.union(_builtin_names))
-
-#==========================================================
-#other helpers
-#==========================================================
-def is_crypt_handler(obj):
-    "check if obj following CryptHandler protocol"
-    return all(hasattr(obj, name) for name in (
-        "name",
-        "setting_kwds", "context_kwds",
-        "genconfig", "genhash",
-        "verify", "encrypt", "identify",
-        ))
 
 #==========================================================
 #base interface for all the crypt algorithm implementations

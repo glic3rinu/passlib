@@ -32,7 +32,7 @@ class CryptContextTest(TestCase):
         cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
 
         #parse
-        a, b, c = cc._handlers
+        c, b, a = cc._handlers
         self.assertIs(a, UnsaltedHash)
         self.assertIs(b, SaltedHash)
         self.assertIs(c, AnotherHash)
@@ -40,13 +40,13 @@ class CryptContextTest(TestCase):
     def test_01_constructor(self):
         "test CryptContext constructor using instances"
         #create crypt context
-        a = UnsaltedHash()
-        b = SaltedHash()
-        c = AnotherHash()
+        a = UnsaltedHash
+        b = SaltedHash
+        c = AnotherHash
         cc = CryptContext([a,b,c])
 
         #verify elements
-        self.assertEquals(list(cc._handlers), [a, b, c])
+        self.assertEquals(list(cc._handlers), [c, b, a])
 
     #TODO: test constructor using names
 
@@ -352,23 +352,23 @@ class CryptContextTest(TestCase):
     def test_50_lookup(self):
         "test CryptContext.lookup()"
         cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
-        a, b, c = cc._handlers
+        c, b, a = cc._handlers
 
-        self.assertEquals(cc.lookup('unsalted-example'), a)
-        self.assertEquals(cc.lookup('salted-example'), b)
-        self.assertEquals(cc.lookup('md5-crypt'), c)
-        self.assertEquals(cc.lookup('des-crypt'), None)
+        self.assertEquals(cc.lookup('unsalted_example'), a)
+        self.assertEquals(cc.lookup('salted_example'), b)
+        self.assertEquals(cc.lookup('md5_crypt'), c)
+        self.assertEquals(cc.lookup('des_crypt'), None)
 
         ##self.assertEquals(cc.lookup(['unsalted']), a)
-        ##self.assertEquals(cc.lookup(['md5-crypt']), None)
-        ##self.assertEquals(cc.lookup(['unsalted', 'salted', 'md5-crypt']), b)
+        ##self.assertEquals(cc.lookup(['md5_crypt']), None)
+        ##self.assertEquals(cc.lookup(['unsalted', 'salted', 'md5_crypt']), b)
 
     #TODO: lookup required=True
 
     def test_51_identify(self):
         "test CryptContext.identify"
         cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
-        a, b, c = cc._handlers
+        c, b, a = cc._handlers
 
         for crypt in (a, b, c):
             h = crypt.encrypt("test")
@@ -384,11 +384,11 @@ class CryptContextTest(TestCase):
     def test_52_encrypt_and_verify(self):
         "test CryptContext.encrypt & verify"
         cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
-        a, b, c = cc._handlers
+        c, b, a = cc._handlers
 
         #check encrypt/id/verify pass for all algs
         for crypt in (a, b, c):
-            h = cc.encrypt("test", alg=crypt.name)
+            h = cc.encrypt("test", scheme=crypt.name)
             self.assertEquals(cc.identify(h), crypt)
             self.assertEquals(cc.verify('test', h), True)
             self.assertEquals(cc.verify('notest', h), False)
@@ -398,13 +398,13 @@ class CryptContextTest(TestCase):
         self.assertEquals(cc.identify(h), c)
 
         #check verify using algs
-        self.assertEquals(cc.verify('test', h, alg='md5-crypt'), True)
-        self.assertRaises(ValueError, cc.verify, 'test', h, alg='salted-example')
+        self.assertEquals(cc.verify('test', h, scheme='md5_crypt'), True)
+        self.assertRaises(ValueError, cc.verify, 'test', h, scheme='salted_example')
 
     def test_53_encrypt_salting(self):
         "test CryptContext.encrypt salting options"
         cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
-        a, b, c = cc._handlers
+        c, b, a = cc._handlers
         self.assert_('salt' in c.setting_kwds)
 
         h = cc.encrypt("test")
@@ -428,7 +428,7 @@ class CryptContextTest(TestCase):
         cc = CryptContext([UnsaltedHash, SaltedHash, AnotherHash])
         self.assertEquals(cc.verify('xxx', None), False)
         for crypt in cc._handlers:
-            self.assertEquals(cc.verify('xxx', None, alg=crypt.name), False)
+            self.assertEquals(cc.verify('xxx', None, scheme=crypt.name), False)
 
 #XXX: haven't decided if this should be part of protocol
 ##    def test_55_verify_empty_secret(self):
@@ -450,7 +450,7 @@ class CryptContextTest(TestCase):
     ##    self.assertEquals(cc['unsalted'], a)
     ##    self.assertEquals(cc['salted'], b)
     ##    self.assertEquals(cc['sample'], c)
-    ##    self.assertRaises(KeyError, cc.__getitem__, 'md5-crypt')
+    ##    self.assertRaises(KeyError, cc.__getitem__, 'md5_crypt')
 
     ##def test_61_get(self):
     ##    "test CryptContext.get(algname)"
@@ -462,7 +462,7 @@ class CryptContextTest(TestCase):
     ##    self.assertEquals(cc.get('unsalted'), a)
     ##    self.assertEquals(cc.get('salted'), b)
     ##    self.assertEquals(cc.get('sample'), c)
-    ##    self.assertEquals(cc.get('md5-crypt'), None)
+    ##    self.assertEquals(cc.get('md5_crypt'), None)
 
     ##def test_62_index(self):
     ##    "test CryptContext.index(algname)"
@@ -473,7 +473,7 @@ class CryptContextTest(TestCase):
     ##    self.assertEquals(cc.index('unsalted'), 0)
     ##    self.assertEquals(cc.index('salted'), 1)
     ##    self.assertEquals(cc.index('sample'), 2)
-    ##    self.assertEquals(cc.index('md5-crypt'), -1)
+    ##    self.assertEquals(cc.index('md5_crypt'), -1)
 
     ##def test_63_contains(self):
     ##    "test CryptContext.__contains__(algname)"
@@ -482,7 +482,7 @@ class CryptContextTest(TestCase):
     ##    self.assertEquals('salted' in cc, True)
     ##    self.assertEquals('unsalted' in cc, True)
     ##    self.assertEquals('sample' in cc, True)
-    ##    self.assertEquals('md5-crypt' in cc, False)
+    ##    self.assertEquals('md5_crypt' in cc, False)
 
     ##def test_64_keys(self):
     ##    "test CryptContext.keys()"
@@ -495,7 +495,7 @@ class CryptContextTest(TestCase):
     ##
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
-    ##    self.assertRaises(KeyError, cc.remove, 'md5-crypt')
+    ##    self.assertRaises(KeyError, cc.remove, 'md5_crypt')
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
     ##    cc.remove('unsalted')
@@ -510,7 +510,7 @@ class CryptContextTest(TestCase):
     ##
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
-    ##    self.assertEquals(cc.discard('md5-crypt'), False)
+    ##    self.assertEquals(cc.discard('md5_crypt'), False)
     ##    self.assertEquals(list(cc), [a, b, c])
     ##
     ##    self.assertEquals(cc.discard('unsalted'), True)

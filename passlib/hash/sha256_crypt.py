@@ -259,7 +259,7 @@ else:
 #=========================================================
 #algorithm information
 #=========================================================
-name = "sha256-crypt"
+name = "sha256_crypt"
 #stats: 256 bit checksum, 96 bit salt, 1000..10e8-1 rounds
 
 setting_kwds = ("salt", "rounds")

@@ -178,6 +178,17 @@ nt-hash
 references for hashes & passwords
     http://cpansearch.perl.org/src/CHANSEN/Authen-Simple-0.4/lib/Authen/Simple/Password.pm
     http://search.cpan.org/~zefram/Authen-Passphrase-0.007/lib/Authen/Passphrase.pm
+
+http://chargen.matasano.com/chargen/2007/9/7/enough-with-the-rainbow-tables-what-you-need-to-know-about-s.html
+http://www.openwall.com/john/interviews/SF-20060222-p3
+
+http://search.cpan.org/~zefram/Authen-Passphrase-0.007/lib/Authen/Passphrase.pm
+
+
+===========
+scrpyt
+http://www.tarsnap.com/scrypt.html
+https://bitbucket.org/mhallin/py-scrypt/src
 ======================================================================
 OS notes
 
@@ -218,6 +229,20 @@ offset 169-216 ( 48 chars) - salted sha1 hash - unhex first 8 chars + password |
 
 ======================
 
+[<category>:][context:]parameter = xxx
+
+context:
+    allow
+    deprecate
+    default
+
+sha256-crypt, etc:
+    min-rounds
+    max-rounds
+
+genpolicy script
+    category / desired time
+    algorithms to use (including deprecated / default flags)
 
 policy file format
 

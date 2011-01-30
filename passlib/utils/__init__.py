@@ -72,6 +72,37 @@ def abstract_class_method(func):
 
 Undef = object() #singleton used as default kwd value in some functions
 
+#==========================================================
+#protocol helpers
+#==========================================================
+def is_crypt_handler(obj):
+    "check if obj follows CryptHandler api"
+    return all(hasattr(obj, name) for name in (
+        "name",
+        "setting_kwds", "context_kwds",
+        "genconfig", "genhash",
+        "verify", "encrypt", "identify",
+        ))
+
+##def is_crypt_context(obj):
+##    "check if obj follows CryptContext api"
+##    #NOTE: this isn't an exhaustive check of all required attrs,
+##    #just a quick check of the most uniquely identifying ones
+##    return all(hasattr(obj, name) for name in (
+##        "lookup", "verify", "encrypt", "identify",
+##        ))
+
+#=================================================================================
+#string helpers
+#=================================================================================
+def splitcomma(source):
+    "split comma separated list into elements, stripping whitespace"
+    return [
+        elem.strip()
+        for elem in source.split(",")
+        if elem.strip()
+    ]
+
 #=================================================================================
 #numeric helpers
 #=================================================================================
