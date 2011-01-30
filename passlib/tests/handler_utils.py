@@ -114,7 +114,7 @@ class _HandlerTestCase(TestCase):
         name = ga("name")
         self.assert_(name, "name not defined:")
         self.assert_(name.lower() == name, "name not lower-case:")
-        self.assert_(re.match("^[a-z0-9-]+$", name), "name must be alphanum + hyphen: %r" % (name,))
+        self.assert_(re.match("^[a-z0-9_]+$", name), "name must be alphanum + underscore: %r" % (name,))
 
     #=========================================================
     #identify

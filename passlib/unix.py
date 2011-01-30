@@ -12,7 +12,7 @@ from passlib.hash import des_crypt, md5_crypt, bcrypt, sha256_crypt, sha512_cryp
 #=========================================================
 #build default context objects
 #=========================================================
-from passlib.context import CryptContext
+from passlib.base import CryptContext
 
 #default context for quick use.. recognizes common algorithms, uses SHA-512 as default
 default_context = CryptContext([des_crypt, md5_crypt, bcrypt, sha256_crypt, sha512_crypt])

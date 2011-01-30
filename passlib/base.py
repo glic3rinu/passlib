@@ -24,12 +24,120 @@ import os
 #site
 #libs
 from passlib.utils import abstract_class_method, Undef, is_crypt_handler, splitcomma
-from passlib.handler import get_crypt_handler
 #pkg
 #local
 __all__ = [
+    #global registry
+    'register_crypt_handler',
+    'get_crypt_handler',
+    'list_crypt_handlers'
+
+    #contexts
     'CryptContext',
 ]
+
+#=========================================================
+#global registry
+#=========================================================
+
+#list of builtin hashes (for list_crypt_handlers, to work around lazy loading)
+#XXX: could write some code in setup.py that generates this from package listing.
+_builtin_names = set([
+    "apr_md5_crypt", "bcrypt", "des_crypt", "ext_des_crypt",
+    "md5_crypt", "mysql_323", "mysql_41", "postgres_md5",
+    "sha256_crypt", "sha512_crypt", "sun_md5_crypt",
+    ])
+
+#dict mapping names & aliases -> loaded crypt algorithm handlers
+_handler_map = {}
+
+#list of keys in _handler_map which are names not aliases
+_name_set = set()
+
+def register_crypt_handler(obj): ##, aliases=None):
+    "register CryptHandler handler"
+    global _handler_map, _name_set
+
+    if not is_crypt_handler(obj):
+        raise TypeError, "object does not appear to be a CryptHandler: %r" % (obj,)
+
+    name = obj.name
+    _validate_name(name)
+
+    if name in _name_set:
+        log.warning("overriding previous handler registered to name %r: %r", name, _handler_map[name])
+##        raise ValueError, "handler already registered for name %r: %r" % (name, _handler_map[name])
+
+    _handler_map[name] = obj
+    _name_set.add(name)
+
+    ##if aliases:
+    ##    out = []
+    ##    for alias in aliases:
+    ##        if alias == name:
+    ##            continue
+    ##        if alias in _name_set:
+    ##            continue
+    ##        _validate_name(alias)
+    ##        _handler_map[alias] = obj
+    ##        out.append(alias)
+    ##
+    ##    log.info("registered crypt handler: obj=%r name=%r aliases=%r", obj, obj.name, out)
+    ##else:
+    log.info("registered crypt handler: obj=%r name=%r", obj, obj.name)
+
+def _validate_name(name):
+    "validate crypt algorithm name"
+    if not name:
+        raise ValueError, "name is null: %r" % (name,)
+    if name.lower() != name:
+        raise ValueError, "name must be lower-case: %r" %(name,)
+    if re.search("[^_a-zA-Z0-9]",name):
+        raise ValueError, "names must consist of the characters _, a-z, A-Z, and 0-9: %r" % (name,)
+    return True
+
+def get_crypt_handler(name, default=Undef):
+    "resolve crypt algorithm name / alias"
+    global _handler_map
+
+    #check if handler loaded
+    handler = _handler_map.get(name)
+    if handler is not None:
+        return handler
+
+    #try to lazy load from passlib.hash.xxx
+    try:
+        mod = __import__("passlib.hash." + name, None, None, ['dummy'], 0)
+    except ImportError, err:
+        #make sure we don't hide failure to import dependancy
+        if str(err) != "No module named " + name:
+            raise
+    else:
+        #module itself should be handler, so register it.
+        #if it was under a different name, treat that as an alias.
+        if getattr(mod, "name", None) != name:
+            raise EnvironmentError, "module & CryptHandler name don't match: module=%r" % (mod,)
+        register_crypt_handler(mod)
+        ##if getattr(mod,"name",None) != name:
+        ##    aliases = (name,)
+        ##else:
+        ##    aliases = ()
+        ##register_crypt_handler(mod, aliases)
+
+        #assume crypt handler loaded. error shouldn't happen here,
+        #since register_crypt_handler() should throw error if mod wasn't crypt handler.
+        return _handler_map[name]
+
+    #fail!
+    if default is Undef:
+        raise KeyError, "no crypt handler found for algorithm: %r" % (name,)
+    else:
+        return default
+
+def list_crypt_handlers():
+    "return sorted list of all known crypt algorithm names"
+    global _name_set, _builtin_names
+    return sorted(_name_set.union(_builtin_names))
 
 #=========================================================
 #policy

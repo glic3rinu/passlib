@@ -13,7 +13,7 @@ import os
 #site
 #libs
 from passlib.hash import postgres_md5
-from passlib.context import CryptContext
+from passlib.base import CryptContext
 #pkg
 #local
 __all__ = [

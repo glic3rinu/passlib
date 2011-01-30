@@ -9,9 +9,9 @@ import hashlib
 from logging import getLogger
 #site
 #pkg
-from passlib.handler import CryptHandler
-from passlib.tests.handler_utils import _HandlerTestCase
 from passlib.utils import gen_salt
+from passlib.utils.handlers import CryptHandler
+from passlib.tests.handler_utils import _HandlerTestCase
 #module
 log = getLogger(__name__)
 

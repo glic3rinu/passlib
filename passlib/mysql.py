@@ -7,7 +7,7 @@ import logging; log = logging.getLogger(__name__)
 #site
 #libs
 from passlib.hash import mysql_323, mysql_41
-from passlib.context import CryptContext
+from passlib.base import CryptContext
 #pkg
 #local
 __all__ = [

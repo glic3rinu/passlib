@@ -8,7 +8,7 @@ import hashlib
 from logging import getLogger
 #site
 #pkg
-from passlib.context import CryptContext
+from passlib.base import CryptContext
 from passlib.tests.utils import TestCase
 ##from passlib.unix.des_crypt import DesCrypt
 ##from passlib.unix.sha_crypt import Sha512Crypt

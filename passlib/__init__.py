@@ -5,7 +5,7 @@ __version__ = "1.3"
 #=========================================================
 #
 #=========================================================
-from passlib.context import CryptContext
+from passlib.base import CryptContext
 
 #=========================================================
 #quickstart interface
