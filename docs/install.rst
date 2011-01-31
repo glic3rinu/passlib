@@ -4,22 +4,26 @@ Installation
 
 Requirements
 ============
-PassLib tries to use pure-python implementations of things whereever possible,
-and have as few dependancies as possible. The current set of requirements is:
+PassLib currently has no external depedancies besides Python itself:
 
     * Python 2.5 or better is required.
 
         * PassLib has not been tested with Python 2.4 or earlier,
           and no guarantees are made about whether PassLib will work with them.
 
-        * Python 3.x has **not** been assessed for compatibility.
-          It probably won't work just yet.
+    * Python 3.x is **not** yet supported, work is ongoing (particularly, unicode issues).
 
-The following libraries will be used if present, but they are not required:
+The following libraries are not required, but will be used if found:
 
     * If installed, `py-bcrypt <http://www.mindrot.org/projects/py-bcrypt/>`_ will be
       used instead of PassLib's slower pure-python bcrypt implementation.
-      (see :class:`passlib.BCrypt`).
+      (see :mod:`passlib.hash.bcrypt`).
+      *This is strongly recommended, as the builtin implementation is VERY slow*.
+
+    * stdlib ``crypt.crypt()`` will be used if present, and if the underlying
+      OS supports the specific scheme in question. OS support is autodetected
+      from the following schemes: des-crypt,  md5-crypt, bcrypt, sha256-crypt,
+      and sha512-crypt.
 
 Installing
 ==========
@@ -31,20 +35,20 @@ PassLib is pure python, there is nothing to compile or configure.
 Testing
 =======
 PassLib contains a number of unittests (sadly, coverage is not yet complete).
-all of which are contained within the :mod:`passlib.tests` package,
-and are designed to be run using the `nose <http://somethingaboutorange.com/mrl/projects/nose>`_ unit testing library.
+All unit tests are contained within the :mod:`passlib.tests` package,
+and are designed to be run using the `Nose <http://somethingaboutorange.com/mrl/projects/nose>`_ unit testing library.
 Once PassLib and nose have been installed, you may run the following commands::
 
     #to run the basic passlib test suite:
-    nosetests passlib/tests
+    nosetests -v passlib.tests
 
-    #to run the extended passlib test suite, including some longer running tests:
+    #to test all passlib backends, including inactive ones:
     export PASSLIB_TESTS=all
-    nosetests passlib/tests
+    nosetests passlib.tests
 
 Documentation
 =============
-The latest copy of this documentation should always be available 
+The latest copy of this documentation should always be available
 at the `PassLib homepage <http://www.assurancetechnologies.com/software/passlib>`_.
 
 If you wish to generate your own copy of the documentation,

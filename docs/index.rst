@@ -4,9 +4,9 @@ PassLib |release| documentation
 
 Introduction
 ============
-Welcome to the documentation for PassLib.
-
-PassLib is a
+Passlib is a collection of routines for managing password hashes
+as found in unix /etc/shadow files, as returned by stdlib `crypt()`,
+as stored in mysql and postgres, and various other contexts.
 
 A quick sample of some of the more frequently used modules:
 

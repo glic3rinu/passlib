@@ -8,10 +8,11 @@ Table Of Contents
     install
     overview
 
-    lib/passlib
-    lib/passlib
-    lib/passlib.gen
-    lib/passlib.util
+    lib/passlib.hash
+    lib/passlib.unix
+    lib/passlib.utils
+
+    crypt_handler_api
 
     history
     copyright

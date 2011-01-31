@@ -2,15 +2,18 @@
 Release History
 ===============
 
-??? -- version 1.1
+2011-01-10 -- version 1.0
     * first public release
+    * bugfixes
+    * more documentation
+
+2011-01-05 -- version 0.8
+    * various code cleanups preparing for public release
+    * ext-des-crypt, apr-md5-crypt, and other lesser known schemes added.
     * documentation added
 
-2011-01-05 -- version 1.0
-    * various code cleanups preparing for public release
-
 2009-03-10 -- version 0.7
-    * added password generation helpers
+    * postgres and mysql hash schemes added.
 
 2008-10-02 -- version 0.6
     * CryptContext & CryptHandler framework

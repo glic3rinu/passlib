@@ -1,15 +1,4 @@
-"""passlib.hash.apr_md5_crypt - Apache variant of md5-crypt algorithm
-
-This format is primarily used by Apache in htpasswd files.
-
-.. note::
-    This format would be identical to md5-crypt,
-    except for two things: it uses ``$apr1$`` as it's prefix
-    when encoded, and inserts that constant into the hash calculation
-    where md5-crypt would insert ``$1$``.
-    Thus, the formats aren't compatible, nor the checksums they contain.
-    Other than that, they have identical levels of security.
-"""
+"""passlib.hash.apr_md5_crypt - Apache variant of md5-crypt algorithm"""
 #=========================================================
 #imports
 #=========================================================

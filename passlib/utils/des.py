@@ -1,17 +1,3 @@
-"""passlib.utils.des -- DES encryption routines
-
-This module contains routines for encrypting blocks of data using the DES algorithm.
-
-They do not support multi-block operation or decryption,
-since they are designed for use in password hash algorithms
-such as ``lmhash`` and ``des-crypt``.
-
-.. function:: expand_des_key
-.. function:: des_encrypt_block
-.. function:: mdes_encrypt_int_block
-
-"""
-
 """
 History
 =======

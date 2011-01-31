@@ -4,7 +4,7 @@ Copyrights & Licenses
 
 Copyright
 =========
-The PassLib library is (c) 2008-2010 `Assurance Technologies, LLC <http://www.assurancetechnologies.com>`_,
+The PassLib library is (c) 2008-2011 `Assurance Technologies, LLC <http://www.assurancetechnologies.com>`_,
 excepting any code noted below as taken from :ref:`third party sources <third-party-software>`.
 Such portions are copyright their respective owners.
 
@@ -16,7 +16,7 @@ This library is released under the BSD license; we hope you find it useful.
 
     The PassLib Python Library
 
-    Copyright (c) 2008-2010 Assurance Technologies, LLC
+    Copyright (c) 2008-2011 Assurance Technologies, LLC
 
     Permission to use, copy, modify, and distribute this software for any
     purpose with or without fee is hereby granted, provided that the above
@@ -39,21 +39,14 @@ own licenses (all of which, it should be noted, are BSD-compatible).
 The following is a list of these sources, their owners, licenses, and the parts
 of PassLib derived from them.
 
-GPW
----
-The class :class:`passlib.gen.GpwGenerator`
-is a python implementation of Tom Van Vleck's phonetic
-password generation algorithm `GPW <http://www.multicians.org/thvv/gpw.html>`_.
-It's released under informally worded BSD-compatible terms.
-
 jBcrypt
 -------
 `jBCrypt <http://www.mindrot.org/projects/jBCrypt/>`_ is a pure-java
 implementation of OpenBSD's BCrypt algorithm, written by Damien Miller,
 and released under a BSD license.
 
-:mod:`passlib._bcrypt` is a python translation of this code,
-which is used as a fallback backend for :class:`passlib.BCrypt`
+:mod:`passlib.utils._slow_bcrypt` is a python translation of this code,
+which is used as a fallback backend for :mod:`passlib.hash.bCrypt`
 when the external python library `py-bcrypt <http://www.mindrot.org/projects/py-bcrypt/>`_
 is not installed.
 
@@ -75,10 +68,10 @@ This is the license and copyright for jBCrypt::
 
 MD5-Crypt
 ---------
-The class :class:`passlib.Md5Crypt` is a pure-python
-implementation of the md5-crypt password hashing algorithm.
-It's derived from the FreeBSD md5-crypt implementation `<http://www.freebsd.org/cgi/cvsweb.cgi/~checkout~/src/lib/libcrypt/crypt.c?rev=1.2>`_,
-which was released under the following license::
+The fallback pure-python implementation contained in :mod:`passlib.hash.md5_crypt`
+was derived from the
+`FreeBSD md5-crypt <http://www.freebsd.org/cgi/cvsweb.cgi/~checkout~/src/lib/libcrypt/crypt.c?rev=1.2>`_,
+implementation which was released under the following license::
 
     "THE BEER-WARE LICENSE" (Revision 42):
     <phk@login.dknet.dk> wrote this file.  As long as you retain this notice you
@@ -92,9 +85,9 @@ is a pure-java implementation of the historic unix-crypt password hash algorithm
 Originally written by Aki Yoshida, and modified by others,
 it was released under a BSD-like license.
 
-:mod:`passlib._unix_crypt` is a python translation of this code,
-which is used as a fallback backend for :class:`passlib.UnixCrypt`
-for platforms where stdlib's :mod:`crypt` is not available.
+The DES utility functions in :mod:`passlib.utils.des` are a descendant of
+this code, after being translated into python. (These are used for des-crypt,
+ext-des-crypt, and nthash support).
 
 This is the license and copyright for UnixCrypt.java::
 

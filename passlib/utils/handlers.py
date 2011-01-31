@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstract_class_method, classproperty, h64, \
+from passlib.utils import abstractclassmethod, classproperty, h64, \
     getrandstr, rng, Undef, is_crypt_handler
 #pkg
 #local
@@ -67,7 +67,7 @@ class CryptHandler(object):
     #primary interface - primary methods implemented by each handler
     #=========================================================
 
-    @abstract_class_method
+    @abstractclassmethod
     def genhash(cls, secret, config, **context):
         """encrypt secret to hash
 
@@ -355,7 +355,7 @@ class CryptHandler(object):
 ##    #backend parsing routines - used by helpers below
 ##    #=========================================================
 ##
-##    @abstract_class_method
+##    @abstractclassmethod
 ##    def parse(cls, hash):
 ##        """parse hash or config into dictionary.
 ##
@@ -388,7 +388,7 @@ class CryptHandler(object):
 ##            verify() method can work properly.
 ##        """
 ##
-##    @abstract_class_method
+##    @abstractclassmethod
 ##    def render(cls, checksum=None, **settings):
 ##        """render hash from checksum & settings (as returned by :meth:`parse`).
 ##

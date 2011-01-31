@@ -38,7 +38,7 @@ import astdoc
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
-    
+
     'astdoc.ext.index_styles', #adds extra ids & classes to index html, for additional styling
     'astdoc.ext.relbar_toc', #inserts toc into right hand nav bar (ala old style python docs)
     'astdoc.ext.nested_sections', #handles ReST markup within function/class docstrings
@@ -59,7 +59,7 @@ index_doc = 'index'
 
 # General information about the project.
 project = u'PassLib'
-copyright = u'2008-2010, Assurance Technologies, LLC'
+copyright = u'2008-2011, Assurance Technologies, LLC'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -109,7 +109,7 @@ pygments_style = 'sphinx'
 modindex_common_prefix = [ "passlib." ]
 
 # -- Options for all output ---------------------------------------------------
-todo_include_todos = True
+todo_include_todos = "todos" in os.environ.get("PASSLIB_DOCS","")
 keep_warnings = True
 
 # -- Options for HTML output ---------------------------------------------------

@@ -21,10 +21,11 @@ import hashlib
 import logging; log = logging.getLogger(__name__)
 import time
 import os
+from warnings import warn
 #site
 #libs
 import passlib.hash as _hmod
-from passlib.utils import abstract_class_method, Undef, is_crypt_handler, splitcomma
+from passlib.utils import abstractclassmethod, Undef, is_crypt_handler, splitcomma
 #pkg
 #local
 __all__ = [
@@ -85,8 +86,11 @@ def get_crypt_handler(name, default=Undef):
     "resolve crypt algorithm name"
     global _hmod
 
-    ###normalize name
-    ##name = name.replace("-","_").lower()
+    #normalize name
+    alt = name.replace("-","_").lower()
+    if alt != name:
+        warn("handler names be lower-case, and use underscores instead of hyphens: %r => %r" % (name, alt))
+        name = alt
 
     #check if handler loaded
     handler = getattr(_hmod, name, None)

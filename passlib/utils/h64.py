@@ -1,22 +1,4 @@
-"""passlib.utils.h64 - hash64 encoding helpers
-
-many of the password hash algorithms in passlib
-use a encoding scheme very similar to, but not compatible with,
-the standard base64 encoding scheme. the main differences are that
-it uses ``.`` instead of ``+``, and assigns the
-characters *completely* different numeric values.
-
-this encoding system appears to have originated with des-crypt hash,
-but is used by md5-crypt, sha-256-crypt, and others.
-within passlib, this encoding is referred as ``hash64`` encoding,
-and this module contains various utilities functions for encoding
-and decoding strings in that format.
-
-.. note::
-    It may *look* like bcrypt uses this scheme,
-    when in fact bcrypt uses the standard base64 encoding scheme,
-    but with ``+`` replaced with ``.``.
-"""
+"""passlib.utils.h64 - hash64 encoding helpers"""
 #=================================================================================
 #imports
 #=================================================================================
@@ -34,10 +16,9 @@ __all__ = [
                     "encode_2_offsets",
                     "encode_1_offset",
 
-    "decode_int12",
+    "decode_int12", "encode_int12"
     "decode_int24", "encode_int24",
-                    "encode_int64",
-
+    "decode_int64", "encode_int64",
 ]
 
 #=================================================================================
@@ -93,17 +74,17 @@ def encode_1_offset(buffer, o1):
 # int <-> b64 string, used by des_crypt, ext_des_crypt
 #=================================================================================
 
-##def decode_int(value):
-##    "decode hash-64 format used by crypt into integer"
-##    #FORMAT: little-endian, each char contributes 6 bits,
-##    # char value = index in H64_CHARS string
-##    try:
-##        out = 0
-##        for c in reversed(value):
-##                out = (out<<6) + b64_decode_6bit(c)
-##        return out
-##    except KeyError:
-##        raise ValueError, "invalid character in string"
+def decode_int(value):
+    "decode hash-64 format used by crypt into integer"
+    #FORMAT: little-endian, each char contributes 6 bits,
+    # char value = index in H64_CHARS string
+    try:
+        out = 0
+        for c in reversed(value):
+                out = (out<<6) + b64_decode_6bit(c)
+        return out
+    except KeyError:
+        raise ValueError, "invalid character in string"
 
 def decode_int12(value):
     "decode 2 chars of hash-64 format used by crypt, returning 12-bit integer"
@@ -112,8 +93,12 @@ def decode_int12(value):
     except KeyError:
         raise ValueError, "invalid character"
 
+def encode_int12(value):
+    "encode 2 chars of hash-64 format from a 12-bit integer"
+    return  encode_6bit(value & 0x3f) + encode_6bit((value>>6) & 0x3f)
+
 def decode_int24(value):
-    "decode 4 chars of hash-64 format used by crypt, returning 24-bit integer"
+    "decode 4 chars of hash-64 format, returning 24-bit integer"
     try:
         return  decode_6bit(value[0]) +\
                 (decode_6bit(value[1])<<6)+\
@@ -123,7 +108,7 @@ def decode_int24(value):
         raise ValueError, "invalid character"
 
 def encode_int24(value):
-    "decode 2 chars of hash-64 format used by crypt, returning 12-bit integer"
+    "encode 4 chars of hash-64 format from a 24-bit integer"
     return  encode_6bit(value & 0x3f) + \
             encode_6bit((value>>6) & 0x3f) + \
             encode_6bit((value>>12) & 0x3f) + \
@@ -131,8 +116,12 @@ def encode_int24(value):
 
 _RR9_1 = range(9,-1,-1)
 
+def decode_int64(value):
+    "decode 64-bit integer from 11 chars of hash-64 format"
+    return decode_int(value)
+
 def encode_int64(value):
-    "encode 64-bit integer to hash-64 format used by crypt, returning 11 chars"
+    "encode 64-bit integer to hash-64 format, returning 11 chars"
     out = [None] * 10 + [ encode_6bit((value<<2)&0x3f) ]
     value >>= 4
     for i in _RR9_1:

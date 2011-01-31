@@ -24,7 +24,28 @@ def new(content=None):
     return md4(content)
 
 class md4(object):
-    "md4 hash algorithm"
+    """pep-247 compatible implementation of MD4 hash algorithm
+    
+    .. attribute:: digest_size
+
+        size of md4 digest in bytes (16 bytes)
+
+    .. method:: update
+
+        update digest by appending additional content
+
+    .. method:: copy
+
+        create clone of digest object, including current state
+
+    .. method:: digest
+
+        return bytes representing md4 digest of current content
+
+    .. method:: hexdigest
+
+        return hexdecimal version of digest
+    """
     #FIXME: make this follow hash object PEP better.
     #FIXME: this isn't threadsafe
     #XXX: should we monkeypatch ourselves into hashlib for general use? probably wouldn't be nice.

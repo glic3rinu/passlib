@@ -1,3 +1,5 @@
+.. _crypt-handler-api:
+
 ======================
 api for crypt handlers
 ======================
@@ -163,4 +165,3 @@ the following attributes are usually exposed:
     The maximum number of rounds the scheme allows.
     Specifying values above this will generally result
     in a warning, and ``max_rounds`` will be used instead.
-
