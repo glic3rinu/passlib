@@ -1,9 +1,9 @@
 ==================================================================
-:mod:`passlib.hash.sha256_crypt` - SHA-256 Crypt
+:mod:`passlib.hash.sha256_crypt` - SHA-256 Crypt password hash
 ==================================================================
 
 .. module:: passlib.hash.sha526_crypt
-    :synopsis: implementation of SHA-256 Crypt scheme
+    :synopsis: SHA-256 Crypt
 
 .. todo::
 

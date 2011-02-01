@@ -1,9 +1,9 @@
-====================================================
-:mod:`passlib.utils.md4` - MD4-Digest implementation
-====================================================
+========================================================
+:mod:`passlib.utils.md4` - MD4 message digest algorithm
+========================================================
 
 .. module:: passlib.utils.md4
-    :synopsis: implemented of MD4-Digest
+    :synopsis: MD4 message digest algorithm
 
 .. warning::
 

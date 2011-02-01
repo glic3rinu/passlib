@@ -1,9 +1,9 @@
-==================================================================
-:mod:`passlib.hash.ext_des_crypt` - BSDi Extended Unix (DES) Crypt
-==================================================================
+=================================================================================
+:mod:`passlib.hash.ext_des_crypt` - BSDi Extended DES Crypt password hash
+=================================================================================
 
 .. module:: passlib.hash.ext_des_crypt
-    :synopsis: implementation of BSDi extended unix/des crypt scheme
+    :synopsis: BSDi Extended Unix (DES) Crypt
 
 .. todo::
 

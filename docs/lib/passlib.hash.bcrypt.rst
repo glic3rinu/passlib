@@ -1,9 +1,9 @@
 ==================================================================
-:mod:`passlib.hash.bcrypt` - BCrypt
+:mod:`passlib.hash.bcrypt` - BCrypt password hash
 ==================================================================
 
 .. module:: passlib.hash.bcrypt
-    :synopsis: implementation of blowfish-based BCrypt scheme
+    :synopsis: BCrypt
 
 .. todo::
 

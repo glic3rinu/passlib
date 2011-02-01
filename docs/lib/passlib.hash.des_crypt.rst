@@ -1,9 +1,9 @@
-========================================================
-:mod:`passlib.hash.des_crypt` - Unix (DES) Crypt
-========================================================
+=======================================================================
+:mod:`passlib.hash.des_crypt` - Tradtional Unix DES Crypt password hash
+=======================================================================
 
 .. module:: passlib.hash.des_crypt
-    :synopsis: implementation of original unix-crypt / des-crypt scheme
+    :synopsis: Traditional Unix (DES) Crypt
 
 .. todo::
 

@@ -1,7 +1,8 @@
 .. _crypt-handler-api:
+.. _password-hash-api:
 
 ======================
-api for crypt handlers
+Password Hash API
 ======================
 
 Motivation

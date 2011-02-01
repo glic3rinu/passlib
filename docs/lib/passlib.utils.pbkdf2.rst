@@ -1,9 +1,9 @@
-====================================================
-:mod:`passlib.utils.pbkdf2` - PBKDF2 algorithm support
-====================================================
+=============================================================
+:mod:`passlib.utils.pbkdf2` - PBKDF2 key derivation algorithm
+=============================================================
 
 .. module:: passlib.utils.pbkdf2
-    :synopsis: implementation of PBKDF2 algorithm
+    :synopsis: PBKDF2 key derivation algorithm
 
 This module provides a single function, :func:`pbkdf2`,
 which provides the ability to generate an arbitrary

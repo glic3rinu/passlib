@@ -1,9 +1,9 @@
-=============================================================
-:mod:`passlib.hash.apr_md5_crypt` - Apache MD5-Crypt Variant
-=============================================================
+==================================================================
+:mod:`passlib.hash.apr_md5_crypt` - Apache MD5-Crypt password hash
+==================================================================
 
 .. module:: passlib.hash.apr_md5_crypt
-    :synopsis: Apache MD5 Crypt
+    :synopsis: Apache MD5-Crypt variant
 
 Stats: 96 bit checksum, 48 bit salt, :ref:`modular-crypt-format` compatible.
 

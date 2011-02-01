@@ -2,7 +2,7 @@
 :mod:`passlib.hash.postgres_md5` - Postgres MD5 password hash
 ==================================================================
 
-.. module:: passlib.hash.mysql_md5
+.. module:: passlib.hash.postgres_md5
     :synopsis: Postgres MD5 password hash
 
 Stats: 512 bit checksum, username used as salt

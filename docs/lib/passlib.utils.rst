@@ -3,10 +3,8 @@
 =============================================
 
 .. module:: passlib.utils
-    :synopsis: helper functions for implementing crypt handlers
+    :synopsis: helper functions for implementing password hashes
 
-Overview
-========
 This module contains a number of utility functions used by passlib
 to implement the builtin handlers, and other code within passlib.
 They may also be useful when implementing custom handlers for existing legacy formats.
