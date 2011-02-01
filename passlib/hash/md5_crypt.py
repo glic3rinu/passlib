@@ -145,7 +145,7 @@ else:
 #algorithm information
 #=========================================================
 name = "md5_crypt"
-#stats: 96 bit checksum, 48 bit salt
+#stats: 128 bit checksum, 48 bit salt
 
 setting_kwds = ("salt",)
 context_kwds = ()

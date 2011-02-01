@@ -70,6 +70,24 @@ def encode_1_offset(buffer, o1):
     v1 = ord(buffer[o1])
     return encode_6bit(v1&0x3F) + encode_6bit(v1>>6)
 
+def encode_bytes(source):
+    "encode byte string to h64 format"
+    #FIXME: do something much more efficient here.
+    out = ''
+    end = len(source)
+    idx = 0
+    while idx <= end-3:
+        out += encode_3_offsets(source, idx, idx+1, idx+2)
+        idx += 3
+    if end % 3 == 1:
+        out += encode_1_offset(source, idx)
+        idx += 1
+    elif end % 3 == 2:
+        out += encode_2_offset(source, idx, idx+1)
+        idx += 2
+    assert idx == end
+    return out
+
 #=================================================================================
 # int <-> b64 string, used by des_crypt, ext_des_crypt
 #=================================================================================

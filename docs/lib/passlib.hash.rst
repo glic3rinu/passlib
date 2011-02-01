@@ -47,6 +47,7 @@ the modular crypt format.
     :maxdepth: 1
 
     passlib.hash.apr_md5_crypt
+    passlib.hash.phpass
     passlib.hash.nthash
 
 .. todo::
