@@ -121,7 +121,7 @@ def genconfig(salt=None, rounds=None):
 
     :param rounds:
 
-        optional number of rounds, must be between 0 and 4095 inclusive.
+        optional number of rounds, must be between 0 and 16777215 inclusive.
 
     :returns:
         xxx configuration string.

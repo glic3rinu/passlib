@@ -55,7 +55,7 @@ forming a hash64-encoded 64-bit integer checksum.
 A des-crypt configuration string is also accepted by this module,
 consists of only the first 2 characters, corresponding to the salt only.
 
-Example: ``JQMuyS6H.AGMo`` contains a salt ``JQ``, and a checksum ``MuyS6H.AGMo``.
+An example hash (of ``password``) is ``JQMuyS6H.AGMo``, where the salt is ``JQ``, and the checksum ``MuyS6H.AGMo``.
 
 Algorithm
 =========
@@ -73,24 +73,19 @@ The checksum is formed by a modified version of the DES cipher in encrypt mode:
 
 Deviations
 ==========
-This implement of des-crypt differs from others in a few ways:
+This implementation of des-crypt differs from others in a few ways:
 
 * Unicode strings are encoded using UTF-8 before being passed into the algorithm.
   The original des-crypt was designed for 7-bit us-ascii, so this should not
   conflict with most existing hashes. As of this writing, the authors
-  know of no specification defining the behavior in this situtation.
+  know of no specification defining the official behavior that should be used
+  in this situtation.
 
 * Some implementations (eg: linux) accept empty and single-character salt strings,
   as well as salt strings containing other characters. The behavior for these
   implementations is not immediately obvious, desirable, and/or correct.
   Lacking even a de facto standard, this implementation will throw
   a "invalid salt" ValueError for such inputs.
-
-* While passlib contains a pure-python implementation of des-crypt,
-  it will use the native crypt() implementation if possible,
-  and there may be per-OS deviations. The unit tests should catch these.
-
-  other non-standard
 
 References
 ==========
