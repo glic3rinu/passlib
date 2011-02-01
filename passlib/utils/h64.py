@@ -10,15 +10,16 @@ import logging; log = logging.getLogger(__name__)
 __all__ = [
     "CHARS",
 
-    "decode_6bit",  "encode_6bit",
-
+                    "encode_bytes",
                     "encode_3_offsets",
                     "encode_2_offsets",
                     "encode_1_offset",
 
+    "decode_int6",  "encode_int6",
     "decode_int12", "encode_int12"
     "decode_int24", "encode_int24",
     "decode_int64", "encode_int64",
+    "decode_int",
 ]
 
 #=================================================================================
@@ -92,17 +93,15 @@ def encode_bytes(source):
 # int <-> b64 string, used by des_crypt, ext_des_crypt
 #=================================================================================
 
-def decode_int(value):
-    "decode hash-64 format used by crypt into integer"
-    #FORMAT: little-endian, each char contributes 6 bits,
-    # char value = index in H64_CHARS string
-    try:
-        out = 0
-        for c in reversed(value):
-                out = (out<<6) + b64_decode_6bit(c)
-        return out
-    except KeyError:
-        raise ValueError, "invalid character in string"
+def encode_int6(value):
+    "encode 6 bit integer to single char of hash-64 format"
+    return encode_6bit(value)
+
+def decode_int6(value):
+    "decode 1 char of hash-64 format, returning 6-bit integer"
+    return decode_6bit(value)
+
+#---------------------------------------------------------------------
 
 def decode_int12(value):
     "decode 2 chars of hash-64 format used by crypt, returning 12-bit integer"
@@ -114,6 +113,8 @@ def decode_int12(value):
 def encode_int12(value):
     "encode 2 chars of hash-64 format from a 12-bit integer"
     return  encode_6bit(value & 0x3f) + encode_6bit((value>>6) & 0x3f)
+
+#---------------------------------------------------------------------
 
 def decode_int24(value):
     "decode 4 chars of hash-64 format, returning 24-bit integer"
@@ -132,6 +133,8 @@ def encode_int24(value):
             encode_6bit((value>>12) & 0x3f) + \
             encode_6bit((value>>18) & 0x3f)
 
+#---------------------------------------------------------------------
+
 _RR9_1 = range(9,-1,-1)
 
 def decode_int64(value):
@@ -146,6 +149,22 @@ def encode_int64(value):
         out[i] = encode_6bit(value&0x3f)
         value >>= 6
     return "".join(out)
+
+#---------------------------------------------------------------------
+
+def decode_int(value):
+    "decode hash-64 format used by crypt into integer"
+    #FORMAT: little-endian, each char contributes 6 bits,
+    # char value = index in H64_CHARS string
+    try:
+        out = 0
+        for c in reversed(value):
+                out = (out<<6) + b64_decode_6bit(c)
+        return out
+    except KeyError:
+        raise ValueError, "invalid character in string"
+
+## def encode_int(value):
 
 #=================================================================================
 #eof

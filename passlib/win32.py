@@ -26,11 +26,12 @@ from binascii import hexlify
 #site
 #pkg
 from passlib.utils.des import des_encrypt_block
-from passlib.utils.md4 import md4
+from passlib.hash import nthash
+from passlib.hash.nthash import raw_nthash
 #local
 __all__ = [
-    "lmhash",
-    "nthash",
+    "raw_lmhash",
+    "raw_nthash",
 ]
 #=========================================================
 #helpers
@@ -43,11 +44,6 @@ def raw_lmhash(secret, hex=False):
     ns = secret.upper()[:14] + "\x00" * (14-len(secret))
     out = des_encrypt_block(ns[:7], LM_MAGIC) + des_encrypt_block(ns[7:], LM_MAGIC)
     return hexlify(out) if hex else out
-
-def raw_nthash(secret, hex=False):
-    "encode password using md4-based NTHASH algorithm; returns string of raw bytes"
-    hash = md4(secret.encode("utf-16le"))
-    return hash.hexdigest() if hex else hash.digest()
 
 #=========================================================
 #eoc

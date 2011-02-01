@@ -29,8 +29,8 @@ Functions
 .. autofunction:: identify
 .. autofunction:: verify
 
-Format
-======
+Format & Algorithm
+==================
 An phpass portable hash string has length 34, with the format ``$P$<rounds><salt><checksum>``;
 where ``<rounds>`` is a single character encoding a 6-bit integer,
 ``<salt>`` is an eight-character salt, and ``<checksum>`` is an encoding
@@ -40,12 +40,10 @@ An example hash (of ``password``) is ``$P$8ohUJ.1sdFw09/bMaAQPTGDNi2BIUt1``;
 the rounds are encoded in ``8``, the salt is ``ohUJ.1sd``,
 and the checksum is ``Fw09/bMaAQPTGDNi2BIUt1``.
 
-Algorithm
-=========
-PHPass uses a straightforward algorithm:
+PHPass uses a straightforward algorithm to calculate the checksum:
 
 * an initial result is generated from the MD5 digest of the salt string + the secret.
-* for 2**rounds repetitions, a new result is created from the MD5 digest of the last result + the secret.
+* for ``2**rounds`` repetitions, a new result is created from the MD5 digest of the last result + the secret.
 * the last result is then encoded according to the format described above.
 
 Deviations
@@ -58,4 +56,4 @@ This implementation of phpass differs from the specification:
 
 References
 ==========
-* `<http://www.openwall.com/phpass/>` - PHPass homepage, which describes the algorithm
+* `<http://www.openwall.com/phpass/>`_ - PHPass homepage, which describes the algorithm

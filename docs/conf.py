@@ -16,6 +16,8 @@
 
 import os, sys
 
+options = os.environ.get("PASSLIB_DOCS", "")
+
 #make sure passlib in sys.path
 doc_root = os.path.abspath(os.path.join(__file__,os.path.pardir))
 source_root = os.path.abspath(os.path.join(doc_root,os.path.pardir))
@@ -109,8 +111,8 @@ pygments_style = 'sphinx'
 modindex_common_prefix = [ "passlib." ]
 
 # -- Options for all output ---------------------------------------------------
-todo_include_todos = "todos" in os.environ.get("PASSLIB_DOCS","")
-keep_warnings = True
+todo_include_todos = "hide-todos" not in options
+keep_warnings = "hide-warnings" not in options
 
 # -- Options for HTML output ---------------------------------------------------
 

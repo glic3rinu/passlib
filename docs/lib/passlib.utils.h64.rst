@@ -22,14 +22,26 @@ and decoding strings in that format.
     when in fact bcrypt uses the standard base64 encoding scheme,
     but with ``+`` replaced with ``.``.
 
-.. data:: CHARS
+Constants
+=========
+.. object:: CHARS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
     The character set used by the Hash-64 format.
     A character's index in CHARS denotes it's corresponding 6-bit integer value.
 
+Bytes <-> Hash64
+================
+
+.. autofunction:: encode_bytes
 .. autofunction:: encode_3_offsets
 .. autofunction:: encode_2_offsets
 .. autofunction:: encode_1_offset
+
+Int <-> Hash64
+==============
+
+.. autofunction:: decode_int6
+.. autofunction:: encode_int6
 
 .. autofunction:: decode_int12
 .. autofunction:: encode_int12

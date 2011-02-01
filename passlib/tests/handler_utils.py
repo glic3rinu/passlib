@@ -241,7 +241,7 @@ class _HandlerTestCase(TestCase):
         "test secret_chars limit"
         sc = self.secret_chars
 
-        base = "too many secrets"
+        base = "too many secrets" #16 chars
         alt = 'x' #char that's not in base string
 
         if sc > 0:
@@ -268,7 +268,9 @@ class _HandlerTestCase(TestCase):
 
             #NOTE: this doesn't do an exhaustive search to verify algorithm
             #doesn't have some cutoff point, it just tries
-            #1024-character string, and alters the last char
+            #1024-character string, and alters the last char.
+            #as long as algorithm doesn't clip secret at point <1024,
+            #the new secret shouldn't verify.
             secret = base * 64
             hash = self.do_encrypt(secret)
             self.assert_(not self.do_verify(secret[:-1] + alt, hash))

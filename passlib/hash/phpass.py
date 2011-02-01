@@ -100,7 +100,7 @@ def genconfig(salt=None, rounds=None, ident="P"):
     :param ident:
 
         phpBB3 uses ``H`` instead of ``P`` for it's identifier.
-        this may be set to generate phpBB3 compatible hashes.
+        this may be set to ``H`` in order to generate phpBB3 compatible hashes.
 
     :returns:
         phpass configuration string.
