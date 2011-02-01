@@ -5,6 +5,12 @@
 .. module:: passlib.utils.des
     :synopsis: routines for performing DES encryption
 
+.. warning::
+
+    NIST has declared DES to be "inadequate" for encryption purpose.
+    These routines, and algorithms based on them,
+    should not be used in new applications.
+
 This module contains routines for encrypting blocks of data using the DES algorithm.
 
 They do not support multi-block operation or decryption,

@@ -59,7 +59,7 @@ class ExtDesCryptTest(_HandlerTestCase):
     handler = mod2
     known_correct = (
         (" ", "_K1..crsmZxOLzfJH8iw"),
-        ("my", "_K1..crsmjChSwFUvdpw"),
+        ("my", '_KR/.crsmykRplHbAvwA'), #<- to detect old 12-bit rounds bug
         ("my socra", "_K1..crsmf/9NzZr1fLM"),
         ("my socrates", '_K1..crsmOv1rbde9A9o'),
         ("my socrates note", "_K1..crsm/2qeAhdISMA"),

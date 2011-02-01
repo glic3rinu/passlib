@@ -676,7 +676,7 @@ def mdes_encrypt_int_block(key, input, salt=0, rounds=1):
 
         #run over each part of the schedule
         for ks_even, ks_odd in ks_list:
-            k = ((R>>32) ^ R) & salt
+            k = ((R>>32) ^ R) & salt #use the salt to alter specific bits
             B = (k<<32) ^ k ^ R ^ ks_even
 
             L ^= (SPE0[(B>>58)&0x3f] ^ SPE1[(B>>50)&0x3f] ^
@@ -684,7 +684,7 @@ def mdes_encrypt_int_block(key, input, salt=0, rounds=1):
                   SPE4[(B>>26)&0x3f] ^ SPE5[(B>>18)&0x3f] ^
                   SPE6[(B>>10)&0x3f] ^ SPE7[(B>>2)&0x3f])
 
-            k = ((L>>32) ^ L) & salt
+            k = ((L>>32) ^ L) & salt #use the salt to alter specific bits
             B = (k<<32) ^ k ^ L ^ ks_odd
 
             R ^= (SPE0[(B>>58)&0x3f] ^ SPE1[(B>>50)&0x3f] ^

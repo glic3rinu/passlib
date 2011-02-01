@@ -24,7 +24,7 @@ __all__ = [
 #some db context helpers
 #=========================================================
 mysql3_context = CryptContext([mysql_323])
-mysql4_context = CryptContext([mysql_323, mysql_41])
+mysql_context = CryptContext([mysql_323, mysql_41])
 
 #=========================================================
 # eof

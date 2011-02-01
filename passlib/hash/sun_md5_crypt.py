@@ -14,6 +14,8 @@
     test cases to run against.
 """
 
+# http://dropsafe.crypticide.com/article/1389
+
 #NOTE: sun-md5-crypt algorithm internals mostly described
 #   http://dropsafe.crypticide.com/article/1389
 #   http://www.cuddletech.com/blog/pivot/entry.php?id=778

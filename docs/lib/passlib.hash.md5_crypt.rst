@@ -8,3 +8,5 @@
 .. todo::
 
     write documentation
+
+http://www.freebsd.org/cgi/cvsweb.cgi/~checkout~/src/lib/libcrypt/crypt.c?rev=1.2

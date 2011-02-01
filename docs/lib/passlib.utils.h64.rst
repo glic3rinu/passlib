@@ -2,7 +2,6 @@
 :mod:`passlib.utils.h64` - Hash-64 Codec helpers
 ================================================
 
-
 .. module:: passlib.utils.h64
     :synopsis: Hash-64 Codec helpers
 
@@ -26,7 +25,7 @@ and decoding strings in that format.
 .. data:: CHARS
 
     The character set used by the Hash-64 format.
-    Index in character set denotes 6-bit integer value.
+    A character's index in CHARS denotes it's corresponding 6-bit integer value.
 
 .. autofunction:: encode_3_offsets
 .. autofunction:: encode_2_offsets

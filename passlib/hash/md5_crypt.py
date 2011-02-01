@@ -1,5 +1,4 @@
-"""passlib.hash.md5_crypt - md5-crypt algorithm
-"""
+"""passlib.hash.md5_crypt - md5-crypt algorithm"""
 #=========================================================
 #imports
 #=========================================================
@@ -68,7 +67,8 @@ def raw_md5_crypt(secret, salt, apr=False):
     result = h.digest()
 
     # do 1000 rounds of md5 to make things harder.
-    # each round formed from...
+    # each round we do digest of content,
+    # where content is formed from concatenation of...
     #   idx % 2 => secret else result
     #   idx % 3 => salt
     #   idx % 7 => secret

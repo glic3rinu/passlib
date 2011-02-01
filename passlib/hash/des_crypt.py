@@ -1,12 +1,4 @@
-"""passlib.hash.des_crypt - traditional unix (DES) crypt
-
-Old Unix-Crypt Algorithm, as originally used on unix before md5-crypt arrived.
-This implementation uses the builtin ``crypt`` module when available,
-but contains a pure-python fallback so that this algorithm can always be used.
-"""
-#references -
-# http://www.phpbuilder.com/manual/function.crypt.php
-# http://dropsafe.crypticide.com/article/1389
+"""passlib.hash.des_crypt - traditional unix (DES) crypt"""
 
 #=========================================================
 #imports
@@ -89,7 +81,7 @@ except ImportError:
 #algorithm information
 #=========================================================
 name = "des_crypt"
-#stats: 66 bit checksum, 12 bit salt, max 8 chars of secret
+#stats: 64 bit checksum, 12 bit salt, max 8 chars of secret
 
 setting_kwds = ("salt",)
 context_kwds = ()

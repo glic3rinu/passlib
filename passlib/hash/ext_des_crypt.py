@@ -1,19 +1,4 @@
-"""passlib.hash.ext_des_crypt - extended BSDi unix (DES) crypt
-
-this algorithm was used on some systems
-during the time between the original crypt()
-and the development of md5-crypt and the modular crypt format.
-
-thus, it doesn't follow the normal format,
-but it does enhance the crypt algorithm to include
-all chars, and adds a rounds parameter.
-
-References
-----------
-http://fuse4bsd.creo.hu/localcgi/man-cgi.cgi?crypt+3
-http://search.cpan.org/dist/Authen-Passphrase/lib/Authen/Passphrase/DESCrypt.pm
-
-"""
+"""passlib.hash.ext_des_crypt - extended BSDi unix (DES) crypt"""
 #=========================================================
 #imports
 #=========================================================
@@ -72,18 +57,20 @@ def raw_ext_crypt(secret, rounds, salt):
     #run h64 encode on result
     return h64.encode_int64(result)
 
+#TODO: check if crypt supports ext-des-crypt.
+
 #=========================================================
 #algorithm information
 #=========================================================
 name = "ext_des_crypt"
-#stats: ??? bit checksum, ??? bit salt, ??? rounds, max ??? chars of secret
+#stats: 64 bit checksum, 24 bit salt, 0..(1<<24)-1 rounds
 
 setting_kwds = ("salt", "rounds")
 context_kwds = ()
 
-default_rounds = 1000
+default_rounds = 10000
 min_rounds = 0
-max_rounds = 4095
+max_rounds = 16777215 # (1<<24)-1
 
 #=========================================================
 #internal helpers
