@@ -212,6 +212,11 @@ class CryptContext(object):
     #===================================================================
     #instance attrs
     #===================================================================
+    _handlers = None #list of password hash handlers instances.
+    _default = None #default handler
+    _hmap = None #dict mapping handler.name -> handler for all handlers in _handlers
+    _dset = None #set of all handlers which have been deprecated
+    _config = None #dict mapping handler.name -> options for norm_handler_settings
 
     #===================================================================
     #init
@@ -226,65 +231,6 @@ class CryptContext(object):
     #===================================================================
     #setting policy configuration
     #===================================================================
-
-    ##@staticmethod
-    ##def _norm_option_key(key):
-    ##    "helper to normalize & parse an option key into (policy name, scheme name, param name) tuple"
-    ##    ##if isinstance(key, tuple):
-    ##    ##    if len(key) == 3:
-    ##    ##        return key
-    ##    ##    else:
-    ##    ##        raise ValueError, "tuple size must be 3"
-    ##    ##elif not isinstance(key, (str,unicode)):
-    ##    ##    raise TypeError, "key must be string"
-    ##    if '__' in key: #alt format accepted for pure-python implementations
-    ##        key = key.replace("__","/")
-    ##    parts = key.split("/")
-    ##    #returns (scheme, param, policy)
-    ##    if len(parts) == 1:
-    ##        scheme, param = None, parts[0]
-    ##    elif len(parts) == 2:
-    ##        scheme, param = parts
-    ##    else:
-    ##        raise KeyError, "keys may have at most 2 sections"
-    ##    if scheme == "context":
-    ##        scheme = None
-    ##    if not param:
-    ##        raise KeyError, "invalid key: %r"  %(key,)
-    ##    return scheme, param
-    ##
-    ##_option_types = {
-    ##    ("context", "allow"): "scheme-list",
-    ##    ("context", "deprecate"): "scheme-list",
-    ##    ("scheme", "min-rounds"): "int",
-    ##    ("scheme", "max-rounds"): "int",
-    ##    ("scheme", "default-rounds"): "int",
-    ##}
-    ##
-    ##@classmethod
-    ##def _get_option_type(cls, opt):
-    ##    "return datatype associated with option"
-    ##    c,s,p = opt
-    ##    if s == "context":
-    ##        k = ("context", p)
-    ##    else:
-    ##        k = ("scheme", p)
-    ##    return cls._option_types.get(k, "string")
-    ##
-    ##@classmethod
-    ##def _norm_option_value(cls, option, value):
-    ##    type = self._get_option_type(option)
-    ##    if type == "int":
-    ##        value = int(value)
-    ##    elif type == "scheme-list":
-    ##        if isinstance(value, str):
-    ##            value = [ x.strip() for x in value.split(",") if x.strip() ]
-    ##    elif type == "string":
-    ##        pass
-    ##    else:
-    ##        raise AssertionError, "unknown option datatype: %r" % (type,)
-    ##    return value
-
     def _add_scheme(self, scheme):
         "helper to add scheme to internal config"
         #resolve & validate handler
@@ -405,7 +351,7 @@ class CryptContext(object):
         fh.close()
 
     #===================================================================
-    #
+    #examining policy configuratio
     #===================================================================
     def lookup(self, name=None, required=False):
         """given an algorithm name, return CryptHandler instance which manages it.
@@ -423,6 +369,44 @@ class CryptContext(object):
         if required:
             raise KeyError, "no crypt algorithm by that name in context: %r" % (name,)
         return None
+
+    def get_handler_settings(self, handler):
+        "return context-specific default settings for handler or handler name"
+        return self._config.get(handler.name) or {}
+
+    def norm_handler_settings(self, handler, **settings):
+        "normalize settings for handler according to context configuration"
+        #check for config
+        opts = self._config.get(handler.name)
+        if not opts:
+            return settings
+
+        #load in default values
+        for k in handler.setting_kwds:
+            if k not in settings and k in opts:
+                settings[k] = opts[k]
+
+        #check context-specified limits
+
+        return settings
+
+    #===================================================================
+    #
+    #===================================================================
+
+    def genconfig(self, scheme=None, **settings):
+        """Call genconfig() for specified handler"""
+        handler = self.lookup(scheme, required=True)
+        settings = self.norm_handler_settings(handler, **settings)
+        return handler.genconfig(**settings)
+
+    def genhash(self, config, scheme=None, **context):
+        """Call genhash() for specified handler"""
+        if scheme:
+            handler = self.lookup(scheme, required=True)
+        else:
+            handler = self.identify(config, required=True)
+        return handler.genhash(config, **context)
 
     def identify(self, hash, name=False, required=False):
         """Attempt to identify which algorithm hash belongs to w/in this context.
@@ -445,9 +429,6 @@ class CryptContext(object):
             if required:
                 raise ValueError, "no hash specified"
             return None
-        #NOTE: going in reverse order so default handler gets checked first,
-        # also so if handler 0 is a legacy "plaintext" handler or some such,
-        # it doesn't match *everything* that's passed into this function.
         for handler in self._handlers:
             if handler.identify(hash):
                 if name:
@@ -480,11 +461,7 @@ class CryptContext(object):
         if not self:
             raise ValueError, "no algorithms registered"
         handler = self.lookup(scheme, required=True)
-        #strip context kwds if scheme doesn't use them
-        ##for k in kwds.keys():
-        ##    if k not in handler.context_kwds and k not in handler.setting_kwds:
-        ##        del context[k]
-        #TODO: check policy for default options.
+        kwds = self.norm_handler_settings(handler, **kwds)
         return handler.encrypt(secret, **kwds)
 
     def verify(self, secret, hash, scheme=None, **context):
@@ -517,6 +494,9 @@ class CryptContext(object):
         #use handler to verify secret
         return handler.verify(secret, hash, **context)
 
+    #=========================================================
+    #policy variants
+    #=========================================================
     def verify_and_update(self, secret, hash, **context):
         """verify secret against specified hash, and re-encrypt secret if needed"""
         ok = self.verify(secret, hash, **context)
@@ -530,7 +510,9 @@ class CryptContext(object):
         handler = self.identify(hash, required=True)
         if handler in self._dset:
             return True
-        #TODO: check specific policy for hash
+        #TODO: check specific policy for hash.
+        #need to work up protocol here.
+        #probably want to hand off settings to handler.
         return False
 
     #=========================================================

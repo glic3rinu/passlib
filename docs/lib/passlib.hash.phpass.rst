@@ -10,7 +10,7 @@ which uses the `PHPass <http://www.openwall.com/phpass/>`_ library,
 a PHP library similar to PassLib. The PHPass Portable Hash
 is a custom password hash used by PHPass as a fallback
 when none of it's other hashes are available. It's hashes
-can be identified by the :ref:`modular-crypt-format` prefixe
+can be identified by the :ref:`modular-crypt-format` prefix
 ``$P$`` (or ``$H$`` in phpBB3 databases).
 Due to it's reliance on MD5, and the simplistic implementation,
 other hash algorithms should be used if possible.
