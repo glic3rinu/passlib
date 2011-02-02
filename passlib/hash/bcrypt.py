@@ -17,7 +17,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt
+from passlib.utils import norm_rounds, norm_salt, autodocument
 #pkg
 #local
 __all__ = [
@@ -68,6 +68,8 @@ name = "bcrypt"
 
 setting_kwds = ("salt", "rounds")
 context_kwds = ()
+
+min_salt_chars = max_salt_chars = 22
 
 default_rounds = 12 #current passlib default
 min_rounds = 4 # bcrypt spec specified minimum
@@ -134,7 +136,7 @@ def genconfig(salt=None, rounds=None, omit_null_suffix=False):
     :returns:
         bcrypt configuration string.
     """
-    salt = norm_salt(salt, 22, name=name)
+    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
     return render(rounds, salt, None, omit_null_suffix)
 
@@ -159,6 +161,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

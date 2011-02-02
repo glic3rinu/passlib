@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64
+from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 #pkg
 #local
 __all__ = [
@@ -150,6 +150,9 @@ name = "md5_crypt"
 setting_kwds = ("salt",)
 context_kwds = ()
 
+min_salt_chars = 0
+max_salt_chars = 8
+
 #=========================================================
 #internal helpers
 #=========================================================
@@ -179,21 +182,21 @@ def render(salt, checksum=None):
 #=========================================================
 #primary interface
 #=========================================================
-def genconfig(salt=None, rounds=None):
-    """generate md5-crypt configuration string
-
-    :param salt:
-        optional salt string to use.
-
-        if omitted, one will be automatically generated (recommended).
-
-        length must be between 0 and 8 characters inclusive.
-        characters must be in range ``A-Za-z0-9./``.
-
-    :returns:
-        md5-crypt configuration string.
-    """
-    salt = norm_salt(salt, 0, 8, name=name)
+def genconfig(salt=None):
+    ##"""generate md5-crypt configuration string
+    ##
+    ##:param salt:
+    ##    optional salt string to use.
+    ##
+    ##    if omitted, one will be automatically generated (recommended).
+    ##
+    ##    length must be between 0 and 8 characters inclusive.
+    ##    characters must be in range ``A-Za-z0-9./``.
+    ##
+    ##:returns:
+    ##    md5-crypt configuration string.
+    ##"""
+    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     return render(salt, None)
 
 def genhash(secret, config):
@@ -230,6 +233,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

@@ -76,7 +76,7 @@ Undef = object() #singleton used as default kwd value in some functions
 #protocol helpers
 #==========================================================
 def is_crypt_handler(obj):
-    "check if object follows the :ref:`crypt handler api <crypt-handler-api>`"
+    "check if object follows the :ref:`password-hash-api`"
     return all(hasattr(obj, name) for name in (
         "name",
         "setting_kwds", "context_kwds",
@@ -84,13 +84,13 @@ def is_crypt_handler(obj):
         "verify", "encrypt", "identify",
         ))
 
-##def is_crypt_context(obj):
-##    "check if obj follows CryptContext api"
-##    #NOTE: this isn't an exhaustive check of all required attrs,
-##    #just a quick check of the most uniquely identifying ones
-##    return all(hasattr(obj, name) for name in (
-##        "lookup", "verify", "encrypt", "identify",
-##        ))
+def is_crypt_context(obj):
+    "check if object follows :class:`CryptContext` interface"
+    return all(hasattr(obj, name) for name in (
+        "lookup",
+        "genconfig", "genhash",
+        "verify", "encrypt", "identify",
+        ))
 
 #=================================================================================
 #string helpers
@@ -422,6 +422,143 @@ def norm_salt(salt, min_chars, max_chars=None, charset=h64.CHARS, gen_charset=No
         return salt[:max_chars]
     else:
         return salt
+
+def autodocument(scope, salt_charset="[a-zA-Z0-9./]", log_rounds=False):
+    """helper to auto-generate documentation for password hash handler
+
+    :arg scope: dict containing encrypt/verify/etc functions (module scope or class dict)
+    """
+
+    name = scope['name']
+
+    setting_kwds = scope['setting_kwds']
+    has_salt = 'salt' in setting_kwds
+    has_rounds = 'rounds' in setting_kwds
+    has_other = any(c for c in setting_kwds if c not in ("salt", "rounds"))
+
+    if has_salt:
+        max_salt_chars = scope["max_salt_chars"]
+        min_salt_chars = scope["min_salt_chars"]
+
+    if has_rounds:
+        default_rounds = scope['default_rounds']
+        min_rounds = scope['min_rounds']
+        max_rounds = scope['max_rounds']
+
+    context_kwds = scope['context_kwds']
+
+    encrypt = scope['encrypt']
+    if not encrypt.__doc__:
+        pass
+
+    genconfig = scope['genconfig']
+    if not genconfig.__doc__:
+        if setting_kwds:
+            if has_other:
+                raise NotImplementedError, "can't auto generate genconfig docs w/ unknown setting_kwds"
+            d = "generate %(name)s configuration string\n\n" % dict(name=name)
+
+            if has_salt:
+                d += """:param salt: optional salt string to use.\n\n    if omitted, one will be automatically generated (this is recommended for most cases).\n\n"""
+                if max_salt_chars:
+                    if min_salt_chars != max_salt_chars:
+                        d += """    length must be between %d .. %d characters, inclusive.\n""" % (min_salt_chars, max_salt_chars)
+                    else:
+                        d += """    length must be %d characters\n""" % (max_salt_chars,)
+                    if salt_charset:
+                        d += """    characters must be in range ``%s``\n"""  % (salt_charset,)
+
+            if has_rounds:
+                d += """:param rounds:\n    optional number of rounds to apply (default is %d).\n    value must be between %d and %d, inclusive.\n"""  %(default_rounds, min_rounds, max_rounds)
+                if log_rounds:
+                    raise NotImplementedError, "todo"
+
+            d += """\n:raises ValueError: if invalid settings are passed in\n\n"""
+            d += """:returns:\n    %(name)s configuration string\n""" % dict(name=name)
+        else:
+            d = """generate %(name)s configuration string
+
+                :returns:
+                    this hash has no configuration options, so genconfig always returns ``None``
+            """ % dict(name=name)
+        genconfig.__doc__ = d
+
+    genhash = scope['genhash']
+    if not genhash.__doc__:
+        if context_kwds:
+            raise NotImplementedError, "can't auto generate genhash docs w/ context kwds"
+        genhash.__doc__ = """generate %(name)s hash from secret, using configuration string or existing hash.
+
+:arg secret: string containing password to be encrypted
+:arg config: configuration string as returned by :func:`genconfig` OR existing hash string
+
+:raises TypeError: if the configuration string is not provided, or the secret is not a string
+
+:raises ValueError: if the configuration string is not in a recognized format, or the secret contains a forbidden character.
+
+:returns:
+    encoded %(name)s hash of secret, using specified config string
+        """ % dict(name=name)
+
+    encrypt = scope['encrypt']
+    if not encrypt.__doc__:
+        encrypt.__doc__ = """encrypt secret, returning resulting %(name)s hash
+
+        this is a convience function,
+        it has the same effect as ``genhash(secret,genconfig(**settings))``
+
+        :arg secret: a string containing the secret to encode
+
+        :param kwds: all other keywords used to generate config string, see :func:`genconfig`.
+
+        :returns: %(name)s hash of secret, using specified settings
+        """ % dict(name=name)
+
+    identify = scope['identify']
+    if not identify.__doc__:
+        identify.__doc__ = """identify this is a %(name)s hash.
+
+        :arg hash:
+            the candidate hash string to check
+
+        :returns:
+            * ``True`` if input appears to be a %(name)s hash string.
+            * ``True`` if input appears to be a %(name)s configuration.
+            * ``False`` if no input is specified
+            * ``False`` if none of the above conditions was met.
+
+        """ % dict(name=name)
+        #TODO: variant of this note, and also handle no settings
+        ##.. note::
+        ##    Some handlers may or may not return ``True`` for malformed hashes.
+        ##    Those that do will raise a ValueError once the hash is passed to :func:`verify`.
+        ##    Most handlers, however, will just return ``False``.
+
+    verify = scope['verify']
+    if not verify.__doc__:
+        if context_kwds:
+            raise NotImplementedError, "can't auto generate verify docs w/ context kwds"
+        verify.__doc__ = """verify a secret against an existing %(name)s hash.
+
+        This checks if a secret matches against the one
+        encrypted in the specified %(name)s hash.
+
+        :param secret:
+            A string containing the secret to check.
+        :param hash:
+            A string containing the hash to check against.
+
+        :raises TypeError:
+            * if the secret is not a string.
+
+        :raises ValueError:
+            * if the hash not specified
+            * if the hash is not recognized as a %(name)s hash.
+            * if the provided secret contains forbidden chars (see :func:`encrypt`)
+
+        :returns:
+            ``True`` if the secret matches, otherwise ``False``.
+        """ % dict(name=name)
 
 #=================================================================================
 #eof

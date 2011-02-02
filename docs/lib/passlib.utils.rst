@@ -44,9 +44,7 @@ Object Tests
 ============
 .. autofunction:: is_crypt_handler
 
-.. todo::
-
-    is_crypt_context
+.. autofunction:: is_crypt_context
 
 Crypt Handler Helpers
 =====================

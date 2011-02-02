@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_salt, h64
+from passlib.utils import norm_salt, h64, autodocument
 from passlib.utils.des import mdes_encrypt_int_block
 #pkg
 #local
@@ -86,6 +86,8 @@ name = "des_crypt"
 setting_kwds = ("salt",)
 context_kwds = ()
 
+min_salt_chars = max_salt_chars = 2
+
 #=========================================================
 #internal helpers
 #=========================================================
@@ -117,20 +119,7 @@ def render(salt, checksum=None):
 #primary interface
 #=========================================================
 def genconfig(salt=None):
-    """generate xxx configuration string
-
-    :param salt:
-        optional salt string to use.
-
-        if omitted, one will be automatically generated (recommended).
-
-        length must be 2 characters.
-        characters must be in range ``A-Za-z0-9./``.
-
-    :returns:
-        xxx configuration string.
-    """
-    salt = norm_salt(salt, 2, name=name)
+    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     return render(salt, None)
 
 def genhash(secret, config):
@@ -180,6 +169,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

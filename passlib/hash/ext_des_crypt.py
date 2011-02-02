@@ -8,7 +8,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64
+from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 from passlib.utils.des import mdes_encrypt_int_block
 from passlib.hash.des_crypt import _crypt_secret_to_key
 #pkg
@@ -68,6 +68,8 @@ name = "ext_des_crypt"
 setting_kwds = ("salt", "rounds")
 context_kwds = ()
 
+min_salt_chars = max_salt_chars = 4
+
 default_rounds = 10000
 min_rounds = 0
 max_rounds = 16777215 # (1<<24)-1
@@ -109,24 +111,7 @@ def render(rounds, salt, checksum=None):
 #primary interface
 #=========================================================
 def genconfig(salt=None, rounds=None):
-    """generate xxx configuration string
-
-    :param salt:
-        optional salt string to use.
-
-        if omitted, one will be automatically generated (recommended).
-
-        length must be 4 characters.
-        characters must be in range ``A-Za-z0-9./``.
-
-    :param rounds:
-
-        optional number of rounds, must be between 0 and 16777215 inclusive.
-
-    :returns:
-        xxx configuration string.
-    """
-    salt = norm_salt(salt, 4, name=name)
+    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
     return render(rounds, salt, None)
 
@@ -155,6 +140,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

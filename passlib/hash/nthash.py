@@ -9,6 +9,7 @@ from warnings import warn
 #site
 #libs
 from passlib.utils.md4 import md4
+from passlib.utils import autodocument
 #pkg
 #local
 __all__ = [
@@ -94,6 +95,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================
