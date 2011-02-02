@@ -19,8 +19,8 @@ and decoding strings in that format.
 
 .. note::
     It may *look* like bcrypt uses this scheme,
-    when in fact bcrypt uses the standard base64 encoding scheme,
-    but with ``+`` replaced with ``.``.
+    when in fact bcrypt uses yet another ordering,
+    which does not match hash64 or other base64 schemes.
 
 Constants
 =========

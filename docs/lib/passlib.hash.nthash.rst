@@ -15,10 +15,6 @@ This module implements the Windows NT-HASH algorithm,
 encoded in a manner compatible with the :ref:`modular-crypt-format`.
 It is found on some unix systems where the administrator has decided
 to store user passwords in a manner compatible with the SMB/CIFS protocol.
-
-It supports two identifiers, ``$3$`` and ``$NT$``, though this
-implementation defaults to ``$3$``.
-
 It has no salt, or variable rounds.
 
 Usage
@@ -46,9 +42,9 @@ the following method:
 
 Format & Algorithm
 ==================
-A nthash encoded for crypt consists of ``$3$$<checksum>`` or
-``$NT$<checksum>``; where ``checksum`` is 32 hexidecimal digits
+A nthash encoded for crypt consists of ``$3$${checksum}`` or
+``$NT${checksum}``; where ``{checksum}`` is 32 hexidecimal digits
 encoding the checksum. An example hash (of ``password``) is ``$3$$8846f7eaee8fb117ad06bdd830b7586c``.
 
 The checksum is simply the :mod:`~passlib.utils.md4` digest
-of the secret using the ``UTF16-LE`` encoding.
+of the secret using the ``UTF16-LE`` encoding, encoded in hexidecimal

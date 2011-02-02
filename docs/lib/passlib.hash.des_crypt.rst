@@ -47,7 +47,7 @@ Functions
 
 Format
 ======
-A des-crypt hash string consists of 13 characters, drawn from ``[0-9a-zA-Z./]``.
+A des-crypt hash string consists of 13 characters, drawn from ``[./0-9A-Za-z]``.
 The first 2 characters form a :mod:`hash64 <passlib.utils.h64>`-encoded
 12 bit integer used as the salt, with the remaining characters
 forming a hash64-encoded 64-bit integer checksum.
@@ -75,7 +75,7 @@ Deviations
 ==========
 This implementation of des-crypt differs from others in a few ways:
 
-* Unicode strings are encoded using UTF-8 before being passed into the algorithm.
+* Before generating a hash, PassLib encodes unicode passwords using UTF-8.
   The original des-crypt was designed for 7-bit us-ascii, so this should not
   conflict with most existing hashes. As of this writing, the authors
   know of no specification defining the official behavior that should be used

@@ -12,8 +12,8 @@ Table Of Contents
     lib/passlib.unix
     lib/passlib.utils
 
-    crypt_handler_api
-
+    password_hash_api
+    
     history
     copyright
 

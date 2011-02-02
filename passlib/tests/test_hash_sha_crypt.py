@@ -37,7 +37,10 @@ class Sha256CryptTest(_HandlerTestCase):
     known_invalid = (
         #bad char in otherwise correct hash
         '$5$rounds=10428$uy/:jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMeZGsGx2aBvxTvDFI613c3'
-        )
+
+        #zero-padded rounds
+       '$5$rounds=010428$uy/jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMe.ZGsGx2aBvxTvDFI613c3',
+    )
 
 if mod2.backend != "builtin" and enable_option("all-backends"):
 
@@ -68,7 +71,10 @@ class Sha512CryptTest(_HandlerTestCase):
     known_invalid = (
         #bad char in otherwise correct hash
         '$6$rounds=11021$KsvQipYPWpr9:wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
-        )
+
+        #zero-padded rounds
+        '$6$rounds=011021$KsvQipYPWpr93wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
+    )
 
     #NOTE: these test cases taken from spec definition at http://www.akkadia.org/drepper/SHA-crypt.txt
     cases512 = [

@@ -85,6 +85,8 @@ def parse(hash):
     if not m:
         raise ValueError, "invalid sha512-crypt hash"
     rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
+    if rounds and rounds.startswith("0"):
+        raise ValueError, "invalid sha512-crypt hash: zero-padded rounds"
     return dict(
         implicit_rounds = not rounds,
         rounds=int(rounds) if rounds else 5000,

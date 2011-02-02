@@ -116,26 +116,26 @@ def render(rounds, salt, checksum=None, omit_null_suffix=False):
 #primary interface
 #=========================================================
 def genconfig(salt=None, rounds=None, omit_null_suffix=False):
-    """generate bcrypt configuration string
-
-    :param salt:
-        optional salt string to use.
-
-        if omitted, one will be automatically generated (recommended).
-
-        length must be 22 characters.
-        characters must be in range ``A-Za-z0-9./``.
-
-    :param rounds:
-
-        optional number of rounds, must be between 4 and 31 inclusive.
-
-        unlike most algorithms, bcrypt's rounds value is logarithmic,
-        each increase of +1 will double the actual number of rounds used.
-
-    :returns:
-        bcrypt configuration string.
-    """
+    ##"""generate bcrypt configuration string
+    ##
+    ##:param salt:
+    ##    optional salt string to use.
+    ##
+    ##    if omitted, one will be automatically generated (recommended).
+    ##
+    ##    length must be 22 characters.
+    ##    characters must be in range ``A-Za-z0-9./``.
+    ##
+    ##:param rounds:
+    ##
+    ##    optional number of rounds, must be between 4 and 31 inclusive.
+    ##
+    ##    unlike most algorithms, bcrypt's rounds value is logarithmic,
+    ##    each increase of +1 will double the actual number of rounds used.
+    ##
+    ##:returns:
+    ##    bcrypt configuration string.
+    ##"""
     salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
     return render(rounds, salt, None, omit_null_suffix)
@@ -161,7 +161,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
-autodocument(globals())
+autodocument(globals(), log_rounds=True)
 #=========================================================
 #eof
 #=========================================================

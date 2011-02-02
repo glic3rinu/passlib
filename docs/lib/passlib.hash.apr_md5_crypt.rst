@@ -5,20 +5,22 @@
 .. module:: passlib.hash.apr_md5_crypt
     :synopsis: Apache MD5-Crypt variant
 
-Stats: 96 bit checksum, 48 bit salt, :ref:`modular-crypt-format` compatible.
-
 This format is a variation of :mod:`~passlib.hash.md5_crypt`,
 primarily used by the Apache webserver in ``htpasswd`` files.
+It contains only minor changes to md5-crypt, and should
+be considered just as strong / weak as md5-crypt itself.
 
+Format & Algorithm
+==================
 This format is identical to md5-crypt, except for two things:
 it uses ``$apr1$`` as a prefix where md5-crypt uses ``$1$``,
 and inserts ``$apr1$`` where md5-crypt inserts ``$1$`` into
-it's internal hash calculation. Thus, this algorithm is just
-as strong as md5-crypt, but the formats (and their contained checksums)
-are in no way compatible with eachother.
+it's internal hash calculation. Thus, hashes generated
+by this and md5-crypt are in no way compatible with eachother
+(they will not even have the same checksum for the same salt).
 
-Implementation
-==============
-PassLib contains a builtin pure-python implementation of apr-md5-crypt,
-based of the specification at `http://httpd.apache.org/docs/2.2/misc/password_encryptions.html`,
-but code shared with :mod:`~passlib.hash.md5_crypt`.
+For details about usage & algorithm, see :mod:`~passlib.hash.md5_crypt`.
+
+References
+==========
+* `<http://httpd.apache.org/docs/2.2/misc/password_encryptions.html>`_

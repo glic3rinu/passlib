@@ -423,7 +423,7 @@ def norm_salt(salt, min_chars, max_chars=None, charset=h64.CHARS, gen_charset=No
     else:
         return salt
 
-def autodocument(scope, salt_charset="[a-zA-Z0-9./]", log_rounds=False):
+def autodocument(scope, salt_charset="[./0-9A-Za-z]", log_rounds=False):
     """helper to auto-generate documentation for password hash handler
 
     :arg scope: dict containing encrypt/verify/etc functions (module scope or class dict)
@@ -471,7 +471,7 @@ def autodocument(scope, salt_charset="[a-zA-Z0-9./]", log_rounds=False):
             if has_rounds:
                 d += """:param rounds:\n    optional number of rounds to apply (default is %d).\n    value must be between %d and %d, inclusive.\n"""  %(default_rounds, min_rounds, max_rounds)
                 if log_rounds:
-                    raise NotImplementedError, "todo"
+                    d += """    %(name)s's rounds value is logarithmic, the actual number of rounds used is ``2**rounds``.\n""" % dict(name=name)
 
             d += """\n:raises ValueError: if invalid settings are passed in\n\n"""
             d += """:returns:\n    %(name)s configuration string\n""" % dict(name=name)
@@ -509,7 +509,7 @@ def autodocument(scope, salt_charset="[a-zA-Z0-9./]", log_rounds=False):
 
         :arg secret: a string containing the secret to encode
 
-        :param kwds: all other keywords used to generate config string, see :func:`genconfig`.
+        :param settings: all other keywords used to generate config string, see :func:`genconfig`.
 
         :returns: %(name)s hash of secret, using specified settings
         """ % dict(name=name)

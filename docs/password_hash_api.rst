@@ -1,4 +1,3 @@
-.. _crypt-handler-api:
 .. _password-hash-api:
 
 ======================
@@ -10,7 +9,7 @@ Motivation
 Passlib supports many different password hashing schemes.
 A majority of them were originally designed to be used on a unix
 system, follow some variant of the unix ``crypt()`` api,
-and have are encoded using the Extended Crypt Format.
+and have are encoded using the :ref:`modular-crypt-format`.
 Others were designed for use specific contexts only,
 such as PostgreSQL.
 
@@ -28,17 +27,18 @@ most them as modules within the :mod:`passlib.hash` package.
 
 Overview
 ========
-A CryptHandler object may be a module, class, or instance.
-The only requirement is that it expose (at least) the following attributes
+A handler which implements a password hash may be a module, class, or instance
+(though most of the ones builtin to Passlib are modules).
+The only requirement is that it expose a minimum of the following attributes
 and functions (for classes, the following functions must be static or class methods).
 
-CryptHandlers have the following three attributes:
+All handlers have the following three attributes:
 
     * ``name`` - unique identifier used to distinguish scheme within
     * ``setting_kwds`` - list of settings recognized by ``genconfig()`` and ``encrypt()``.
     * ``context_kwds`` - list of context specified keywords required by algorithm
 
-CryptHandlers have the following five methods:
+All handlers have the following five function:
 
     * ``genconfig(**settings) -> configuration string`` - used for generating configuration strings.
     * ``genhash(secret, config, **context) -> hash`` - used for encrypting secret using configuration string or existing hash
@@ -121,7 +121,7 @@ the tradition unix crypt interface, and consists of two functions:
 
 Other Methods
 =============
-Some of the CryptHandlers in passlib expose some additional function and attributes,
+Some of the handlers in passlib expose some additional function and attributes,
 which may be useful, but whose behavior varies between handlers (if present at all),
 and may not conform exactly to the following summary:
 

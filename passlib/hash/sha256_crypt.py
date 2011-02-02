@@ -1,60 +1,4 @@
-"""passlib.hash.sha256_crypt - SHA256-CRYPT
-
-This implementation is based on Ulrich Drepper's
-``sha-crypt specification <http://www.akkadia.org/drepper/sha-crypt.txt>``.
-It should be byte-compatible with unix shadow hashes beginning with ``$5$`` and ``$6%``.
-
-About
-=====
-This implementation is based on Ulrich Drepper's
-``sha-crypt specification <http://www.akkadia.org/drepper/sha-crypt.txt>``.
-It should be byte-compatible with unix shadow hashes beginning with ``$5$`` and ``$6%``.
-
-This module is not intended to be used directly,
-but merely as a backend for :mod:`passlib.unix.sha_crypt`
-when native sha crypt support is not available.
-
-Deviations from the Specification
-=================================
-
-Unicode
--------
-The sha-crypt specification makes no statement regarding
-the unicode support, it merely takes in a series of bytes.
-
-In order to support non-ascii passwords and :class:`unicode` class,
-this implementation makes the arbitrary decision to encode all unicode passwords
-to ``utf-8`` before passing it into the encryption function.
-
-Salt Length
------------
-The sha-crypt specification allows salt strings of length 0-16 inclusive.
-However, most implementations (including this one) will only
-generate salts of length 16, though they allow the full range.
-
-Salt Characters
----------------
-The charset used by salt strings is poorly defined for sha-crypt.
-
-The sha-crypt spec does not make any statements about the allowable
-salt charset, one way or the other. Furthermore, the reference implementation
-within the spec, and linux implementation, cheerfully allow
-all 8-bit values besides ``\x00`` and ``$``, and excluding
-those not by choice, but due to implementation details.
-Thus the argument could be made that all other characters should be allowed.
-
-However, allowing the characters ``:`` and ``\n`` would cause
-problems for the most common application of this algorithm,
-storage in ``/etc/shadow``. As well, the most unix shadow suites
-only generate salts using the chars ``./0-9A-Za-z``.
-
-Thus, as a compromise, this implementation of sha-crypt
-will allow all salt characters except for ``\x00\n:$``,
-in order to support as much of the specification as feasible;
-but it will only generate salts using the chars ``./0-9A-Za-z``,
-in order to remain compatible with the majority of hashes
-out there, in case other tools have made different assumptions.
-"""
+"""passlib.hash.sha256_crypt - SHA256-CRYPT"""
 #=========================================================
 #imports
 #=========================================================
@@ -65,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64
+from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 #pkg
 #local
 __all__ = [
@@ -269,6 +213,9 @@ default_rounds = 40000 #current passlib default
 min_rounds = 1000
 max_rounds = 999999999
 
+min_salt_chars = 0
+max_salt_chars = 16
+
 #=========================================================
 #internal helpers
 #=========================================================
@@ -294,6 +241,8 @@ def parse(hash):
     if not m:
         raise ValueError, "invalid sha256-crypt hash"
     rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
+    if rounds and rounds.startswith("0"):
+        raise ValueError, "invalid sha256-crypt hash: zero-padded rounds"
     return dict(
         implicit_rounds = not rounds,
         rounds=int(rounds) if rounds else 5000,
@@ -334,7 +283,7 @@ def genconfig(salt=None, rounds=None, implicit_rounds=True):
         sha256-crypt configuration string.
     """
     #TODO: allow salt charset 0-255 except for "\x00\n:$"
-    salt = norm_salt(salt, 0, 16, name=name)
+    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
     return render(rounds, salt, None, implicit_rounds)
 
@@ -368,6 +317,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

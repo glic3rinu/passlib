@@ -9,9 +9,7 @@ This algorithm is used primarily by PHP software
 which uses the `PHPass <http://www.openwall.com/phpass/>`_ library,
 a PHP library similar to PassLib. The PHPass Portable Hash
 is a custom password hash used by PHPass as a fallback
-when none of it's other hashes are available. It's hashes
-can be identified by the :ref:`modular-crypt-format` prefix
-``$P$`` (or ``$H$`` in phpBB3 databases).
+when none of it's other hashes are available.
 Due to it's reliance on MD5, and the simplistic implementation,
 other hash algorithms should be used if possible.
 
@@ -29,26 +27,37 @@ Functions
 .. autofunction:: identify
 .. autofunction:: verify
 
-Format & Algorithm
+Format
 ==================
-An phpass portable hash string has length 34, with the format ``$P$<rounds><salt><checksum>``;
-where ``<rounds>`` is a single character encoding a 6-bit integer,
-``<salt>`` is an eight-character salt, and ``<checksum>`` is an encoding
-of the 128 bit checksum. All values are encoded using :mod:`hash64 <passlib.utils.h64>`.
+An example hash (of ``password``) is ``$P$8ohUJ.1sdFw09/bMaAQPTGDNi2BIUt1``.
+A phpass portable hash string has the format ``$P${cost}{salt}{checksum}``, where:
 
-An example hash (of ``password``) is ``$P$8ohUJ.1sdFw09/bMaAQPTGDNi2BIUt1``;
-the rounds are encoded in ``8``, the salt is ``ohUJ.1sd``,
-and the checksum is ``Fw09/bMaAQPTGDNi2BIUt1``.
+* ``$P$`` is the prefix used to identify phpass hashes,
+  following the :ref:`modular-crypt-format`.
+  Note that phpBB3 databases uses the alternate prefix ``$H$``, both prefixes
+  are recognized by this module, and the checksums are the same.
 
+* ``{cost}``  is a single character encoding a 6-bit integer
+  encoding the cost, which affects the number of rounds
+  used via the formula ``rounds=2**cost``. (cost is ``8`` or 13 in the example).
+
+* ``{salt}`` is eight characters drawn from ``[./0-9A-Za-z]``,
+  providing a 48-bit salt (``ohUJ.1sd`` in the example).
+
+* ``{checksum}`` is 22 characters drawn from the same set,
+  encoding the 128-bit checksum (``Fw09/bMaAQPTGDNi2BIUt1`` in the example).
+
+Algorithm
+=========
 PHPass uses a straightforward algorithm to calculate the checksum:
 
 * an initial result is generated from the MD5 digest of the salt string + the secret.
-* for ``2**rounds`` repetitions, a new result is created from the MD5 digest of the last result + the secret.
+* for ``2**cost`` rounds, a new result is created from the MD5 digest of the last result + the secret.
 * the last result is then encoded according to the format described above.
 
 Deviations
 ==========
-This implementation of phpass differs from the specification:
+This implementation of phpass differs from the specification in one way:
 
 * Unicode strings are encoded using UTF-8 before being passed into the algorithm.
   While the original code accepts passwords containing any 8-bit value,
