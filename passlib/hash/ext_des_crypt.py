@@ -71,7 +71,7 @@ context_kwds = ()
 min_salt_chars = max_salt_chars = 4
 
 default_rounds = 10000
-min_rounds = 0
+min_rounds = 0 #NOTE: some sources (OpenBSD login.conf) report 7250 as minimum allowed rounds
 max_rounds = 16777215 # (1<<24)-1
 
 #=========================================================

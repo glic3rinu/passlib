@@ -317,6 +317,8 @@ def getrandbytes(rng, count):
     ##    return meth(count)
 
     #XXX: break into chunks for large number of bits?
+    if not count:
+        return ''
     value = rng.getrandbits(count<<3)
     buf = StringIO()
     for i in xrange(count):
@@ -378,7 +380,7 @@ def gen_salt(count, charset=h64.CHARS):
     global rng
     return getrandstr(rng, charset, count)
 
-def norm_salt(salt, min_chars, max_chars=None, charset=h64.CHARS, gen_charset=None, name="specified"):
+def norm_salt(salt, min_chars, max_chars=None, default_chars=None, charset=h64.CHARS, gen_charset=None, name="specified"):
     """helper to normalize & validate user-provided salt string
 
     required salt_charset & salt_chars attrs to be filled in,
@@ -404,7 +406,7 @@ def norm_salt(salt, min_chars, max_chars=None, charset=h64.CHARS, gen_charset=No
     """
     #generate one if needed
     if salt is None:
-        return gen_salt(max_chars or min_chars, gen_charset or charset)
+        return gen_salt(default_chars or max_chars or min_chars, gen_charset or charset)
 
     #check character set
     for c in salt:

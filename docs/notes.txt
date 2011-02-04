@@ -185,6 +185,7 @@ http://www.openwall.com/john/interviews/SF-20060222-p3
 oracle -
 http://www.notesbit.com/index.php/scripts-oracle/oracle-11g-new-password-algorithm-is-revealed-by-seclistsorg/
 
+http://www.users.zetnet.co.uk/hopwood/crypto/scan/ph.html
 ===========
 scrpyt
 http://www.tarsnap.com/scrypt.html
