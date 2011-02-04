@@ -36,8 +36,10 @@ class Sha256CryptTest(_HandlerTestCase):
         )
     known_invalid = (
         #bad char in otherwise correct hash
-        '$5$rounds=10428$uy/:jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMeZGsGx2aBvxTvDFI613c3'
+        '$5$rounds=10428$uy/:jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMeZGsGx2aBvxTvDFI613c3',
+    )
 
+    known_identified_invalid = (
         #zero-padded rounds
        '$5$rounds=010428$uy/jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMe.ZGsGx2aBvxTvDFI613c3',
     )
@@ -71,8 +73,10 @@ class Sha512CryptTest(_HandlerTestCase):
     known_invalid = (
         #bad char in otherwise correct hash
         '$6$rounds=11021$KsvQipYPWpr9:wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
+    )
 
-        #zero-padded rounds
+    known_identified_invalid = (
+        ###zero-padded rounds
         '$6$rounds=011021$KsvQipYPWpr93wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
     )
 
@@ -119,7 +123,7 @@ class Sha512CryptTest(_HandlerTestCase):
         if catch_warnings:
             ctx = catch_warnings()
             ctx.__enter__()
-        warnings.filterwarnings("ignore", "sha512-crypt algorithm does not allow less than 1000 rounds: 10")
+        warnings.filterwarnings("ignore", "sha512_crypt algorithm does not allow less than 1000 rounds: 10")
 
         for config, secret, hash in self.cases512:
 

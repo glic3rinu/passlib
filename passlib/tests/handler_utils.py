@@ -47,12 +47,15 @@ class _HandlerTestCase(TestCase):
     # list of handler's hashes with crucial invalidating typos, that handler shouldn't identify as belonging to it
     known_invalid = []
 
+    # list of handler's hashes that it *will* identify as it's own, but genhash will raise error due to invalid internal requirements
+    known_identified_invalid = []
+
     #list of (name, hash) pairs for other algorithm's hashes, that handler shouldn't identify as belonging to it
     #this list should generally be sufficient (if handler name in list, that entry will be skipped)
     known_other = [
-        ('des-crypt', '6f8c114b58f2c'),
-        ('md5-crypt', '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
-        ('sha512-crypt', "$6$rounds=123456$asaltof16chars..$BtCwjqMJGx5hrJhZywWvt0RLE8uZ4oPwc"
+        ('des_crypt', '6f8c114b58f2c'),
+        ('md5_crypt', '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
+        ('sha512_crypt', "$6$rounds=123456$asaltof16chars..$BtCwjqMJGx5hrJhZywWvt0RLE8uZ4oPwc"
             "elCjmw2kSYu.Ec6ycULevoBK25fs2xXgMNrCzIMVcgEJAstJeonj1"),
     ]
 
@@ -120,19 +123,25 @@ class _HandlerTestCase(TestCase):
     #identify
     #=========================================================
     def test_10_identify_other(self):
-        "test identify() against other algorithms' hashes"
+        "test identify() against other schemes' hashes"
         for name, hash in self.known_other:
             self.assertEqual(self.do_identify(hash), name == self.handler.name)
 
     def test_11_identify_positive(self):
-        "test identify() against known-correct hashes"
+        "test identify() against scheme's own hashes"
         for secret, hash in self.known_correct:
             self.assertEqual(self.do_identify(hash), True)
+
         for secret, hash in self.known_incorrect:
             self.assertEqual(self.do_identify(hash), True)
 
+        for hash in self.known_identified_invalid:
+            self.assertEqual(self.do_identify(hash), True)
+
     def test_12_identify_invalid(self):
-        "test identify() against known-invalid hashes"
+        "test identify() against malformed instances of scheme's own hashes"
+        if not self.known_invalid:
+            raise SkipTest
         for hash in self.known_invalid:
             self.assertEqual(self.do_identify(hash), False, "hash=%r:" % (hash,))
 
@@ -146,14 +155,18 @@ class _HandlerTestCase(TestCase):
     #=========================================================
     def test_20_verify_positive(self):
         "test verify() against known-correct secret/hash pairs"
+        self.assert_(self.known_correct, "test must define known_correct hashes")
         for secret, hash in self.known_correct:
             self.assertEqual(self.do_verify(secret, hash), True, "known correct hash (secret=%r, hash=%r):" % (secret,hash))
 
     def test_21_verify_negative(self):
         "test verify() against known-incorrect secret/hash pairs"
+        if not self.known_incorrect:
+            raise SkipTest
         for secret, hash in self.known_incorrect:
             self.assertEqual(self.do_verify(secret, hash), False)
 
+    #XXX: is this needed if known_incorrect is defined?
     def test_22_verify_derived_negative(self):
         "test verify() against derived incorrect secret/hash pairs"
         for secret, hash in self.known_correct:
@@ -168,7 +181,9 @@ class _HandlerTestCase(TestCase):
 
     def test_24_verify_invalid(self):
         "test verify() throws error against known-invalid hashes"
-        for hash in self.known_invalid:
+        if not self.known_invalid and not self.known_identified_invalid:
+            raise SkipTest
+        for hash in self.known_invalid + self.known_identified_invalid:
             self.assertRaises(ValueError, self.do_verify, 'stub', hash, __msg__="verify invalid %r:" % (hash,))
 
     def test_25_verify_none(self):
