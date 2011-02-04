@@ -20,6 +20,7 @@ class SunMd5CryptTest(_HandlerTestCase):
     handler = mod
 
     known_correct = [
+        #sample hash found at http://compgroups.net/comp.unix.solaris/password-file-in-linux-and-solaris-8-9
         ("passwd", "$md5$RPgLF6IJ$WTvAlUJ7MqH5xak2FMEwS/"),
         ]
 

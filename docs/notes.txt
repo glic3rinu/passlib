@@ -165,16 +165,6 @@ info about upgrade policy scheme, and sun-md5 ref...
 some sample hashes all using "passwd", including sunmd5
     http://compgroups.net/comp.unix.solaris/password-file-in-linux-and-solaris-8-9
 
-nt-hash
-    md4.new(passwd.encode('utf-16le')).hexdigest().upper()
-
-    mygreatpasswd
-    CFACF72F5EB60EA15F89E3AF66732545
-
-    http://www.faqs.org/rfcs/rfc1320.html
-
-    $3$hash
-
 references for hashes & passwords
     http://cpansearch.perl.org/src/CHANSEN/Authen-Simple-0.4/lib/Authen/Simple/Password.pm
     http://search.cpan.org/~zefram/Authen-Passphrase-0.007/lib/Authen/Passphrase.pm

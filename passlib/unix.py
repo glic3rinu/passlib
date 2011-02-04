@@ -5,7 +5,7 @@ from passlib.utils.handlers import CryptHandler
 #=========================================================
 #helpers
 #=========================================================
-class DisabledHandler(CryptHandler):
+class UnixDisabledHandler(CryptHandler):
     """fake crypt handler which handles special (non-hash) strings found in /etc/shadow
 
     unix shadow files sometimes have "!" or "*" characters indicating logins are disabled.
@@ -14,7 +14,7 @@ class DisabledHandler(CryptHandler):
     this is a fake password hash, designed to recognize those values,
     and return False for all verify attempts.
     """
-    name = "disabled"
+    name = "unix-disabled"
     setting_kwds = ()
     context_kwds = ()
 
@@ -34,7 +34,7 @@ class DisabledHandler(CryptHandler):
     def verify(cls, hash):
         return False
 
-register_crypt_handler(DisabledHandler)
+register_crypt_handler(UnixDisabledHandler)
 
 #TODO: UnknownCryptHandler - given hash, detect if system crypt recognizes it,
 # allowing for pass-through for unknown ones.
@@ -44,25 +44,27 @@ register_crypt_handler(DisabledHandler)
 #=========================================================
 
 #default context for quick use.. recognizes common algorithms, uses SHA-512 as default
-#er... should we promote bcrypt as default
-default_context = CryptContext(["disabled", "des_crypt", "md5_crypt", "bcrypt", "sha256_crypt", "sha512_crypt"])
+#er... should we promote bcrypt as default?
+default_context = CryptContext(["unix-disabled", "des_crypt", "md5_crypt", "bcrypt", "sha256_crypt", "sha512_crypt"])
 
 #=========================================================
 #some general os-context helpers (these may not match your os policy exactly, but are generally useful)
 #=========================================================
 
-#referencing source via -http://fxr.googlebit.com
-# freebsd 6,7,8 - des, md5, bcrypt, nthash
-# netbsd - des, ext, md5, bcrypt, sha1 (TODO)
-# openbsd - des, ext, md5, bcrypt
 
 #referencing linux shadow...
 # linux - des,md5, sha256, sha512
 
-linux_context = CryptContext([ "disabled", "des_crypt", "md5_crypt", "sha256_crypt", "sha512_crypt" ])
-freebsd_context = CryptContext([ "disabled",  "des_crypt", "nthash", "md5_crypt", "bcrypt"])
-openbsd_context = CryptContext([ "disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
-netbsd_context = CryptContext([ "disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
+linux_context = CryptContext([ "unix-disabled", "des_crypt", "md5_crypt", "sha256_crypt", "sha512_crypt" ])
+
+#referencing source via -http://fxr.googlebit.com
+# freebsd 6,7,8 - des, md5, bcrypt, nthash
+# netbsd - des, ext, md5, bcrypt, sha1 (TODO)
+# openbsd - des, ext, md5, bcrypt
+bsd_context = CryptContext(["unix-disabled",  "nthash", "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
+freebsd_context = CryptContext([ "unix-disabled",  "des_crypt", "nthash", "md5_crypt", "bcrypt"])
+openbsd_context = CryptContext([ "unix-disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
+netbsd_context = CryptContext([ "unix-disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
 
 #=========================================================
 #eof

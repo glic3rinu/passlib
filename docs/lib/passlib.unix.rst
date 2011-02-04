@@ -1,9 +1,46 @@
 ============================================
-:mod:`passlib.unix` - Password Hash Schemes
+:mod:`passlib.unix` - Unix Password Frontend
 ============================================
 
 .. module:: passlib.unix
-    :synopsis: helpers for encrypting & verifying passwords on unix systems
+    :synopsis: frontend for encrypting & verifying passwords on unix systems
+
+Contexts
+========
+This module provides some pre-configured :class:`CryptContext` instances,
+tailor to the hashes supported on various unix systems.
+
+.. object:: linux_context
+
+    this should recognize the hashes used on most linux systems:
+    :mod:`~passlib.hash.des_crypt`,
+    :mod:`~passlib.hash.md5_crypt`,
+    :mod:`~passlib.hash.sha256_crypt`, and
+    :mod:`~passlib.hash.sha512_crypt` (used as the default).
+
+.. object:: bsd_context
+
+    this should recognize the hashes used on most bsd systems:
+    :mod:`~passlib.hash.des_crypt`,
+    :mod:`~passlib.hash.ext_des_crypt`,
+    :mod:`~passlib.hash.nthash`,
+    :mod:`~passlib.hash.md5_crypt`,
+    :mod:`~passlib.hash.bcrypt` (used as the default).
+
+.. note::
+
+    The above contexts will also recognize password hashes
+    of the form ``!`` or ``*`` as belonging to a special
+    ``unix-disabled`` handler, whose ``verify()`` method
+    always returns ``False``.
+
+Usage
+=====
+
+.. todo::
+
+    show usage example
+
 
 .. _modular-crypt-format:
 
