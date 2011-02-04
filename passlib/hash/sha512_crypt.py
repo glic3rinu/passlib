@@ -14,7 +14,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64
+from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 from passlib.hash.sha256_crypt import raw_sha512_crypt
 #pkg
 #local
@@ -55,6 +55,9 @@ name = "sha512_crypt"
 
 setting_kwds = ("salt", "rounds")
 context_kwds = ()
+
+min_salt_chars = 0
+max_salt_chars = 16
 
 default_rounds = 40000 #current passlib default
 min_rounds = 1000
@@ -127,7 +130,7 @@ def genconfig(salt=None, rounds=None, implicit_rounds=True):
         sha512-crypt configuration string.
     """
     #TODO: allow salt charset 0-255 except for "\x00\n:$"
-    salt = norm_salt(salt, 0, 16, name=name)
+    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
     return render(rounds, salt, None, implicit_rounds)
 
@@ -161,6 +164,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

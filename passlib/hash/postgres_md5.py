@@ -10,6 +10,7 @@ from warnings import warn
 #site
 #libs
 #pkg
+from passlib.utils import autodocument
 #local
 __all__ = [
     "genhash",
@@ -64,6 +65,9 @@ def verify(secret, hash, user):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals(), context_doc="""\
+:param user: string containing name of postgres user account this password is associated with.
+""")
 #=========================================================
 #eof
 #=========================================================

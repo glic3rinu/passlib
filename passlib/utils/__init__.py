@@ -423,7 +423,7 @@ def norm_salt(salt, min_chars, max_chars=None, charset=h64.CHARS, gen_charset=No
     else:
         return salt
 
-def autodocument(scope, salt_charset="[./0-9A-Za-z]", log_rounds=False):
+def autodocument(scope, salt_charset="[./0-9A-Za-z]", log_rounds=False, context_doc=''):
     """helper to auto-generate documentation for password hash handler
 
     :arg scope: dict containing encrypt/verify/etc functions (module scope or class dict)
@@ -451,6 +451,12 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", log_rounds=False):
     if not encrypt.__doc__:
         pass
 
+    if context_doc:
+        context_doc = context_doc.rstrip() + "\n"
+
+    #--------------------------------------------------------------
+    #generate genconfig docstring
+    #--------------------------------------------------------------
     genconfig = scope['genconfig']
     if not genconfig.__doc__:
         if setting_kwds:
@@ -483,82 +489,118 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", log_rounds=False):
             """ % dict(name=name)
         genconfig.__doc__ = d
 
+    #--------------------------------------------------------------
+    #generate genhash docstring
+    #--------------------------------------------------------------
     genhash = scope['genhash']
     if not genhash.__doc__:
-        if context_kwds:
-            raise NotImplementedError, "can't auto generate genhash docs w/ context kwds"
-        genhash.__doc__ = """generate %(name)s hash from secret, using configuration string or existing hash.
+        if context_kwds and not context_doc:
+            raise NotImplementedError, "context_doc must be defined"
+        if setting_kwds:
+            d = """generate %(name)s hash from secret, using configuration string or existing hash.
 
 :arg secret: string containing password to be encrypted
-:arg config: configuration string as returned by :func:`genconfig` OR existing hash string
-
+:arg config: a string containing an existing hash OR a configuration string as returned by :func:`genconfig`
+%(context_doc)s
 :raises TypeError: if the configuration string is not provided, or the secret is not a string
 
 :raises ValueError: if the configuration string is not in a recognized format, or the secret contains a forbidden character.
 
 :returns:
     encoded %(name)s hash of secret, using specified config string
-        """ % dict(name=name)
+        """ % dict(name=name, context_doc=context_doc)
+        else:
+            d = """generate %(name)s hash from secret.
 
+:arg secret: string containing password to be encrypted
+:arg config:
+    a string containing an existing hash OR ``None`` (as returned by :func:`genconfig`).
+    *This value is not used internally, as this algorithm has no configuration options.*
+%(context_doc)s
+
+:raises TypeError: if the secret is not a string
+
+:raises ValueError: if the secret contains a forbidden character.
+
+:returns:
+    encoded %(name)s hash of secret
+        """ % dict(name=name, context_doc=context_doc)
+
+        genhash.__doc__ = d
+
+    #--------------------------------------------------------------
+    #generate encrypt docstring
+    #--------------------------------------------------------------
     encrypt = scope['encrypt']
     if not encrypt.__doc__:
+        if context_kwds and not context_doc:
+            raise NotImplementedError, "context_doc must be defined"
         encrypt.__doc__ = """encrypt secret, returning resulting %(name)s hash
 
-        this is a convience function,
-        it has the same effect as ``genhash(secret,genconfig(**settings))``
+this is a convience function,
+it has the same effect as ``genhash(secret,genconfig(**settings))``
 
-        :arg secret: a string containing the secret to encode
+:arg secret: a string containing the secret to encode
+%(context_doc)s
 
-        :param settings: all other keywords used to generate config string, see :func:`genconfig`.
+:param settings: all other keywords are used to configure the hash, see :func:`genconfig`.
 
-        :returns: %(name)s hash of secret, using specified settings
-        """ % dict(name=name)
+:returns: %(name)s hash of secret, using specified settings
+        """ % dict(name=name, context_doc=context_doc)
 
+    #--------------------------------------------------------------
+    #generate identify docstring
+    #--------------------------------------------------------------
     identify = scope['identify']
     if not identify.__doc__:
+        if setting_kwds:
+            cstr = " or configuration"
+        else:
+            cstr = ""
         identify.__doc__ = """identify this is a %(name)s hash.
 
-        :arg hash:
-            the candidate hash string to check
+:arg hash:
+    the candidate hash string to check
 
-        :returns:
-            * ``True`` if input appears to be a %(name)s hash string.
-            * ``True`` if input appears to be a %(name)s configuration.
-            * ``False`` if no input is specified
-            * ``False`` if none of the above conditions was met.
-
-        """ % dict(name=name)
+:returns:
+    ``True`` if input appears to be a %(name)s hash%(cstr)s string;
+    otherwise, returns ``False``.
+        """ % dict(name=name, cstr=cstr)
         #TODO: variant of this note, and also handle no settings
         ##.. note::
         ##    Some handlers may or may not return ``True`` for malformed hashes.
         ##    Those that do will raise a ValueError once the hash is passed to :func:`verify`.
         ##    Most handlers, however, will just return ``False``.
 
+    #--------------------------------------------------------------
+    #generate verify docstring
+    #--------------------------------------------------------------
     verify = scope['verify']
     if not verify.__doc__:
-        if context_kwds:
-            raise NotImplementedError, "can't auto generate verify docs w/ context kwds"
+        if context_kwds and not context_doc:
+            raise NotImplementedError, "context_doc must be defined"
         verify.__doc__ = """verify a secret against an existing %(name)s hash.
 
-        This checks if a secret matches against the one
-        encrypted in the specified %(name)s hash.
+This checks if a secret matches against the one
+encrypted in the specified %(name)s hash.
 
-        :param secret:
-            A string containing the secret to check.
-        :param hash:
-            A string containing the hash to check against.
+:param secret:
+    A string containing the secret to check.
+:param hash:
+    A string containing the hash to check against.
+%(context_doc)s
 
-        :raises TypeError:
-            * if the secret is not a string.
+:raises TypeError:
+    * if the secret is not a string.
 
-        :raises ValueError:
-            * if the hash not specified
-            * if the hash is not recognized as a %(name)s hash.
-            * if the provided secret contains forbidden chars (see :func:`encrypt`)
+:raises ValueError:
+    * if the hash not specified
+    * if the hash is not recognized as a %(name)s hash.
+    * if the provided secret contains forbidden chars (see :func:`genhash`)
 
-        :returns:
-            ``True`` if the secret matches, otherwise ``False``.
-        """ % dict(name=name)
+:returns:
+    ``True`` if the secret matches, otherwise ``False``.
+        """ % dict(name=name, context_doc=context_doc)
 
 #=================================================================================
 #eof

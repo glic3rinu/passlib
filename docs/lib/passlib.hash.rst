@@ -54,7 +54,6 @@ the modular crypt format.
 
     These aren't fully implemented / tested yet:
 
-    * :mod:`~passlib.hash.nthash` - modular-crypt-format encoding of legacy NTHASH algorithm
     * :mod:`~passlib.hash.sun_md5_crypt` - MD5-based crypt descendant used by Solaris 10 (NOT related to md5-crypt above).
 
 Other Schemes

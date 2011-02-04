@@ -182,6 +182,9 @@ references for hashes & passwords
 http://chargen.matasano.com/chargen/2007/9/7/enough-with-the-rainbow-tables-what-you-need-to-know-about-s.html
 http://www.openwall.com/john/interviews/SF-20060222-p3
 
+oracle -
+http://www.notesbit.com/index.php/scripts-oracle/oracle-11g-new-password-algorithm-is-revealed-by-seclistsorg/
+
 ===========
 scrpyt
 http://www.tarsnap.com/scrypt.html

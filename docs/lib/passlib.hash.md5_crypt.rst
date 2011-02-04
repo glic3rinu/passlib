@@ -17,9 +17,22 @@ should use a stronger scheme (eg :mod:`~passlib.hash.sha512_crypt`) if possible.
 
 Usage
 =====
-.. todo::
+This module can be used directly as follows::
 
-    write usage instructions
+    >>> from passlib.hash import md5_crypt as mc
+
+    >>> mc.encrypt("password") #generate new salt, encrypt password
+    '$1$3azHgidD$SrJPt7B.9rekpmwJwtON31'
+
+    >>> mc.identify('$1$3azHgidD$SrJPt7B.9rekpmwJwtON31') #check if hash is recognized
+    True
+    >>> mc.identify('JQMuyS6H.AGMo') #check if some other hash is recognized
+    False
+
+    >>> mc.verify("password", '$1$3azHgidD$SrJPt7B.9rekpmwJwtON31') #verify correct password
+    True
+    >>> mc.verify("secret", '$1$3azHgidD$SrJPt7B.9rekpmwJwtON31') #verify incorrect password
+    False
 
 Functions
 =========

@@ -15,7 +15,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64
+from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 #pkg
 #local
 __all__ = [
@@ -34,6 +34,8 @@ name = "phpass"
 
 setting_kwds = ("salt", "rounds")
 context_kwds = ()
+
+min_salt_chars = max_salt_chars = 8
 
 default_rounds = 9
 min_rounds = 7
@@ -88,8 +90,8 @@ def genconfig(salt=None, rounds=None, ident="P"):
 
         if omitted, one will be automatically generated (recommended).
 
-        length must be between 8 characters.
-        characters must be in range ``A-Za-z0-9./``.
+        length must be be 8 characters.
+        characters must be in range ``./A-Za-z0-9``.
 
     :param rounds:
         optional rounds parameter.
@@ -149,6 +151,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

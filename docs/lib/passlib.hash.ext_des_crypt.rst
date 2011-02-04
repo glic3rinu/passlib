@@ -1,9 +1,9 @@
 =================================================================================
-:mod:`passlib.hash.ext_des_crypt` - BSDi Extended DES Crypt
+:mod:`passlib.hash.ext_des_crypt` - Extended DES Crypt
 =================================================================================
 
 .. module:: passlib.hash.ext_des_crypt
-    :synopsis: BSDi Extended Unix (DES) Crypt
+    :synopsis: Extended Unix (DES) Crypt
 
 This algorithm was developed by BSDi for their BSD/OS distribution.
 It's based on :mod:`~passlib.hash.des_crypt`, and contains a larger
@@ -15,6 +15,10 @@ Usage
 =====
 Aside from differences in format and salt size,
 ext-des-crypt usage is exactly the same as :mod:`~passlib.hash.des_crypt`.
+
+.. todo::
+
+    this needs separate usage, showing rounds parameter.
 
 Functions
 =========
