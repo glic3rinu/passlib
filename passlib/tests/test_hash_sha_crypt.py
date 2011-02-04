@@ -26,6 +26,8 @@ log = getLogger(__name__)
 #=========================================================
 class Sha256CryptTest(_HandlerTestCase):
     handler = mod2
+    supports_unicode = True
+    
     known_correct = (
         ('', '$5$rounds=10428$uy/jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMe.ZGsGx2aBvxTvDFI613c3'),
         (' ', '$5$rounds=10376$I5lNtXtRmf.OoMd8$Ko3AI1VvTANdyKhBPavaRjJzNpSatKU6QVN9uwS9MH.'),
@@ -63,6 +65,8 @@ if mod2.backend != "builtin" and enable_option("all-backends"):
 #=========================================================
 class Sha512CryptTest(_HandlerTestCase):
     handler = mod5
+    supports_unicode = True
+
     known_correct = (
         ('', '$6$rounds=11021$KsvQipYPWpr93wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1'),
         (' ', '$6$rounds=11104$ED9SA4qGmd57Fq2m$q/.PqACDM/JpAHKmr86nkPzzuR5.YpYa8ZJJvI8Zd89ZPUYTJExsFEIuTYbM7gAGcQtTkCEhBKmp1S1QZwaXx0'),

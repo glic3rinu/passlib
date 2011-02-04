@@ -204,12 +204,12 @@ class _HandlerTestCase(TestCase):
         for secret in self.standard_secrets:
             self.check_encrypt(secret)
 
-    ##def test_31_encrypt_unicode(self):
-    ##    "test encrypt() against unicode secrets"
-    ##    if not self.supports_unicode:
-    ##        return
-    ##    for secret in self.unicode_secrets:
-    ##        self.check_encrypt(secret)
+    def test_31_encrypt_unicode(self):
+        "test encrypt() against unicode secrets"
+        if not self.supports_unicode:
+            raise SkipTest
+        for secret in self.unicode_secrets:
+            self.check_encrypt(secret)
 
     #this is probably excessive
     ##def test_32_encrypt_positive(self):
