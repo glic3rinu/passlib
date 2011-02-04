@@ -3,7 +3,7 @@
 #imports
 #=========================================================
 #core
-from hashlib import sha256, sha512
+from hashlib import sha256
 import re
 import logging; log = logging.getLogger(__name__)
 from warnings import warn
@@ -151,33 +151,23 @@ def raw_sha256_crypt(secret, salt, rounds):
     "perform raw sha256-crypt; returns encoded checksum, normalized salt & rounds"
     #run common crypt routine
     result, salt, rounds = raw_sha_crypt(secret, salt, rounds, sha256)
-
-    #encode result
-    out = ''
-    a, b, c = 0, 10, 20
-    while a < 30:
-        out += h64.encode_3_offsets(result, c, b, a)
-        a, b, c = c+1, a+1, b+1
-    assert a == 30, "loop went to far: %r" % (a,)
-    out += h64.encode_2_offsets(result, 30, 31)
+    out = h64.encode_transposed_bytes(result, _256_offsets)
     assert len(out) == 43, "wrong length: %r" % (out,)
     return out, salt, rounds
 
-def raw_sha512_crypt(secret, salt, rounds):
-    "perform raw sha512-crypt; returns encoded checksum, normalized salt & rounds"
-    #run common crypt routine
-    result, salt, rounds = raw_sha_crypt(secret, salt, rounds, sha512)
-
-    #encode result
-    out = ''
-    a, b, c = 0, 21, 42
-    while c < 63:
-        out += h64.encode_3_offsets(result, c, b, a)
-        a, b, c = b+1, c+1, a+1
-    assert c == 63, "loop to far: %r" % (c,)
-    out += h64.encode_1_offset(result, 63)
-    assert len(out) == 86, "wrong length: %r" % (out,)
-    return out, salt, rounds
+_256_offsets = (
+    20, 10, 0,
+    11, 1,  21,
+    2,  22, 12,
+    23, 13, 3,
+    14, 4,  24,
+    5,  25, 15,
+    26, 16, 6,
+    17, 7,  27,
+    8,  28, 18,
+    29, 19, 9,
+    30, 31,
+)
 
 #=========================================================
 #choose backend

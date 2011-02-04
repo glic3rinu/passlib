@@ -268,7 +268,7 @@ class CryptContext(object):
             raise ValueError, "no schemes defined"
         if isinstance(schemes, str):
             schemes = splitcomma(schemes)
-        for scheme in reversed(schemes): #NOTE: reversed() just so last entry is used as default.
+        for scheme in reversed(schemes): #NOTE: reversed() just so last entry is used as default, and is checked first.
             self._add_scheme(scheme)
 
         #parse deprecated set

@@ -33,9 +33,10 @@ Bytes <-> Hash64
 ================
 
 .. autofunction:: encode_bytes
-.. autofunction:: encode_3_offsets
-.. autofunction:: encode_2_offsets
-.. autofunction:: encode_1_offset
+.. autofunction:: decode_bytes
+
+.. autofunction:: encode_transposed_bytes
+.. autofunction:: decode_transposed_bytes
 
 Int <-> Hash64
 ==============

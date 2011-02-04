@@ -164,32 +164,85 @@ class H64_Test(TestCase):
     "test H64 codec functions"
     case_prefix = "H64 codec"
 
-    def test_encode_1_offset(self):
-        self.assertFunctionResults(h64.encode_1_offset,[
-            ("z1", "\xff", 0),
-            ("..", "\x00", 0),
-        ])
+    #=========================================================
+    #test basic encode/decode
+    #=========================================================
+    encoded_bytes = [
+        #test lengths 0..6 to ensure tail is encoded properly
+        ("",""),
+        ("\x55","J/"),
+        ("\x55\xaa","Jd8"),
+        ("\x55\xaa\x55","JdOJ"),
+        ("\x55\xaa\x55\xaa","JdOJe0"),
+        ("\x55\xaa\x55\xaa\x55","JdOJeK3"),
+        ("\x55\xaa\x55\xaa\x55\xaa","JdOJeKZe"),
 
-    def test_encode_2_offsets(self):
-        self.assertFunctionResults(h64.encode_2_offsets,[
-            (".wD", "\x00\xff", 0, 1),
-            ("z1.", "\xff\x00", 0, 1),
-            ("z1.", "\x00\xff", 1, 0),
-        ])
+        #test padding bits are null
+        ("\x55\xaa\x55\xaf","JdOJj0"), # len = 1 mod 3
+        ("\x55\xaa\x55\xaa\x5f","JdOJey3"), # len = 2 mod 3
+    ]
 
-    def test_encode_3_offsets(self):
-        self.assertFunctionResults(h64.encode_3_offsets,[
-            #move through each byte, keep offsets
-            ("..kz", "\x00\x00\xff", 0, 1, 2),
-            (".wD.", "\x00\xff\x00", 0, 1, 2),
-            ("z1..", "\xff\x00\x00", 0, 1, 2),
+    decode_padding_bytes = [
+        #len = 2 mod 4 -> 2 msb of last digit is padding
+        ("..", "\x00"), # . = h64.CHARS[0b000000]
+        (".0", "\x80"), # 0 = h64.CHARS[0b000010]
+        (".2", "\x00"), # 2 = h64.CHARS[0b000100]
+        (".U", "\x00"), # U = h64.CHARS[0b100000]
 
-            #move through each offset, keep bytes
-            (".wD.", "\x00\x00\xff", 0, 2, 1),
-            ("z1..", "\x00\x00\xff", 2, 0, 1),
-        ])
+        #len = 3 mod 4 -> 4 msb of last digit is padding
+        ("...", "\x00\x00"),
+        ("..6", "\x00\x80"), # 6 = h64.CHARS[0b001000]
+        ("..E", "\x00\x00"), # E = h64.CHARS[0b010000]
+        ("..U", "\x00\x00"),
+    ]
 
+    def test_encode_bytes(self):
+        for source, result in self.encoded_bytes:
+            out = h64.encode_bytes(source)
+            self.assertEqual(out, result)
+
+    def test_decode_bytes(self):
+        for result, source in self.encoded_bytes:
+            out = h64.decode_bytes(source)
+            self.assertEqual(out, result)
+
+    def test_decode_bytes_padding(self):
+        for source, result in self.decode_padding_bytes:
+            out = h64.decode_bytes(source)
+            self.assertEqual(out, result)
+
+    #=========================================================
+    #test transposed encode/decode
+    #=========================================================
+    encode_transposed = [
+        ("\x33\x22\x11", "\x11\x22\x33",[2,1,0]),
+        ("\x22\x33\x11", "\x11\x22\x33",[1,2,0]),
+    ]
+
+    encode_transposed_dups = [
+        ("\x11\x11\x22", "\x11\x22\x33",[0,0,1]),
+    ]
+
+    def test_encode_transposed_bytes(self):
+        for result, input, offsets in self.encode_transposed + self.encode_transposed_dups:
+            tmp = h64.encode_transposed_bytes(input, offsets)
+            out = h64.decode_bytes(tmp)
+            self.assertEqual(out, result)
+
+    def test_decode_transposed_bytes(self):
+        for input, result, offsets in self.encode_transposed:
+            tmp = h64.encode_bytes(input)
+            out = h64.decode_transposed_bytes(tmp, offsets)
+            self.assertEqual(out, result)
+
+    def test_decode_transposed_bytes_bad(self):
+        for input, _, offsets in self.encode_transposed_dups:
+            tmp = h64.encode_bytes(input)
+            self.assertRaises(TypeError, h64.decode_transposed_bytes, tmp, offsets)
+
+    #=========================================================
     #TODO: test other h64 methods
+    #=========================================================
 
 #=========================================================
 #test md4

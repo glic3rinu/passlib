@@ -175,16 +175,17 @@ def raw_sun_md5_crypt(secret, rounds, salt):
         round += 1
 
     #encode output
-    #NOTE: appears to use same output encoding as md5-crypt
-    out = ''.join(
-        h64.encode_3_offsets(result,
-            idx+12 if idx < 4 else 5,
-            idx+6,
-            idx,
-        )
-        for idx in xrange(5)
-        ) + h64.encode_1_offset(result, 11)
-    return out
+    return h64.encode_transposed_bytes(result, _chk_offsets)
+
+#NOTE: same offsets as md5_crypt
+_chk_offsets = (
+    12,6,0,
+    13,7,1,
+    14,8,2,
+    15,9,3,
+    5,10,4,
+    11,
+)
 
 #=========================================================
 #algorithm information

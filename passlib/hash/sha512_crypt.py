@@ -8,14 +8,14 @@ for any handler specific details.
 #imports
 #=========================================================
 #core
-from hashlib import sha256
+from hashlib import sha512
 import re
 import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
 from passlib.utils import norm_rounds, norm_salt, h64, autodocument
-from passlib.hash.sha256_crypt import raw_sha512_crypt
+from passlib.hash.sha256_crypt import raw_sha_crypt
 #pkg
 #local
 __all__ = [
@@ -25,6 +25,44 @@ __all__ = [
     "identify",
     "verify",
 ]
+
+#=========================================================
+#builtin backend
+#=========================================================
+def raw_sha512_crypt(secret, salt, rounds):
+    "perform raw sha512-crypt; returns encoded checksum, normalized salt & rounds"
+    #run common crypt routine
+    result, salt, rounds = raw_sha_crypt(secret, salt, rounds, sha512)
+
+    ###encode result
+    out = h64.encode_transposed_bytes(result, _512_offsets)
+    assert len(out) == 86, "wrong length: %r" % (out,)
+    return out, salt, rounds
+
+_512_offsets = (
+    42, 21, 0,
+    1,  43, 22,
+    23, 2,  44,
+    45, 24, 3,
+    4,  46, 25,
+    26, 5,  47,
+    48, 27, 6,
+    7,  49, 28,
+    29, 8,  50,
+    51, 30, 9,
+    10, 52, 31,
+    32, 11, 53,
+    54, 33, 12,
+    13, 55, 34,
+    35, 14, 56,
+    57, 36, 15,
+    16, 58, 37,
+    38, 17, 59,
+    60, 39, 18,
+    19, 61, 40,
+    41, 20, 62,
+    63,
+)
 
 #=========================================================
 #choose backend
@@ -47,6 +85,7 @@ else:
     else:
         crypt = None
 
+crypt = None
 #=========================================================
 #algorithm information
 #=========================================================
@@ -72,9 +111,9 @@ _pat = re.compile(r"""
     (\$rounds=(?P<rounds>\d+))?
     \$
     (
-        (?P<salt1>[^:$]*)
+        (?P<salt1>[^:$\n]*)
         |
-        (?P<salt2>[^:$]{0,16})
+        (?P<salt2>[^:$\n]{0,16})
         \$
         (?P<chk>[A-Za-z0-9./]{86})?
     )
