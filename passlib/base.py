@@ -14,6 +14,7 @@ Many schemes support their own options, such as min/max/default rounds.
 #=========================================================
 from __future__ import with_statement
 #core
+from cStringIO import StringIO
 from ConfigParser import ConfigParser
 import inspect
 import re
@@ -23,6 +24,7 @@ import time
 import os
 from warnings import warn
 #site
+from pkg_resources import resource_string
 #libs
 import passlib.hash as _hmod
 from passlib.utils import abstractclassmethod, Undef, is_crypt_handler, splitcomma, rng
@@ -130,13 +132,13 @@ def parse_policy_key(key):
     ##if isinstance(k, tuple) and len(k) == 3:
     ##    cat, name, opt = k
     ##else:
-    orig = k
-    if '/' in k: #legacy format
-        k = k.replace("/",".")
-    elif '.' not in k and '__' in k: #lets user specifiy programmatically (since python doesn't allow '.')
-        k = k.replace("__", ".")
-    k = k.replace(" ","").replace("\t","") #strip out all whitespace from key
-    parts = k.split(".")
+    orig = key
+    if '/' in key: #legacy format
+        key = key.replace("/",".")
+    elif '.' not in key and '__' in key: #lets user specifiy programmatically (since python doesn't allow '.')
+        key = key.replace("__", ".")
+    key = key.replace(" ","").replace("\t","") #strip out all whitespace from key
+    parts = key.split(".")
     if len(parts) == 1:
         cat = None
         name = "context"
@@ -166,8 +168,11 @@ def parse_policy_value(cat, name, opt, value):
                 return set(splitcomma(value))
             elif isinstance(value, (list,tuple)):
                 return set(value)
+        elif opt == "min_verify_time":
+            return float(value)
         return value
     else:
+        #try to coerce everything to int
         try:
             return int(value)
         except ValueError:
@@ -180,7 +185,7 @@ class CryptPolicy(object):
     #class methods
     #=========================================================
     @classmethod
-    def from_file(cls, path, section="passlib"):
+    def from_path(cls, path, section="passlib"):
         "create new policy from specified section of an ini file"
         p = ConfigParser()
         if not p.read([path]):
@@ -188,13 +193,47 @@ class CryptPolicy(object):
         return cls(**dict(p.items(section)))
 
     @classmethod
+    def from_string(cls, source, section="passlib"):
+        p = ConfigParser()
+        b = StringIO(source)
+        p.readfp(b)
+        return cls(**dict(p.items(section)))
+
+    @classmethod
+    def from_source(cls, source):
+        "helper which accepts CryptPolicy, filepath, raw string, and returns policy"
+        if isinstance(source, CryptPolicy):
+            return source
+        if '\n' in source:
+            return cls.from_string(source)
+        else:
+            return cls.from_path(source)
+
+    @classmethod
     def from_sources(cls, sources):
         "create new policy from list of existing policy object"
+        if len(sources) == 0:
+            raise ValueError, "no sources specified"
+        first = sources[0]
+        if len(sources) == 1:
+            return CryptPolicy.from_source(first)
+        if isinstance(first, CryptPolicy):
+            target = CryptPolicy()
+        else:
+            sources = sources[1:]
+            target = cls.from_source(first)
         raise NotImplementedError
+        ##for source in sources:
+        ##    source = cls.from_source(source)
+        ##    #TODO: merge handlers.
+        ##    target._fallback.update(source._fallback) #FIXME: do we want to override explicitly chosen fallbacks w/ default ones?
+        ##    target._deprecated = set(source._deprecated)
+        return target
 
     #=========================================================
     #instance attrs
     #=========================================================
+    #NOTE: all category dictionaries below will have a minimum of 'None' as a key
 
     #:list of all handlers, in order they will be checked when identifying (reverse of order specified)
     _handlers = None #list of password hash handlers instances.
@@ -204,6 +243,9 @@ class CryptPolicy(object):
 
     #:dict mapping category -> set of handler names which are deprecated for that category
     _deprecated = None
+
+    #:dict mapping category -> min verify time
+    _min_verify_time = None
 
     #:dict mapping category -> dict mapping hash name -> dict of options for that hash
     # if a category is specified, particular hash names will be mapped ONLY if that category
@@ -237,9 +279,12 @@ class CryptPolicy(object):
                     raise KeyError, "'salt' option is not allowed to be set via a policy object"
                     #NOTE: doing this for security purposes, why would you ever want a fixed salt?
             v = parse_policy_value(cat, name, opt, v)
-            config = options.get(name)
+            copts = options.get(cat)
+            if copts is None:
+                copts = options[cat] = {}
+            config = copts.get(name)
             if config is None:
-                options[name] = {opt:v}
+                copts[name] = {opt:v}
             else:
                 config[opt] = v
 
@@ -272,6 +317,7 @@ class CryptPolicy(object):
         #
         dmap = self._deprecated = {}
         fmap = self._fallback = {}
+        mvmap = self._min_verify_time = {}
         for cat, config in options.iteritems():
             kwds = config.pop("context", None)
             if not kwds:
@@ -287,10 +333,15 @@ class CryptPolicy(object):
                 if fb not in seen:
                     raise ValueError, "unspecified scheme set as fallback: %r" % (fb,)
                 fmap[cat] = self.lookup(fb, required=True)
+            value = kwds.get("min_verify_time")
+            if value:
+                mvmap[cat] = value
         if None not in dmap:
             dmap[None] = set()
         if None not in fmap and handlers:
             fmap[None] = handlers[0]
+        if None not in mvmap:
+            mvmap[None] = 0
 
     #=========================================================
     #public interface (used by CryptContext)
@@ -352,6 +403,12 @@ class CryptPolicy(object):
             return name in dmap[category]
         return name in dmap[None]
 
+    def get_min_verify_time(self, category=None):
+        mvmap = self._min_verify_time
+        if category and category in mvmap:
+            return mvmap[category]
+        return mvmap[None]
+
     #=========================================================
     #serialization
     #=========================================================
@@ -394,8 +451,8 @@ class CryptPolicy(object):
     #eoc
     #=========================================================
 
-
-default_policy = CryptPolicy()
+##default_policy = CryptPolicy.from_string(resource_string("passlib", "default.cfg"))
+default_policy = None
 
 #=========================================================
 #
@@ -640,6 +697,10 @@ class CryptContext(object):
         if hash is None:
             return False
 
+        mvt = self.policy.get_min_verify_time(category)
+        if mvt:
+            start = time.time()
+
         #locate handler
         if scheme:
             handler = self.lookup(scheme, required=True)
@@ -652,7 +713,15 @@ class CryptContext(object):
         ##        del context[k]
 
         #use handler to verify secret
-        return handler.verify(secret, hash, **context)
+        result = handler.verify(secret, hash, **context)
+
+        if mvt:
+            #delta some amount of time if verify took less than mvt seconds
+            delta = time.time() - start - mvt
+            if delta > 0:
+                time.sleep(delta)
+
+        return result
 
     #=========================================================
     #eoc

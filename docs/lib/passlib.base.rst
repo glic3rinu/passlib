@@ -58,6 +58,12 @@ The remaining options -
     the default scheme context should use for generating new hashes.
     if not specified, the last entry in ``context/schemes`` is used.
 
+``context.min_verify_time``
+    if specified, all ``context.verify()`` calls will take at least this many seconds.
+    if set to an amount larger than the time used by the strongest hash in the system,
+    this prevents an attacker from guessing the strength of particular hashes remotely.
+    (specified in fractional seconds).
+
 ``{hash}.min_rounds``, ``{hash}.max_rounds``
 
     place limits on the number of rounds allowed for a specific hash.
@@ -109,7 +115,8 @@ and allowing many of it's entry methods to accept an optional ``category`` param
 When one is specified, any ``{category}.{name}.{option}`` keywords in the configuration
 will override any ``{name}.{option}`` keywords.
 
-In order to simplify behavior and implementation, categories cannot override the ``context/{option}`` keys.
+In order to simplify behavior and implementation, categories cannot override the ``context/schemes`` keyword,
+though they may override the other context keys.
 
 Default Policies
 ================
@@ -128,6 +135,7 @@ A sample policy file::
     schemes = md5_crypt, sha512_crypt, bcrypt
     deprecated = md5_crypt
     fallback = sha512_crypt
+    min_verify_time = 0.1
 
     #set some common options for ALL schemes
     default.vary_default_rounds = 10%
