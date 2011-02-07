@@ -20,7 +20,7 @@ PostgreSQL account passwords.
 
 Usage
 =====
-Users will most likely find the frontend provided by :mod:`passlib.postgres`
+Users will most likely find the frontend provided by :mod:`passlib.sqldb`
 to be more useful than accessing this module directly.
 That aside, this module can be used directly as follows::
 

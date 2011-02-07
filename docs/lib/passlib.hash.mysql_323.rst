@@ -22,7 +22,7 @@ purpose but verifying existing MySQL 3.2.3 - 4.0 password hashes.
 
 Usage
 =====
-Users will most likely find the frontends provided by :mod:`passlib.mysql`
+Users will most likely find the frontends provided by :mod:`passlib.sqldb`
 to be more useful than accessing this module directly.
 That aside, this module can be used directly as follows::
 

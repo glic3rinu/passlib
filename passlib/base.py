@@ -541,6 +541,8 @@ class CryptContext(object):
         names = [ handler.name for handler in self.policy._handlers ]
         return "CryptContext(%r)" % (names,)
 
+    #XXX: should support a copy / mutate method which takes in new policy options.
+
     #===================================================================
     #policy adaptation
     #===================================================================

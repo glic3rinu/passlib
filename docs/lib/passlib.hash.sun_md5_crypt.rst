@@ -50,6 +50,13 @@ An alternate format, ``$md5${salt}${checksum}`` is used when the rounds value is
     Solaris seems to deviates from the :ref:`modular-crypt-format` in that
     it considers ``$`` *or* ``,`` to indicate the end of the identifier.
 
+.. warning::
+
+    One of the remaining issues with this implementation is that some
+    existing hashes found on the web use a ``$`` where this uses ``,``.
+    It is unclear whether this is an accepted alternate format or not,
+    nor whether this affects the resulting hash.
+
 Algorithm
 =========
 The algorithm used is based around the MD5 message digest and the "Muffett Coin Toss" algorithm (so named

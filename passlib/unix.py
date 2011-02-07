@@ -1,7 +1,22 @@
 """passlib.unix
 """
+#=========================================================
+#imports
+#=========================================================
+#pkg
 from passlib.base import CryptContext, register_crypt_handler
 from passlib.utils.handlers import CryptHandler
+#local
+__all__ = [
+    "default_context",
+    "linux_context",
+    "bsd_context",
+        "openbsd_context",
+        "netbsd_context",
+        "freebsd_context",
+
+    "UnixDisabledHandler",
+]
 #=========================================================
 #helpers
 #=========================================================
@@ -31,7 +46,7 @@ class UnixDisabledHandler(CryptHandler):
         return not hash or hash == "*" or hash.startswith("!")
 
     @classmethod
-    def verify(cls, hash):
+    def verify(cls, secret, hash):
         return False
 
 register_crypt_handler(UnixDisabledHandler)

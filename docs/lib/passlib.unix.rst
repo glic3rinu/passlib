@@ -1,5 +1,5 @@
 ============================================
-:mod:`passlib.unix` - Unix Password Frontend
+:mod:`passlib.unix` - Unix Password Handling
 ============================================
 
 .. module:: passlib.unix

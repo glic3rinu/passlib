@@ -15,8 +15,10 @@ this module provided two functions to aid in any use-cases which exist.
     system requires them, they are both known broken,
     and are beyond insecure on their own.
 
-.. autofunction:: lmhash
-.. autofunction:: nthash
+.. autofunction:: raw_lmhash
+.. autofunction:: raw_nthash
+
+See also :mod:`passlib.hash.nthash`.
 """
 #=========================================================
 #imports
@@ -30,6 +32,7 @@ from passlib.hash import nthash
 from passlib.hash.nthash import raw_nthash
 #local
 __all__ = [
+    "nthash",
     "raw_lmhash",
     "raw_nthash",
 ]
