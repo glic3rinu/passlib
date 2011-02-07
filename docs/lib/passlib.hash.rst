@@ -50,11 +50,16 @@ the modular crypt format.
     passlib.hash.phpass
     passlib.hash.nthash
 
+.. toctree::
+    :hidden:
+
+    passlib.hash.sun_md5_crypt
+
 .. todo::
 
     These aren't fully implemented / tested yet:
 
-    * :mod:`~passlib.hash.sun_md5_crypt` - MD5-based crypt descendant used by Solaris 10 (NOT related to md5-crypt above).
+    * :mod:`~passlib.hash.sun_md5_crypt` - MD5-based scheme used by Solaris 10 (NOT related to md5-crypt above).
 
 Other Schemes
 -------------

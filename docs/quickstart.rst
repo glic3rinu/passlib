@@ -41,6 +41,6 @@ without having to delve too deeply into this module::
 
 Frontend Functions
 ==================
-.. autofunction:: encrypt
-.. autofunction:: verify
-.. autofunction:: identify
+.. function:: encrypt
+.. function:: verify
+.. function:: identify

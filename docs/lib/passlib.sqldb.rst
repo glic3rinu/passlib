@@ -2,7 +2,7 @@
 :mod:`passlib.sqldb` - SQL Database Helpers
 ============================================
 
-.. module:: passlib.unix
+.. module:: passlib.sqldb
     :synopsis: frontend for encrypting & verifying passwords used in various sql databases
 
 PostgreSQL

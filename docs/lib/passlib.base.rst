@@ -5,7 +5,7 @@
 .. currentmodule:: passlib.base
 
 For more complex deployment scenarios than
-the frontend functions described in :doc:`Quick Start <quickstart>`,
+the frontend functions described in :doc:`Quick Start </quickstart>`,
 the CryptContext class exists...
 
 .. autoclass:: CryptContext
@@ -153,13 +153,14 @@ A sample policy file::
 
     Stores configuration options for a CryptContext object.
 
-    Construction
-    ------------
     Policy objects can be constructed by the following methods:
 
-    .. automethod:: from_file
+    .. automethod:: from_path
+    .. automethod:: from_string
+    .. automethod:: from_source
+    .. automethod:: from_sources
 
-    .. method:: CryptPolicy
+    .. method:: (constructor)
 
         You can specify options directly to the constructor.
         This accepts dot-seperated keywords such as found in the config file format,

@@ -103,9 +103,83 @@ to provide an easy interface for applications to encrypt new passwords
 and verify existing passwords, without having to deal with details such
 as salt formats.
 
-.. autofunction:: encrypt
-.. autofunction:: identify
-.. autofunction:: verify
+.. function:: encrypt(secret, \*\*settings_and_context)
+
+    encrypt secret, returning resulting hash string.
+
+    :arg secret:
+        A string containing the secret to encode.
+
+        Unicode behavior is specified on a per-hash basis,
+        but the common case is to encode into utf-8
+        before processing.
+
+    :param kwds:
+        All other keywords are algorithm-specified,
+        and should be listed in :attr:`setting_kwds`
+        and :attr:`context_kwds`.
+
+        Common keywords include ``salt`` and ``rounds``.
+
+    :raises ValueError:
+        * if settings are invalid and not correctable.
+          (eg: provided salt contains invalid characters / length).
+
+        * if a context kwd contains an invalid value, or was required
+          but omitted.
+
+        * if secret contains forbidden characters (e.g: des-crypt forbids null characters).
+          this should rarely occur, since most modern algorithms have no limitations
+          on the types of characters.
+
+    :returns:
+        Hash encoded in algorithm-specified format.
+
+.. function:: identify(hash)
+
+    identify if a hash string belongs to this algorithm.
+
+    :arg hash:
+        the candidate hash string to check
+
+    :returns:
+        * ``True`` if input appears to be a hash string belonging to this algorithm.
+        * ``True`` if input appears to be a configuration string belonging to this algorithm.
+        * ``False`` if no input is specified
+        * ``False`` if none of the above conditions was met.
+
+    .. note::
+        Some handlers may or may not return ``True`` for malformed hashes.
+        Those that do will raise a ValueError once the hash is passed to :func:`verify`.
+        Most handlers, however, will just return ``False``.
+
+.. function:: verify(secret, hash, \*\*context)
+
+    verify a secret against an existing hash.
+
+    This checks if a secret matches against the one stored
+    inside the specified hash.
+
+    :param secret:
+        A string containing the secret to check.
+    :param hash:
+        A string containing the hash to check against.
+
+    :param context:
+        Any additional keywords will be passed to the encrypt
+        method. These should be limited to those listed
+        in :attr:`context_kwds`.
+
+    :raises TypeError:
+        * if the secret is not a string.
+
+    :raises ValueError:
+        * if the hash not specified
+        * if the hash does not match this algorithm's hash format
+        * if the provided secret contains forbidden chars (see :func:`encrypt`)
+
+    :returns:
+        ``True`` if the secret matches, otherwise ``False``.
 
 Secondary Interface
 ===================
@@ -116,16 +190,97 @@ for *implementing* new password schemes. It also happens to match
 the tradition unix crypt interface, and consists of two functions:
 ``genconfig()`` and ``genhash``.
 
-.. autofunction:: genconfig
-.. autofunction:: genhash
 
-Other Methods
-=============
+.. function:: genconfig(\*\*settings)
+
+    returns configuration string encoding settings for hash generation
+
+    Many hashes have configuration options,  and support a format
+    which encodes them into a single configuration string.
+    (This configuration string is usually an abbreviated version of their
+    encoded hash format, sans the actual checksum, and is commonly
+    referred to as a ``salt string``, though it may contain much more
+    than just a salt).
+
+    This function takes in optional configuration options (a complete list
+    of which should be found in :attr:`setting_kwds`), validates
+    the inputs, fills in defaults where appropriate, and returns
+    a configuration string.
+
+    For algorithms which do not have any configuration options,
+    this function should always return ``None``.
+
+    While each algorithm may have it's own configuration options,
+    the following keywords (if supported) should always have a consistent
+    meaning:
+
+    * ``salt`` - algorithm uses a salt. if passed into genconfig,
+      should contain an encoded salt string of length and character set
+      required by the specific handler.
+
+      salt strings which are too small or have invalid characters
+      should cause an error, salt strings which are too large
+      should be truncated but accepted.
+
+    * ``rounds`` - algorithm uses a variable number of rounds. if passed
+      into genconfig, should contain an integer number of rounds
+      (this may represent logarithmic rounds, eg bcrypt, or linear, eg sha-crypt).
+      if the number of rounds is too small or too large, it should
+      be clipped but accepted.
+
+    :param settings:
+        this function takes in keywords as specified in :attr:`setting_kwds`.
+        commonly supported keywords include ``salt`` and ``rounds``.
+
+    :raises ValueError:
+        * if any configuration options are required, missing, AND
+          a default value cannot be autogenerated.
+          (for example: salt strings should be autogenerated if not specified).
+        * if any configuration options are invalid, and cannot be
+          normalized in a reasonble manner (eg: salt strings clipped to maximum size).
+
+    :returns:
+        the configuration string, or ``None`` if the algorithm does not support any configuration options.
+
+.. function:: genhash(secret, config, \*\*context)
+
+    encrypt secret to hash
+
+    takes in a password, optional configuration string,
+    and any required contextual information the algorithm needs,
+    and returns the encoded hash strings.
+
+    :arg secret: string containing the password to be encrypted
+    :arg config:
+        configuration string to use when encrypting secret.
+        this can either be an existing hash that was previously
+        returned by :meth:`genhash`, or a configuration string
+        that was previously created by :meth:`genconfig`.
+
+    :param context:
+        All other keywords must be external contextual information
+        required by the algorithm to create the hash. If any,
+        these kwds must be specified in :attr:`context_kwds`.
+
+    :raises TypeError:
+        * if the configuration string is not provided
+        * if required contextual information is not provided
+
+    :raises ValueError:
+        * if the configuration string is not in a recognized format.
+        * if the secret contains a forbidden character (rare, but some algorithms have limitations, eg: forbidding null characters)
+        * if the contextual information is invalid
+
+    :returns:
+        encoded hash matching specified secret, config, and context.
+
+Optional Parse Methods
+======================
 Some of the handlers in passlib expose some additional function and attributes,
 which may be useful, but whose behavior varies between handlers (if present at all),
 and may not conform exactly to the following summary:
 
-.. autofunction:: parse
+.. function:: parse(hash)
 
     This method usually takes in a hash or configuration string
     belonging to the scheme, and parses it into a dictionary
@@ -138,7 +293,7 @@ and may not conform exactly to the following summary:
     Most implementations of ``parse()`` do very little sanity checking,
     leaving that job to ``genconfig``.
 
-.. autofunction:: render
+.. function:: render(checksum=None, \*\*settings)
 
     This method is the inverse of :func:`parse`:
     it takes in a dictionary such as returned by :func:`parse`,
@@ -146,6 +301,12 @@ and may not conform exactly to the following summary:
 
     Most implementations of ``render()`` do very little sanity checking,
     and may be willing to form strings which are malformed.
+
+Optional Informational Attributes
+=================================
+Many of the handlers in passlib expose the following informational
+attributes, though their presence and meaning is not uniform
+across all handlers in passlib.
 
 For schemes which support a variable number of rounds,
 the following attributes are usually exposed:
@@ -166,3 +327,16 @@ the following attributes are usually exposed:
     The maximum number of rounds the scheme allows.
     Specifying values above this will generally result
     in a warning, and ``max_rounds`` will be used instead.
+
+For schemes which support a salt,
+the following attributes are usually exposed:
+
+.. attribute:: min_salt_chars
+
+    minimum number of characters required in salt string,
+    if provided to :func:`genconfig` or :func:`encrypt`.
+
+.. attribute:: max_salt_chars
+
+    maximum number of characters which will be *used*
+    if a salt string is provided to :func:`genconfig` or :func:`encrypt`.

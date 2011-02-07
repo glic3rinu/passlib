@@ -10,10 +10,6 @@ as stored in mysql and postgres, and various other contexts.
 
 A quick sample of some of the more frequently used modules:
 
-    * :doc:`bps.fs <lib/bps.fs/filepath>` -- object-oriented filesystem access
-    * :mod:`bps.host` -- desktop and host resources
-    * :mod:`bps.logs` -- enhancements to Python's logging system
-    * :mod:`bps.text` -- text parsing and formatting
     * :mod:`passlib` -- password hashing algorithms
 
     ... see the :doc:`library overview <overview>` for a complete list.
