@@ -1,31 +1,19 @@
-"""passlib.hash.sun_md5_crypt - Sun's Md5 Crypt used on Solaris
+"""passlib.hash.sun_md5_crypt - Sun's Md5 Crypt, used on Solaris
 
-.. note::
-    Outside of being based on the md5 hash function,
-    this algorithm has almost nothing to do with the
-    bsd md5-crypt format.
-
-.. note::
+.. warning::
 
     This implementation has not been fully tested
     (particularly on an actual Solaris system)
     and so may not match the real implementation.
     it still needs work, and in particular,
     test cases to run against.
+
+This code was written based on the algorithm
+described in the passlib documentation,
+combined with trial and error based on a
+small number of known password/hash pairs.
+It may have some border case issues.
 """
-
-# http://dropsafe.crypticide.com/article/1389
-
-#NOTE: sun-md5-crypt algorithm internals mostly described
-#   http://dropsafe.crypticide.com/article/1389
-#   http://www.cuddletech.com/blog/pivot/entry.php?id=778
-#   and scattered messages around the web,
-#   though no official specification seems to exist.
-#this code was written from notes made from those sources,
-#combined with trial and error based on a single known sunmd5 hash,
-# "passwd" => "$md5$RPgLF6IJ$WTvAlUJ7MqH5xak2FMEwS/"
-#which was the only one I could find on the web
-#(not having a Solaris install handy).
 
 #=========================================================
 #imports
@@ -37,7 +25,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64
+from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 #pkg
 #local
 __all__ = [
@@ -130,45 +118,55 @@ def raw_sun_md5_crypt(secret, rounds, salt):
     result = md5(secret + prefix + salt).digest()
     assert len(result) == 16
 
-    #prepare constants for the per-round operations
-    ROUND_ITER = [
-        (i,i+3,i+8,(i+11)%16)
-        for i in xrange(8)
-    ]
-    cdata = MAGIC_HAMLET
+    #NOTE: many things have been inlined to speed up the loop as much as possible,
+    # so that this only barely resembles the algorithm as described in the docs.
+    # * all accesses to a given bit have been inlined using the formula
+    #       rbitval(bit) = (rval((bit>>3) & 15) >> (bit & 7)) & 1
+    # * the calculation of coinflip value R has been inlined
+    # * the conditional division of coinflip value V has been inlined as a shift right of 0 or 1.
+    # * the i, i+3, etc iterations are precalculated in lists.
+    # * the round-based conditional division of x & y is now performed
+    #   by choosing an appropriate precalculated list, so only the 7 used bits
+    #   are actually calculated
 
-    #NOTE: many things have been inlined to speed up the loop
-    # as much as possible. eg: the getbit routine - (rval[bit//8] >> (bit%8)) & 1
+    #NOTE: % appears to be *slightly* slower than &, so we prefer that if possible
+
+    xr = range(7)
+    X_ROUNDS_0 = tuple((i,i,i+3) for i in xr)
+    X_ROUNDS_1 = tuple((i,i+1,i+4) for i in xr)
+    Y_ROUNDS_0 = tuple((i,i+8,(i+11)&15) for i in xr)
+    Y_ROUNDS_1 = tuple((i,(i+9)&15, (i+12)&15) for i in xr)
 
     round = 0
     while round < real_rounds:
         #convert last result byte string to list of byte-ints for easy access
-        rval = [ ord(c) for c in result ]
-        #XXX: could speed things up more by inlining rval[xxx] w/ g=rval.__getitem__ ... g(xxx)
+        rval = [ ord(c) for c in result ].__getitem__
 
-        #build up two 8-bit ints (x & y) to use as bit offsets for 'coin flip'
-        x = y = 0
-        for i,i3,i8,i11 in ROUND_ITER:
-            #use oa'th bit of last result as i'th bit of x
-            bit = ((rval[(rval[i] >> (rval[i3] % 5)) & 0x0f]) >> ((rval[i3] >> (rval[i] % 8)) & 1)) & 0x7F
-            x |= ((rval[bit//8] >> (bit%8)) & 1) << i
+        #build up X bit by bit
+        x = 0
+        xrounds = X_ROUNDS_1 if (rval((round>>3) & 15)>>(round & 7)) & 1 else X_ROUNDS_0
+        for i, ia, ib in xrounds:
+            a = rval(ia)
+            b = rval(ib)
+            v = rval((a >> (b % 5)) & 15) >> ((b>>(a&7)) & 1)
+            x |= ((rval((v>>3)&15)>>(v&7))&1) << i
 
-            #use ob'th bit of last result as i'th bit of y
-            bit = ((rval[(rval[i8] >> (rval[i11] % 5)) & 0x0f]) >> ((rval[i11] >> (rval[i8] % 8)) & 1)) & 0x7F
-            y |= ((rval[bit//8] >> (bit%8)) & 1) << i
-
-        #based on round, pick high 7 bits or low 7 bits to use as actual offset
-        #(md5 digest contains exactly 128 bits)
-        x = (x >> ((rval[(round%128)//8] >> (round%8)) & 1)) & 0x7f
-        y = (y >> ((rval[((round+64)%128)//8] >> (round%8)) & 1)) & 0x7f
+        #build up Y bit by bit
+        y = 0
+        yrounds = Y_ROUNDS_1 if (rval(((round+64)>>3) & 15)>>(round & 7)) & 1 else Y_ROUNDS_0
+        for i, ia, ib in yrounds:
+            a = rval(ia)
+            b = rval(ib)
+            v = rval((a >> (b % 5)) & 15) >> ((b>>(a&7)) & 1)
+            y |= ((rval((v>>3)&15)>>(v&7))&1) << i
 
         #extract x'th and y'th bit, xoring them together to yeild "coin flip"
-        coin = ((rval[x//8] >> (x%8)) ^ (rval[y//8] >> (y%8))) & 1
+        coin = ((rval(x>>3) >> (x&7)) ^ (rval(y>>3) >> (y&7))) & 1
 
         #construct hash for this round
         h = md5(result)
         if coin:
-            h.update(cdata)
+            h.update(MAGIC_HAMLET)
         h.update(str(round))
         result = h.digest()
 
@@ -196,9 +194,13 @@ name = "sun_md5_crypt"
 setting_kwds = ("salt", "rounds")
 context_kwds = ()
 
+min_salt_chars = 0
+max_salt_chars = 8
+
 default_rounds = 5000 #current passlib default
 min_rounds = 0
 max_rounds = 4294963199 ##2**32-1-4096
+    #XXX: not sure what it does if past this bound... does 32 int roll over?
 
 #=========================================================
 #internal helpers
@@ -245,24 +247,7 @@ def render(rounds, salt, checksum=None):
 #primary interface
 #=========================================================
 def genconfig(salt=None, rounds=None):
-    """generate xxx configuration string
-
-    :param salt:
-        optional salt string to use.
-
-        if omitted, one will be automatically generated (recommended).
-
-        length must be 0 to 8 characters inclusive.
-        characters must be in range ``A-Za-z0-9./``.
-
-    :param rounds:
-
-        optional number of rounds, must be between 0 and 4294963199 inclusive.
-
-    :returns:
-        sun-md5-crypt configuration string.
-    """
-    salt = norm_salt(salt, 0, 8, name=name)
+    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
     rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
     return render(rounds, salt, None)
 
@@ -294,6 +279,7 @@ def verify(secret, hash):
 def identify(hash):
     return bool(hash and _pat.match(hash))
 
+autodocument(globals())
 #=========================================================
 #eof
 #=========================================================

@@ -5,7 +5,7 @@
 .. module:: passlib.hash.md5_crypt
     :synopsis: MD5 Crypt
 
-This algorithm was developed to replace the aging des-crypt crypt.
+This algorithm was developed to replace the aging des-crypt.
 It is supported by a wide variety of unix flavors, and is found
 in other contexts as well. Security-wise, MD5-Crypt lacks newer features,
 such as a variable number of rounds. Futhermore, the MD5 message digest
