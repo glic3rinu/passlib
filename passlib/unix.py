@@ -14,7 +14,7 @@ class UnixDisabledHandler(CryptHandler):
     this is a fake password hash, designed to recognize those values,
     and return False for all verify attempts.
     """
-    name = "unix-disabled"
+    name = "unix_disabled"
     setting_kwds = ()
     context_kwds = ()
 
