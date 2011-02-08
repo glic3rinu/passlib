@@ -37,6 +37,7 @@ __all__ = [
     'list_crypt_handlers'
 
     #contexts
+    'CryptPolicy',
     'CryptContext',
 ]
 
@@ -160,14 +161,9 @@ def parse_policy_value(cat, name, opt, value):
     "helper to parse policy values"
     #FIXME: kinda primitive :|
     if name == "context":
-        if opt == "schemes":
+        if opt == "schemes" or opt == "deprecated":
             if isinstance(value, str):
                 return splitcomma(value)
-        elif opt == "deprecated":
-            if isinstance(value, str):
-                return set(splitcomma(value))
-            elif isinstance(value, (list,tuple)):
-                return set(value)
         elif opt == "min_verify_time":
             return float(value)
         return value
@@ -204,9 +200,9 @@ class CryptPolicy(object):
         "helper which accepts CryptPolicy, filepath, raw string, and returns policy"
         if isinstance(source, CryptPolicy):
             return source
-        if '\n' in source:
+        if any(c in source for c in "\n\r\t"): #none of these chars should be in filepaths, but should be in config string
             return cls.from_string(source)
-        else:
+        else: #other strings should be filepath
             return cls.from_path(source)
 
     @classmethod
@@ -222,12 +218,24 @@ class CryptPolicy(object):
         else:
             sources = sources[1:]
             target = cls.from_source(first)
-        raise NotImplementedError
-        ##for source in sources:
-        ##    source = cls.from_source(source)
-        ##    #TODO: merge handlers.
-        ##    target._fallback.update(source._fallback) #FIXME: do we want to override explicitly chosen fallbacks w/ default ones?
-        ##    target._deprecated = set(source._deprecated)
+        for source in sources:
+            source = cls.from_source(source)
+            if source._handlers:
+                target._handlers = source._handlers
+            target._fallback.update(source._fallback)
+            target._deprecated.update(source._deprecated)
+            target._min_verify_time.update(source._min_verify_time)
+            options = target._options
+            for cat, copts in source._options.iteritems():
+                if cat in options:
+                    topts = options[cat]
+                    for name, config in copts.iteritems():
+                        if name in topts:
+                            topts[name].update(config)
+                        else:
+                            topts[name] = config
+                else:
+                    options[cat] = copts
         return target
 
     #=========================================================
@@ -262,6 +270,7 @@ class CryptPolicy(object):
     #internal init helpers
     #=========================================================
     def _from_dict(self, **kwds):
+        "configure policy from constructor keywords"
         #
         #normalize & sort keywords
         #
@@ -327,7 +336,7 @@ class CryptPolicy(object):
                 for scheme in deps:
                     if scheme not in seen:
                         raise ValueError, "unspecified scheme in deprecated list: %r" % (scheme,)
-                dmap[cat] = deps
+                dmap[cat] = frozenset(deps)
             fb = kwds.get("fallback")
             if fb:
                 if fb not in seen:
@@ -336,12 +345,10 @@ class CryptPolicy(object):
             value = kwds.get("min_verify_time")
             if value:
                 mvmap[cat] = value
-        if None not in dmap:
-            dmap[None] = set()
-        if None not in fmap and handlers:
-            fmap[None] = handlers[0]
-        if None not in mvmap:
-            mvmap[None] = 0
+        #NOTE: for dmap/fmap/mvmap -
+        # if no cat=None value is specified, each has it's own fallbacks,
+        # (handlers[0] for fmap, set() for dmap, 0 for mvmap)
+        # but we don't store those in dict since it would complicate policy merge operation
 
     #=========================================================
     #public interface (used by CryptContext)
@@ -358,11 +365,15 @@ class CryptPolicy(object):
                     return handler
         else:
             fmap = self._fallback
-            if category and category in fmap:
+            if category in fmap:
                 return fmap[category]
-            if None not in fmap:
+            elif category and None in fmap:
+                return fmap[None]
+            else:
+                handlers = self._handlers
+                if handlers:
+                    return handlers[0]
                 raise KeyError, "no crypt algorithms supported"
-            return fmap[None]
         if required:
             raise KeyError, "no crypt algorithm by that name: %r" % (name,)
         return None
@@ -399,60 +410,126 @@ class CryptPolicy(object):
         if hasattr(name, "name"):
             name = name.name
         dmap = self._deprecated
-        if category and category in dmap:
+        if category in dmap:
             return name in dmap[category]
-        return name in dmap[None]
+        elif category and None in dmap:
+            return name in dmap[None]
+        else:
+            return False
 
     def get_min_verify_time(self, category=None):
+        "return minimal time verify() should run according to policy"
         mvmap = self._min_verify_time
-        if category and category in mvmap:
+        if category in mvmap:
             return mvmap[category]
-        return mvmap[None]
+        elif category and None in mvap:
+            return mvmap[None]
+        else:
+            return 0
 
     #=========================================================
     #serialization
     #=========================================================
-    ##def get(self):
-    ##    "get configuration as dictionary"
-    ##    out = {}
-    ##    out['schemes'] =[
-    ##        handler.name if get_crypt_handler(handler.name,None) is handler else handler
-    ##        for handler in self._handlers
-    ##    ]
-    ##    if self._dset:
-    ##        out['deprecated'] = [h.name for h in self._dset]
-    ##    if self._default is not self._handlers[0]:
-    ##        out['default'] = self._default.name
-    ##    for name, opts in self._config:
-    ##        for k,v in opts.iteritems():
-    ##            out["%s__%s" % (name, k)] = v
-    ##    return out
-    ##
-    ##def write_config_to_file(self, path, section="passlib"):
-    ##    "save context configuration to section of ConfigParser file"
-    ##    p = ConfigParser()
-    ##    if os.path.exists(path):
-    ##        if not p.read([path]):
-    ##            raise EnvironmentError, "failed to read config file"
-    ##        p.remove_section(section)
-    ##    for k,v in self.get_config().items():
-    ##        if k == "schemes":
-    ##            if any(hasattr(h,"name") for h in v):
-    ##                raise ValueError, "can't write to config file, unregistered handlers in use"
-    ##        if k in ["schemes", "deprecated"]:
-    ##            v = ", ".join(v)
-    ##        k = k.replace("__", "/")
-    ##        p.set(k, v)
-    ##    fh = file(path, "w")
-    ##    p.write(fh)
-    ##    fh.close()
+    def iteritems(self, format="python", minimal=False):
+        """iterate through keys in policy.
+
+        :param format:
+            format results should be returned in.
+            * ``python`` - returns keys with ``__`` separator, and raw values
+            * ``ini`` - returns keys with ``.`` separator, and strings instead of handler lists
+            * ``tuple`` - returns keys as raw (cat,name,opt) tuple, and raw values
+        :param minimal: if True, removed redundant / unused options; defaults to faithful reporting of policy
+
+        :returns:
+            (key,value) iterator.
+        """
+        ini = False
+        if format == "tuple":
+            def format_key(cat, name, opt):
+                return (cat, name, opt)
+        else:
+            if format == "ini":
+                ini = True
+                fmt1 = "%s.%s.%s"
+                fmt2 = "%s.%s"
+            else:
+                assert format == "python"
+                fmt1 = "%s__%s__%s"
+                fmt2 = "%s__%s"
+            def format_key(cat, name, opt):
+                if cat:
+                    return fmt1 % (cat, name or "context", opt)
+                if name:
+                    return fmt2 % (name, opt)
+                return opt
+            def h2n(handler):
+                return handler.name
+            def hlist(handlers):
+                return ", ".join(map(h2n, handlers))
+
+        value = self._handlers
+        if value:
+            value = value[::-1]
+            if ini:
+                value = hlist(value)
+            yield format_key(None, None, "schemes"), value
+
+        for cat, value in self._deprecated.iteritems():
+            if ini:
+                value = hlist(value)
+            yield format_key(cat, None, "deprecated"), value
+
+        for cat, value in self._fallback.iteritems():
+            if ini:
+                value = h2n(value)
+            yield format_key(cat, None, "fallback"), value
+
+        for cat, value in self._min_verify_time.iteritems():
+            yield format_key(cat, None, "min_verify_time"), value
+
+        for cat, copts in self._options.iteritems():
+            for name in sorted(copts):
+                if minimal and self.lookup(name) is None:
+                    continue
+                config = copts[name]
+                for opt in sorted(config):
+                    value = config[opt]
+                    yield format_key(cat, name, opt), value
+
+    def as_dict(self, format="python", minimal=False):
+        "return as dictionary of keywords"
+        return dict(self.iteritems(format, minimal))
+
+    def _write_to_parser(self, parser, section, **opts):
+        p.add_section(section)
+        for k,v in self.iteritems("ini", **opts):
+            p.set(section, k,v)
+
+    def as_string(self, section="passlib", minimal=False):
+        "render to INI string"
+        p = ConfigParser()
+        self._write_to_parser(p, minimal=minimal)
+        b = StringIO()
+        p.write(b)
+        return b.getvalue()
+
+    def write_to_file(self, path, section="passlib", update=False, minimal=False):
+        "write to INI file"
+        p = ConfigParser()
+        if update and os.path.exists(path):
+            if not p.read([path]):
+                raise EnvironmentError, "failed to read existing file"
+            p.remove_section(section)
+        self._write_to_parser(p, minimal=minimal)
+        fh = file(path, "w")
+        p.write(fh)
+        fh.close()
 
     #=========================================================
     #eoc
     #=========================================================
 
-##default_policy = CryptPolicy.from_string(resource_string("passlib", "default.cfg"))
-default_policy = None
+default_policy = CryptPolicy.from_string(resource_string("passlib", "default.cfg"))
 
 #=========================================================
 #
