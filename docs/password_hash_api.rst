@@ -328,6 +328,14 @@ the following attributes are usually exposed:
     Specifying values above this will generally result
     in a warning, and ``max_rounds`` will be used instead.
 
+.. attribute:: rounds_cost
+
+    Specifies how the rounds value affects the amount of time taken.
+    Currently used values are:
+
+    ``r`` - time taken scales linearly with rounds value
+    ``2**r`` - time taken scales exponentially with rounds value
+
 For schemes which support a salt,
 the following attributes are usually exposed:
 

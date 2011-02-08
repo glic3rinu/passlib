@@ -425,7 +425,7 @@ def norm_salt(salt, min_chars, max_chars=None, default_chars=None, charset=h64.C
     else:
         return salt
 
-def autodocument(scope, salt_charset="[./0-9A-Za-z]", log_rounds=False, context_doc=''):
+def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
     """helper to auto-generate documentation for password hash handler
 
     :arg scope: dict containing encrypt/verify/etc functions (module scope or class dict)
@@ -446,6 +446,9 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", log_rounds=False, context_
         default_rounds = scope['default_rounds']
         min_rounds = scope['min_rounds']
         max_rounds = scope['max_rounds']
+        rounds_cost = scope['rounds_cost']
+        assert rounds_cost in ("r","2**r")
+        log_rounds = (rounds_cost == "2**r")
 
     context_kwds = scope['context_kwds']
 

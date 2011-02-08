@@ -101,6 +101,7 @@ max_salt_chars = 16
 default_rounds = 40000 #current passlib default
 min_rounds = 1000
 max_rounds = 999999999
+rounds_cost = "r"
 
 #=========================================================
 #internal helpers

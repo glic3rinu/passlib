@@ -202,6 +202,7 @@ context_kwds = ()
 default_rounds = 40000 #current passlib default
 min_rounds = 1000
 max_rounds = 999999999
+rounds_cost = "r"
 
 min_salt_chars = 0
 max_salt_chars = 16

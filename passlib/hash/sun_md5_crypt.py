@@ -201,6 +201,7 @@ default_rounds = 5000 #current passlib default
 min_rounds = 0
 max_rounds = 4294963199 ##2**32-1-4096
     #XXX: not sure what it does if past this bound... does 32 int roll over?
+rounds_cost = "r"
 
 #=========================================================
 #internal helpers

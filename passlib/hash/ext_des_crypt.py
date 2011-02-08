@@ -74,6 +74,8 @@ default_rounds = 10000
 min_rounds = 0 #NOTE: some sources (OpenBSD login.conf) report 7250 as minimum allowed rounds
 max_rounds = 16777215 # (1<<24)-1
 
+rounds_cost = "r"
+
 #=========================================================
 #internal helpers
 #=========================================================
