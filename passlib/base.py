@@ -678,12 +678,24 @@ class CryptContext(object):
         if policy.is_deprecated(handler, category):
             return True
 
-        #TODO: check specific policy for hash.
-        #need to work up protocol here.
-        #probably want to hand off settings to handler.
-        #or at least check for parse() support, and read 'rounds' parameter.
-        #options = policy.get_options(handler, category)
-        return False
+        #get options, and call compliance helper (check things such as rounds, etc)
+        opts = policy.get_options(handler, category)
+        if not opts:
+            return False
+
+        #XXX: could check if handler provides it's own helper, eg getattr(handler, "is_compliant", None)
+
+        if hasattr(handler, "parse"):
+            info = handler.parse(hash)
+            if 'rounds' in info:
+                min_rounds = opts.get("min_rounds")
+                if min_rounds and rounds < min_rounds:
+                    return False
+                max_rounds = opts.get("max_rounds")
+                if max_rounds and rounds > max_rounds:
+                    return False
+
+        return compliance_helper(handler, hash, **opts)
 
     #===================================================================
     #password hash api proxy methods

@@ -27,33 +27,7 @@ __all__ = [
 #base interface for all the crypt algorithm implementations
 #==========================================================
 class CryptHandler(object):
-    """base class for implementing a password algorithm. see crypt handler api for details of structure.
-
-    Overview
-    ========
-    All passlib-compatible password hash handlers must follow
-    the interface specified by this class.
-
-    Frontend Interface
-    ==================
-    The following 3 methods should be implemented for all classes,
-    and provide a simple interface for users wishes
-    to quickly manipulation passwords and hashes:
-
-    .. automethod:: encrypt
-    .. automethod:: verify
-    .. automethod:: identify
-
-    Backend Interface
-    =================
-    The frontend for most handlers is built upon the following
-    backend methods, whose semantics are closer to the traditional unix crypt
-    interface, but require the user's code to have more
-    knowledge of the specific algorithm in use.
-
-    .. automethod:: genconfig
-    .. automethod:: genhash
-    """
+    """helper class for implementing a password algorithm using class methods"""
 
     #=========================================================
     #class attrs
@@ -69,97 +43,11 @@ class CryptHandler(object):
 
     @abstractclassmethod
     def genhash(cls, secret, config, **context):
-        """encrypt secret to hash
-
-        Overview
-        ========
-        takes in a password, optional configuration string,
-        and any required contextual information the algorithm needs,
-        and returns the encoded hash strings.
-
-        Call Syntax
-        ===========
-        :arg secret: string containing the password to be encrypted
-        :arg config:
-            configuration string to use when encrypting secret.
-            this can either be an existing hash that was previously
-            returned by :meth:`genhash`, or a configuration string
-            that was previously created by :meth:`genconfig`.
-
-        :param context:
-            All other keywords must be external contextual information
-            required by the algorithm to create the hash. If any,
-            these kwds must be specified in :attr:`context_kwds`.
-
-        :raises TypeError:
-            * if the configuration string is not provided
-            * if required contextual information is not provided
-
-        :raises ValueError:
-            * if the configuration string is not in a recognized format.
-            * if the secret contains a forbidden character (rare, but some algorithms have limitations, eg: forbidding null characters)
-            * if the contextual information is invalid
-
-        :returns:
-            encoded hash matching specified secret, config, and context.
-        """
+        """encrypt secret to hash"""
 
     @classmethod
     def genconfig(cls, **settings):
-        """return configuration string encoding settings for hash generation
-
-        Overview
-        ========
-        Many hashes have configuration options,  and support a format
-        which encodes them into a single configuration string.
-        (This configuration string is usually an abbreviated version of their
-        encoded hash format, sans the actual checksum, and is commonly
-        referred to as a ``salt string``, though it may contain much more
-        than just a salt).
-
-        This function takes in optional configuration options (a complete list
-        of which should be found in :attr:`setting_kwds`), validates
-        the inputs, fills in defaults where appropriate, and returns
-        a configuration string.
-
-        For algorithms which do not have any configuration options,
-        this function should always return ``None``.
-
-        While each algorithm may have it's own configuration options,
-        the following keywords (if supported) should always have a consistent
-        meaning:
-
-        * ``salt`` - algorithm uses a salt. if passed into genconfig,
-          should contain an encoded salt string of length and character set
-          required by the specific handler.
-
-          salt strings which are too small or have invalid characters
-          should cause an error, salt strings which are too large
-          should be truncated but accepted.
-
-        * ``rounds`` - algorithm uses a variable number of rounds. if passed
-          into genconfig, should contain an integer number of rounds
-          (this may represent logarithmic rounds, eg bcrypt, or linear, eg sha-crypt).
-          if the number of rounds is too small or too large, it should
-          be clipped but accepted.
-
-        Call Syntax
-        ===========
-
-        :param settings:
-            this function takes in keywords as specified in :attr:`setting_kwds`.
-            commonly supported keywords include ``salt`` and ``rounds``.
-
-        :raises ValueError:
-            * if any configuration options are required, missing, AND
-              a default value cannot be autogenerated.
-              (for example: salt strings should be autogenerated if not specified).
-            * if any configuration options are invalid, and cannot be
-              normalized in a reasonble manner (eg: salt strings clipped to maximum size).
-
-        :returns:
-            the configuration string, or ``None`` if the algorithm does not support any configuration options.
-        """
+        """return configuration string encoding settings for hash generation"""
         #NOTE: this implements a default method which is suitable ONLY for classes with no configuration.
         if cls.setting_kwds:
             raise NotImplementedError, "classes with config kwds must implement genconfig()"
@@ -174,22 +62,7 @@ class CryptHandler(object):
 
     @classmethod
     def identify(cls, hash):
-        """identify if a hash string belongs to this algorithm.
-
-        :arg hash:
-            the candidate hash string to check
-
-        :returns:
-            * ``True`` if input appears to be a hash string belonging to this algorithm.
-            * ``True`` if input appears to be a configuration string belonging to this algorithm.
-            * ``False`` if no input is specified
-            * ``False`` if none of the above conditions was met.
-
-        .. note::
-            Some handlers may or may not return ``True`` for malformed hashes.
-            Those that do will raise a ValueError once the hash is passed to :func:`verify`.
-            Most handlers, however, will just return ``False``.
-        """
+        """identify if a hash string belongs to this algorithm."""
         #NOTE: this default method is going to be *really* slow for most implementations,
         #they should override it. but if genhash() conforms to the specification, this will do.
         if cls.context_kwds:
@@ -204,36 +77,7 @@ class CryptHandler(object):
 
     @classmethod
     def encrypt(cls, secret, **kwds):
-        """encrypt secret, returning resulting hash string.
-
-        :arg secret:
-            A string containing the secret to encode.
-
-            Unicode behavior is specified on a per-hash basis,
-            but the common case is to encode into utf-8
-            before processing.
-
-        :param kwds:
-            All other keywords are algorithm-specified,
-            and should be listed in :attr:`setting_kwds`
-            and :attr:`context_kwds`.
-
-            Common keywords include ``salt`` and ``rounds``.
-
-        :raises ValueError:
-            * if settings are invalid and not correctable.
-              (eg: provided salt contains invalid characters / length).
-
-            * if a context kwd contains an invalid value, or was required
-              but omitted.
-
-            * if secret contains forbidden characters (e.g: des-crypt forbids null characters).
-              this should rarely occur, since most modern algorithms have no limitations
-              on the types of characters.
-
-        :returns:
-            Hash encoded in algorithm-specified format.
-        """
+        """encrypt secret, returning resulting hash string."""
         if cls.context_kwds:
             context = dict(
                 (k,kwds.pop(k))
@@ -248,32 +92,7 @@ class CryptHandler(object):
 
     @classmethod
     def verify(cls, secret, hash, **context):
-        """verify a secret against an existing hash.
-
-        This checks if a secret matches against the one stored
-        inside the specified hash.
-
-        :param secret:
-            A string containing the secret to check.
-        :param hash:
-            A string containing the hash to check against.
-
-        :param context:
-            Any additional keywords will be passed to the encrypt
-            method. These should be limited to those listed
-            in :attr:`context_kwds`.
-
-        :raises TypeError:
-            * if the secret is not a string.
-
-        :raises ValueError:
-            * if the hash not specified
-            * if the hash does not match this algorithm's hash format
-            * if the provided secret contains forbidden chars (see :func:`encrypt`)
-
-        :returns:
-            ``True`` if the secret matches, otherwise ``False``.
-        """
+        """verify a secret against an existing hash."""
         #NOTE: methods whose hashes have multiple encodings should override this,
         # as the hash will need to be normalized before comparing via string equality.
         # alternately, the ExtCryptHandler class provides a more flexible framework.

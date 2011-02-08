@@ -60,7 +60,7 @@ register_crypt_handler(UnixDisabledHandler)
 
 #default context for quick use.. recognizes common algorithms, uses SHA-512 as default
 #er... should we promote bcrypt as default?
-default_context = CryptContext(["unix-disabled", "des_crypt", "md5_crypt", "bcrypt", "sha256_crypt", "sha512_crypt"])
+default_context = CryptContext(["unix_disabled", "des_crypt", "md5_crypt", "bcrypt", "sha256_crypt", "sha512_crypt"])
 
 #=========================================================
 #some general os-context helpers (these may not match your os policy exactly, but are generally useful)
@@ -70,16 +70,16 @@ default_context = CryptContext(["unix-disabled", "des_crypt", "md5_crypt", "bcry
 #referencing linux shadow...
 # linux - des,md5, sha256, sha512
 
-linux_context = CryptContext([ "unix-disabled", "des_crypt", "md5_crypt", "sha256_crypt", "sha512_crypt" ])
+linux_context = CryptContext([ "unix_disabled", "des_crypt", "md5_crypt", "sha256_crypt", "sha512_crypt" ])
 
 #referencing source via -http://fxr.googlebit.com
 # freebsd 6,7,8 - des, md5, bcrypt, nthash
 # netbsd - des, ext, md5, bcrypt, sha1 (TODO)
 # openbsd - des, ext, md5, bcrypt
-bsd_context = CryptContext(["unix-disabled",  "nthash", "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
-freebsd_context = CryptContext([ "unix-disabled",  "des_crypt", "nthash", "md5_crypt", "bcrypt"])
-openbsd_context = CryptContext([ "unix-disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
-netbsd_context = CryptContext([ "unix-disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
+bsd_context = CryptContext(["unix_disabled",  "nthash", "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
+freebsd_context = CryptContext([ "unix_disabled",  "des_crypt", "nthash", "md5_crypt", "bcrypt"])
+openbsd_context = CryptContext([ "unix_disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
+netbsd_context = CryptContext([ "unix_disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
 
 #=========================================================
 #eof
