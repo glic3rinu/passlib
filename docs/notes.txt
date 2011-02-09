@@ -176,6 +176,9 @@ oracle -
 http://www.notesbit.com/index.php/scripts-oracle/oracle-11g-new-password-algorithm-is-revealed-by-seclistsorg/
 
 http://www.users.zetnet.co.uk/hopwood/crypto/scan/ph.html
+
+lots of sample hashes
+    http://openwall.info/wiki/john/sample-hashes
 ===========
 scrpyt
 http://www.tarsnap.com/scrypt.html

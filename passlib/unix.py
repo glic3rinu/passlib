@@ -74,12 +74,12 @@ linux_context = CryptContext([ "unix_disabled", "des_crypt", "md5_crypt", "sha25
 
 #referencing source via -http://fxr.googlebit.com
 # freebsd 6,7,8 - des, md5, bcrypt, nthash
-# netbsd - des, ext, md5, bcrypt, sha1 (TODO)
+# netbsd - des, ext, md5, bcrypt, sha1 
 # openbsd - des, ext, md5, bcrypt
 bsd_context = CryptContext(["unix_disabled",  "nthash", "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
 freebsd_context = CryptContext([ "unix_disabled",  "des_crypt", "nthash", "md5_crypt", "bcrypt"])
 openbsd_context = CryptContext([ "unix_disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
-netbsd_context = CryptContext([ "unix_disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt"])
+netbsd_context = CryptContext([ "unix_disabled",  "des_crypt", "ext_des_crypt", "md5_crypt", "bcrypt", "sha1_crypt"])
 
 #=========================================================
 #eof

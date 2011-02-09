@@ -51,5 +51,23 @@ class NTHashTest(_HandlerTestCase):
     )
 
 #=========================================================
+# netbsd sha1 crypt
+#=========================================================
+from passlib.hash import sha1_crypt
+
+class SHA1CryptTest(_HandlerTestcase):
+    handler = sha1_crypt
+
+    known_correct = (
+        ("password", "$sha1$19703$iVdJqfSE$v4qYKl1zqYThwpjJAoKX6UvlHq/a"),
+        ("password", "$sha1$21773$uV7PTeux$I9oHnvwPZHMO0Nq6/WgyGV/tDJIH"),
+    )
+
+    known_invalid = (
+        #bad char in otherwise correct hash
+        '$sha1$21773$u!7PTeux$I9oHnvwPZHMO0Nq6/WgyGV/tDJIH',
+    )
+
+#=========================================================
 #EOF
 #=========================================================
