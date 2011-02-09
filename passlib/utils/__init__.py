@@ -447,8 +447,8 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
         min_rounds = scope['min_rounds']
         max_rounds = scope['max_rounds']
         rounds_cost = scope['rounds_cost']
-        assert rounds_cost in ("r","2**r")
-        log_rounds = (rounds_cost == "2**r")
+        assert rounds_cost in ("linear","log2")
+        log_rounds = (rounds_cost == "log2")
 
     context_kwds = scope['context_kwds']
 

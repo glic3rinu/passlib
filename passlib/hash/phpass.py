@@ -41,7 +41,7 @@ default_rounds = 9
 min_rounds = 7
 max_rounds = 30
 
-rounds_cost = "2^r"
+rounds_cost = "log2"
 
 #=========================================================
 #internal helpers

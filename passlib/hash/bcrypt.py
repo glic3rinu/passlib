@@ -75,7 +75,7 @@ default_rounds = 12 #current passlib default
 min_rounds = 4 # bcrypt spec specified minimum
 max_rounds = 31 # 32-bit integer limit (real_rounds=1<<rounds)
 
-rounds_cost = "2**r"
+rounds_cost = "log2"
 
 #=========================================================
 #internal helpers

@@ -333,8 +333,8 @@ the following attributes are usually exposed:
     Specifies how the rounds value affects the amount of time taken.
     Currently used values are:
 
-    ``r`` - time taken scales linearly with rounds value
-    ``2**r`` - time taken scales exponentially with rounds value
+    ``linear`` - time taken scales linearly with rounds value
+    ``log2`` - time taken scales exponentially with rounds value
 
 For schemes which support a salt,
 the following attributes are usually exposed:
