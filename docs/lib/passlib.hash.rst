@@ -33,8 +33,20 @@ the :ref:`modular crypt format <modular-crypt-format>`.
     passlib.hash.ext_des_crypt
     passlib.hash.md5_crypt
     passlib.hash.bcrypt
+    passlib.hash.sha1_crypt
     passlib.hash.sha256_crypt
     passlib.hash.sha512_crypt
+
+.. toctree::
+    :hidden:
+
+    passlib.hash.sun_md5_crypt
+
+.. todo::
+
+    These aren't fully implemented / tested yet:
+
+    * :mod:`~passlib.hash.sun_md5_crypt` - MD5-based scheme used by Solaris 10 (NOT related to md5-crypt above).
 
 Non-Standard Unix-Compatible Schemes
 ------------------------------------
@@ -49,17 +61,6 @@ the modular crypt format.
     passlib.hash.apr_md5_crypt
     passlib.hash.phpass
     passlib.hash.nthash
-
-.. toctree::
-    :hidden:
-
-    passlib.hash.sun_md5_crypt
-
-.. todo::
-
-    These aren't fully implemented / tested yet:
-
-    * :mod:`~passlib.hash.sun_md5_crypt` - MD5-based scheme used by Solaris 10 (NOT related to md5-crypt above).
 
 Other Schemes
 -------------

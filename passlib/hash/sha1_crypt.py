@@ -1,19 +1,5 @@
-"""passlib.sha1_crypt
-
-Implementation of NetBSD's sha1-based crypt algorithm.
-
-from source -
-http://fxr.googlebit.com/source/lib/libcrypt/crypt-sha1.c?v=NETBSD-CURRENT
-
-thread discussing md5-crypt vs sha1-crypt
-http://osdir.com/ml/os.netbsd.devel.security/2005-06/msg00025.html
-
-when sha1-crypt was added -
-http://mail-index.netbsd.org/tech-userlevel/2004/05/29/0001.html
+"""passlib.hash.sha1_crypt
 """
-
-#$sha1$19703$iVdJqfSE$v4qYKl1zqYThwpjJAoKX6UvlHq/a
-#$sha1$21773$uV7PTeux$I9oHnvwPZHMO0Nq6/WgyGV/tDJIH
 
 #=========================================================
 #imports
@@ -92,6 +78,8 @@ def parse(hash):
     if not m:
         raise ValueError, "invalid sha1_crypt hash"
     rounds, salt, chk = m.group("rounds", "salt", "chk")
+    if rounds.startswith("0"):
+        raise ValueError, "invalid sha1-crypt hash: zero-padded rounds"
     return dict(
         rounds=int(rounds),
         salt=salt,

@@ -179,6 +179,9 @@ http://www.users.zetnet.co.uk/hopwood/crypto/scan/ph.html
 
 lots of sample hashes
     http://openwall.info/wiki/john/sample-hashes
+
+kdfs -
+    http://www.di-mgt.com.au/cryptoKDFs.html
 ===========
 scrpyt
 http://www.tarsnap.com/scrypt.html
