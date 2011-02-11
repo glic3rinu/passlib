@@ -1,9 +1,9 @@
 =================================================================================
-:mod:`passlib.hash.ext_des_crypt` - Extended DES Crypt
+:mod:`passlib.hash.ext_des_crypt` - BSDi (Extended DES) Crypt
 =================================================================================
 
 .. module:: passlib.hash.ext_des_crypt
-    :synopsis: Extended Unix (DES) Crypt
+    :synopsis: BSDi (Extended DES) Crypt
 
 This algorithm was developed by BSDi for their BSD/OS distribution.
 It's based on :mod:`~passlib.hash.des_crypt`, and contains a larger

@@ -1,5 +1,5 @@
 ===================================================================
-:mod:`passlib.hash.sha512_crypt` - SHA-512 Crypt password hash
+:mod:`passlib.hash.sha512_crypt` - SHA-512 Crypt 
 ===================================================================
 
 .. module:: passlib.hash.sha512_crypt

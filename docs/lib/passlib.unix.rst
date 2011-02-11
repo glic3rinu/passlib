@@ -65,3 +65,21 @@ this can be violated on some systems if the user intervenes.
 .. note::
     :mod:`passlib.hash.des_crypt` and :mod:`passlib.hash.ext_des_crypt`
     do not follow this protocol, since they predate it by many years.
+
+OS Format Support
+=================
+The following table details which operating systems
+are known to support which schemes:
+
+=================================== =========== =========== =========== ===========
+Scheme                              Linux       FreeBSD     NetBSD      OpenBSD
+=================================== =========== =========== =========== ===========
+:mod:`~passlib.hash.nthash`                     y
+:mod:`~passlib.hash.des_crypt`      y           y           y           y
+:mod:`~passlib.hash.ext_des_crypt`                          y           y
+:mod:`~passlib.hash.md5_crypt`      y           y           y           y
+:mod:`~passlib.hash.bcrypt`                     y           y           y
+:mod:`~passlib.hash.sha1_crypt`                             y
+:mod:`~passlib.hash.sha256_crypt`   y
+:mod:`~passlib.hash.sha512_crypt`   y
+=================================== =========== =========== =========== ===========

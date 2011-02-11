@@ -1,5 +1,5 @@
 =======================================================================
-:mod:`passlib.hash.des_crypt` - Tradtional Unix DES Crypt
+:mod:`passlib.hash.des_crypt` - Tradtional Unix (DES) Crypt
 =======================================================================
 
 .. module:: passlib.hash.des_crypt

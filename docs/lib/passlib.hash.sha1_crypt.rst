@@ -1,9 +1,9 @@
 ===================================================================
-:mod:`passlib.hash.sha1_crypt` - SHA1 Crypt password hash
+:mod:`passlib.hash.sha1_crypt` - SHA-1 Crypt
 ===================================================================
 
 .. module:: passlib.hash.sha1_crypt
-    :synopsis: SHA1 Crypt
+    :synopsis: SHA-1 Crypt
 
 SHA1-Crypt is a hash algorithm introduced by NetBSD in 2004.
 It's based on a variation of the PBKDF1 algorithm,
@@ -54,12 +54,12 @@ as well as providing some of the advancements made in PDKDF2).
 
 * the checksum is then rendered into hash-64 format
   using an ordering that roughly corresponds to big-endian
-  encoding of 24-bit chunks (see :object:`passlib.hash.sha1_crypt._chk_offsets` for exact byte order).
+  encoding of 24-bit chunks (see :data:`passlib.hash.sha1_crypt._chk_offsets` for exact byte order).
 
 Deviations
 ==========
 This implementation of sha1-crypt differs from the NetBSD implementation
-in two ways:
+in a few ways:
 
 * The NetBSD implementation randomly varies the actual number of rounds
   when generating a new configuration string, in order to decrease
@@ -76,7 +76,7 @@ in two ways:
 
 * While the underlying algorithm technically allows salt strings
   to contain any possible byte value besides ``\x00`` and ``$``,
-  this would conflict with many uses of sha512-crypt, such as within
+  this would conflict with many uses of sha1-crypt, such as within
   unix ``/etc/shadow`` files. Futhermore, most unix systems
   will only generate salts using the standard 64 characters listed above.
   This implementation follows along with that, by strictly limiting

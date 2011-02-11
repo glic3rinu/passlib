@@ -31,7 +31,7 @@ def hmac_sha1(key, msg):
 
 if _EVP:
     try:
-        result = _EVP.hmac('x','y') #default *should* be sha1, which saves us a wrapper
+        result = _EVP.hmac('x','y') #default *should* be sha1, which saves us a wrapper, but might as well check.
     except ValueError:
         pass
     else:
