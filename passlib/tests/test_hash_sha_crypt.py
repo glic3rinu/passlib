@@ -27,7 +27,7 @@ log = getLogger(__name__)
 class Sha256CryptTest(_HandlerTestCase):
     handler = mod2
     supports_unicode = True
-    
+
     known_correct = (
         ('', '$5$rounds=10428$uy/jIAhCetNCTtb0$YWvUOXbkqlqhyoPMpN8BMe.ZGsGx2aBvxTvDFI613c3'),
         (' ', '$5$rounds=10376$I5lNtXtRmf.OoMd8$Ko3AI1VvTANdyKhBPavaRjJzNpSatKU6QVN9uwS9MH.'),
@@ -64,7 +64,7 @@ if mod2.backend != "builtin" and enable_option("all-backends"):
 #test sha512-crypt
 #=========================================================
 class Sha512CryptTest(_HandlerTestCase):
-    handler = mod5
+    handler = mod5.sha512_crypt
     supports_unicode = True
 
     known_correct = (

@@ -16,6 +16,8 @@ from warnings import warn
 #libs
 from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 from passlib.hash.sha256_crypt import raw_sha_crypt
+from passlib.utils.handlers import BaseSRHandler
+from passlib.base import register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -86,125 +88,139 @@ else:
         crypt = None
 
 crypt = None
-#=========================================================
-#algorithm information
-#=========================================================
-name = "sha512_crypt"
-#stats: 512 bit checksum, 96 bit salt, 1000..10e8-1 rounds
-
-setting_kwds = ("salt", "rounds")
-context_kwds = ()
-
-min_salt_chars = 0
-max_salt_chars = 16
-
-default_rounds = 40000 #current passlib default
-min_rounds = 1000
-max_rounds = 999999999
-rounds_cost = "linear"
 
 #=========================================================
-#internal helpers
+#sha 512 crypt
 #=========================================================
-_pat = re.compile(r"""
-    ^
-    \$6
-    (\$rounds=(?P<rounds>\d+))?
-    \$
-    (
-        (?P<salt1>[^:$\n]*)
-        |
-        (?P<salt2>[^:$\n]{0,16})
-        \$
-        (?P<chk>[A-Za-z0-9./]{86})?
-    )
-    $
-    """, re.X)
+class sha512_crypt(BaseSRHandler):
 
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid sha512-crypt hash"
-    rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
-    if rounds and rounds.startswith("0"):
-        raise ValueError, "invalid sha512-crypt hash: zero-padded rounds"
-    return dict(
-        implicit_rounds = not rounds,
-        rounds=int(rounds) if rounds else 5000,
-        salt=salt1 or salt2,
-        checksum=chk,
-    )
+    #=========================================================
+    #algorithm information
+    #=========================================================
+    name = "sha512_crypt"
 
-def render(rounds, salt, checksum=None, implicit_rounds=True):
-    assert '$' not in salt
-    if rounds == 5000 and implicit_rounds:
-        return "$6$%s$%s" % (salt, checksum or '')
-    else:
-        return "$6$rounds=%d$%s$%s" % (rounds, salt, checksum or '')
-
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(salt=None, rounds=None, implicit_rounds=True):
-    """generate sha512-crypt configuration string
-
-    :param salt:
-        optional salt string to use.
-
-        if omitted, one will be automatically generated (recommended).
-
-        length must be 0 .. 16 characters inclusive.
-        characters must be in range ``A-Za-z0-9./``.
-
-    :param rounds:
-
-        optional number of rounds, must be between 1000 and 999999999 inclusive.
-
-    :param implicit_rounds:
-
-        this is an internal option which generally doesn't need to be touched.
-
-    :returns:
-        sha512-crypt configuration string.
-    """
+    min_salt_chars = 0
+    max_salt_chars = 16
     #TODO: allow salt charset 0-255 except for "\x00\n:$"
-    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
-    rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
-    return render(rounds, salt, None, implicit_rounds)
 
-def genhash(secret, config):
-    #parse and run through genconfig to validate configuration
-    info = parse(config)
-    info.pop("checksum")
-    config = genconfig(**info)
+    min_rounds = 1000
+    max_rounds = 999999999
+    rounds_cost = "linear"
 
-    #run through chosen backend
-    if crypt:
-        #using system's crypt routine.
-        if isinstance(secret, unicode):
-            secret = secret.encode("utf-8")
-        return crypt(secret, config)
-    else:
-        #using builtin routine
-        info = parse(config)
-        checksum, salt, rounds = raw_sha512_crypt(secret, info['salt'], info['rounds'])
-        return render(rounds, salt, checksum, info['implicit_rounds'])
+    default_rounds = 40000 #current passlib default
 
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
+    #regexp used to recognize & parse hashes
+    _pat = re.compile(r"""
+        ^
+        \$6
+        (\$rounds=(?P<rounds>\d+))?
+        \$
+        (
+            (?P<salt1>[^:$\n]*)
+            |
+            (?P<salt2>[^:$\n]{0,16})
+            \$
+            (?P<chk>[A-Za-z0-9./]{86})?
+        )
+        $
+        """, re.X)
 
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
+    #=========================================================
+    #
+    #=========================================================
+    def __init__(self, implicit_rounds=None, **kwds):
+        self.__super = super(sha512_crypt, self)
+        self.__super.__init__(**kwds)
+        self.implicit_rounds = implicit_rounds
 
-def identify(hash):
-    return bool(hash and _pat.match(hash))
+    #=========================================================
+    #password hash api - primary interface
+    #=========================================================
+    @classmethod
+    def genconfig(cls, salt=None, rounds=None, implicit_rounds=True):
+        """generate sha512-crypt configuration string
 
-autodocument(globals())
+        :param salt:
+            optional salt string to use.
+
+            if omitted, one will be automatically generated (recommended).
+
+            length must be 0 .. 16 characters inclusive.
+            characters must be in range ``A-Za-z0-9./``.
+
+        :param rounds:
+
+            optional number of rounds, must be between 1000 and 999999999 inclusive.
+
+        :param implicit_rounds:
+
+            this is an internal option which generally doesn't need to be touched.
+
+        :returns:
+            sha512-crypt configuration string.
+        """
+        return cls(salt=salt, rounds=rounds, implicit_rounds=implicit_rounds).to_string()
+
+    @classmethod
+    def genhash(cls, secret, config):
+        #parse and run through genconfig to validate configuration
+        self = cls.from_string(config)
+
+        #run through chosen backend
+        if crypt:
+            #using system's crypt routine.
+            if isinstance(secret, unicode):
+                secret = secret.encode("utf-8")
+            return crypt(secret, config)
+        else:
+            #using builtin routine
+            self.checksum, self.salt, self.rounds = raw_sha512_crypt(secret, self.salt, self.rounds)
+            return self.to_string()
+
+    #=========================================================
+    #password hash api - secondary interface
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and hash.startswith("$6$")
+
+    #encrypt - use default method that wraps genconfig + genhash
+    #verify - use default method that uses equality + genhash
+
+    #=========================================================
+    #password hash api - parsing interface
+    #=========================================================
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid sha512-crypt hash"
+        rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
+        if rounds and rounds.startswith("0"):
+            raise ValueError, "invalid sha512-crypt hash (zero-padded rounds)"
+        return cls(
+            implicit_rounds = not rounds,
+            rounds=int(rounds) if rounds else 5000,
+            salt=salt1 or salt2,
+            checksum=chk,
+            strict=bool(chk),
+        )
+
+    def to_string(self): #, rounds, salt, checksum=None, implicit_rounds=True):
+        assert '$' not in self.salt
+        if self.rounds == 5000 and self.implicit_rounds:
+            return "$6$%s$%s" % (self.salt, self.checksum or '')
+        else:
+            return "$6$rounds=%d$%s$%s" % (self.rounds, self.salt, self.checksum or '')
+
+    #=========================================================
+    #eoc
+    #=========================================================
+
+autodocument(sha512_crypt)
+register_crypt_handler(sha512_crypt)
 #=========================================================
 #eof
 #=========================================================

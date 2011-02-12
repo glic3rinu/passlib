@@ -425,44 +425,60 @@ def norm_salt(salt, min_chars, max_chars=None, default_chars=None, charset=h64.C
     else:
         return salt
 
+class dict_proxy(object):
+    def __init__(self, source):
+        self.__source = source
+
+    def __getattr__(self, key):
+        try:
+            return self.__source[key]
+        except KeyError:
+            raise AttributeError, "attribute not found: %r" % (key,)
+
 def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
     """helper to auto-generate documentation for password hash handler
 
     :arg scope: dict containing encrypt/verify/etc functions (module scope or class dict)
     """
+    #check for class
+    if not hasattr(scope, "__dict__"):
+        scope = dict_proxy(scope)
 
-    name = scope['name']
+    #extract info
+    name = scope.name
 
-    setting_kwds = scope['setting_kwds']
+    setting_kwds = scope.setting_kwds
     has_salt = 'salt' in setting_kwds
     has_rounds = 'rounds' in setting_kwds
     has_other = any(c for c in setting_kwds if c not in ("salt", "rounds"))
 
     if has_salt:
-        max_salt_chars = scope["max_salt_chars"]
-        min_salt_chars = scope["min_salt_chars"]
+        max_salt_chars = scope.max_salt_chars
+        min_salt_chars = scope.min_salt_chars
 
     if has_rounds:
-        default_rounds = scope['default_rounds']
-        min_rounds = scope['min_rounds']
-        max_rounds = scope['max_rounds']
-        rounds_cost = scope['rounds_cost']
+        default_rounds = scope.default_rounds
+        min_rounds = scope.min_rounds
+        max_rounds = scope.max_rounds
+        rounds_cost = scope.rounds_cost
         assert rounds_cost in ("linear","log2")
         log_rounds = (rounds_cost == "log2")
 
-    context_kwds = scope['context_kwds']
-
-    encrypt = scope['encrypt']
-    if not encrypt.__doc__:
-        pass
+    context_kwds = scope.context_kwds
 
     if context_doc:
         context_doc = context_doc.rstrip() + "\n"
 
+    def get_func(name):
+        func = getattr(scope, name)
+        if hasattr(func, "im_func"):
+            func = func.im_func
+        return func
+
     #--------------------------------------------------------------
     #generate genconfig docstring
     #--------------------------------------------------------------
-    genconfig = scope['genconfig']
+    genconfig = get_func("genconfig")
     if not genconfig.__doc__:
         if setting_kwds:
             if has_other:
@@ -497,7 +513,7 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
     #--------------------------------------------------------------
     #generate genhash docstring
     #--------------------------------------------------------------
-    genhash = scope['genhash']
+    genhash = get_func("genhash")
     if not genhash.__doc__:
         if context_kwds and not context_doc:
             raise NotImplementedError, "context_doc must be defined"
@@ -536,7 +552,7 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
     #--------------------------------------------------------------
     #generate encrypt docstring
     #--------------------------------------------------------------
-    encrypt = scope['encrypt']
+    encrypt = get_func("encrypt")
     if not encrypt.__doc__:
         if context_kwds and not context_doc:
             raise NotImplementedError, "context_doc must be defined"
@@ -556,7 +572,7 @@ it has the same effect as ``genhash(secret,genconfig(**settings))``
     #--------------------------------------------------------------
     #generate identify docstring
     #--------------------------------------------------------------
-    identify = scope['identify']
+    identify = get_func("identify")
     if not identify.__doc__:
         if setting_kwds:
             cstr = " or configuration"
@@ -580,7 +596,7 @@ it has the same effect as ``genhash(secret,genconfig(**settings))``
     #--------------------------------------------------------------
     #generate verify docstring
     #--------------------------------------------------------------
-    verify = scope['verify']
+    verify = get_func("verify")
     if not verify.__doc__:
         if context_kwds and not context_doc:
             raise NotImplementedError, "context_doc must be defined"

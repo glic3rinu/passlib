@@ -12,7 +12,7 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstractclassmethod, classproperty, h64, \
+from passlib.utils import abstractmethod, abstractclassmethod, classproperty, h64, \
     getrandstr, rng, Undef, is_crypt_handler
 #pkg
 #local
@@ -333,6 +333,234 @@ class CryptHandler(object):
 ##    #=========================================================
 ##    #eoc
 ##    #=========================================================
+
+#=========================================================
+#
+#=========================================================
+class BaseSRHandler(object):
+    """helper class for implementing hash schemes which have both salt and rounds"""
+
+    #=========================================================
+    #password hash api - required attributes
+    #=========================================================
+    name = None #required
+    setting_kwds = ("salt", "rounds")
+    context_kwds = ()
+
+    #=========================================================
+    #password hash api - optional salt attributes
+    #=========================================================
+    max_salt_chars = None #required
+
+    @classproperty
+    def min_salt_chars(cls):
+        "min salt chars (defaults to max_salt_chars if not specified by subclass)"
+        return cls.max_salt_chars
+
+    @classproperty
+    def default_salt_chars(cls):
+        "default salt chars (defaults to max_salt_chars if not specified by subclass)"
+        return cls.max_salt_chars
+
+    salt_chars = h64.CHARS
+
+    @classproperty
+    def default_salt_charset(cls):
+        return cls.salt_chars
+
+    #=========================================================
+    #password hash api - optional rounds attributes
+    #=========================================================
+    min_rounds = 0
+    max_rounds = None #required
+    default_rounds = None #required
+    rounds_cost = "linear" #common case
+
+    strict_rounds_bounds = False #if true, always raises error if specified rounds values out of range - required by spec for some hashes
+
+    #=========================================================
+    #other class attrs
+    #=========================================================
+    #TODO: could implement norm_checksum()
+    ##checksum_size = None #required - checksum size
+    ##checksum_charset = None #required - checksum charset
+
+    #=========================================================
+    #handler helpers
+    #=========================================================
+    @classmethod
+    def validate_class(cls):
+        "helper to ensure class is configured property"
+        if not cls.name:
+            raise ValueError, "no name specified"
+
+        if 'rounds' not in cls.setting_kwds:
+            raise ValueError, "rounds not in setting_kwds"
+
+        if cls.max_rounds is None:
+            raise ValueError, "max rounds not specified"
+
+        if cls.min_rounds > cls.max_rounds:
+            raise ValueError, "min rounds too large"
+
+        if cls.default_rounds is None:
+            raise ValueError, "default rounds not specified"
+        if cls.default_rounds < cls.min_rounds:
+            raise ValueError, "default rounds too small"
+        if cls.default_rounds > cls.max_rounds:
+            raise ValueError, "default rounds too large"
+
+        if cls.rounds_cost not in ("linear", "log2"):
+            raise ValueError, "unknown rounds cost function"
+
+        if 'salt' not in cls.setting_kwds:
+            raise ValueError, "salt not in setting_kwds"
+
+        if cls.min_salt_chars > cls.max_salt_chars:
+            raise ValueError, "min salt chars too large"
+
+        if cls.default_salt_chars < cls.min_salt_chars:
+            raise ValueError, "default salt chars too small"
+        if cls.default_salt_chars > cls.max_salt_chars:
+            raise ValueError, "default salt chars too large"
+
+        if any(c not in cls.salt_charset for c in cls.default_salt_charset):
+            raise ValueError, "default salt charset not subset of salt charset"
+
+    #=========================================================
+    #instance attributes
+    #=========================================================
+    checksum = None
+    salt = None
+    rounds = None
+
+    #=========================================================
+    #init
+    #=========================================================
+    def __init__(self, checksum=None, salt=None, rounds=None, strict=False):
+        self.checksum = checksum
+        self.salt = self.norm_salt(salt, strict=strict)
+        self.rounds = self.norm_rounds(rounds, strict=strict)
+
+    #=========================================================
+    #helpers
+    #=========================================================
+    @classmethod
+    def norm_salt(cls, salt, strict=False):
+        "helper to normalize salt string; strict flag causes error even for correctable errors"
+        if salt is None:
+            if strict:
+                raise ValueError, "no salt specified"
+            return getrandstr(rng, cls.default_salt_charset, cls.default_salt_chars)
+
+        mn = cls.min_salt_chars
+        if mn and len(salt) < mn:
+            raise ValueError, "%s salt string must be >= %d characters" % (cls.name, mn)
+
+        mx = cls.max_salt_chars
+        if len(salt) > mx:
+            if strict:
+                raise ValueError, "%s salt string must be <= %d characters" % (cls.name, mx)
+            salt = salt[:mx]
+
+        return salt
+
+    @classmethod
+    def norm_rounds(cls, rounds, strict=False):
+        "helper to normalize rounds value; strict flag causes error even for correctable errors"
+        if rounds is None:
+            if strict:
+                raise ValueError, "no rounds specified"
+            return cls.default_rounds
+
+        if cls.strict_rounds_bounds:
+            strict = True
+
+        mn = cls.min_rounds
+        if rounds < mn:
+            if strict:
+                raise ValueError, "%s rounds must be >= %d" % (cls.name, mn)
+            rounds = mn
+
+        mx = cls.max_rounds
+        if rounds > mx:
+            if strict:
+                raise ValueError, "%s rounds must be <= %d" % (cls.name, mx)
+            rounds = mx
+
+        return rounds
+
+    #=========================================================
+    #password hash api - primary interface (default implementation)
+    #=========================================================
+    @classmethod
+    def genconfig(cls, **settings):
+        return cls(**settings).to_string()
+
+    @classmethod
+    def genhash(cls, secret, config):
+        if cls.calc_checksum:
+            self = cls.from_string(config)
+            self.checksum = self.calc_checksum(secret)
+            return self.to_string()
+        else:
+            raise NotImplementedError, "%s subclass must implemented genhash OR calc_checksum" % (cls.name,)
+
+    calc_checksum = None #subclasses may alternately implement this instead of genhash
+
+    #=========================================================
+    #password hash api - secondary interface (default implementation)
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        #NOTE: subclasses may wish to use faster / simpler identify,
+        # and raise value errors only when an invalid (but identifiable) string is parsed
+        if not hash:
+            return False
+        try:
+            cls.from_string(hash)
+            return True
+        except ValueError:
+            return False
+
+    @classmethod
+    def encrypt(cls, secret, **settings):
+        self = cls(**settings)
+        if self.calc_checksum:
+            #save ourselves some parsing calls if subclass provides this method
+            self.checksum = self.calc_checksum(secret)
+            return self.to_string()
+        else:
+            return cls.genhash(secret, self.to_string())
+
+    @classmethod
+    def verify(cls, secret, hash):
+        #NOTE: classes may wish to override this
+        if cls.calc_checksum:
+            #save ourselves some parsing calls if subclass provides this method
+            self = cls.from_string(hash)
+            return self.checksum == self.calc_checksum(secret)
+        else:
+            return hash == cls.genhash(secret, hash)
+
+    #=========================================================
+    #password hash api - parsing interface
+    #=========================================================
+    @abstractclassmethod
+    def from_string(cls, hash):
+        "return parsed instance from hash/configuration string; raising ValueError on invalid inputs"
+        #MUST BE IMPLEMENTED BY SUBCLASS
+        pass
+
+    @abstractmethod
+    def to_string(self):
+        "render instance to hash or configuration string (depending on if checksum attr is set)"
+        #MUST BE IMPLEMENTED BY SUBCLASS
+        pass
+
+    #=========================================================
+    #
+    #=========================================================
 
 #=========================================================
 # eof

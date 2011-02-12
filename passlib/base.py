@@ -108,6 +108,11 @@ def get_crypt_handler(name, default=Undef):
         if str(err) != "No module named " + name:
             raise
     else:
+        #if importing module registered a class, return it instead of the module.
+        handler = getattr(_hmod, name, None)
+        if handler and is_crypt_handler(handler):
+            return handler
+
         #<mod> should now be value store in _hmod.name,
         #we call register_crypt_handler() as sanity check to be sure.
         #(will raise ValueError/TypeError if something went wrong)
