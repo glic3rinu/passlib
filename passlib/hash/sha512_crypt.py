@@ -99,15 +99,18 @@ class sha512_crypt(BaseSRHandler):
     #=========================================================
     name = "sha512_crypt"
 
+    setting_kwds = ("salt", "rounds")
+    context_kwds = ()
+
     min_salt_chars = 0
     max_salt_chars = 16
     #TODO: allow salt charset 0-255 except for "\x00\n:$"
 
+    default_rounds = 40000 #current passlib default
     min_rounds = 1000
     max_rounds = 999999999
     rounds_cost = "linear"
 
-    default_rounds = 40000 #current passlib default
 
     #regexp used to recognize & parse hashes
     _pat = re.compile(r"""

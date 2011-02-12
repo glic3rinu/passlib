@@ -55,8 +55,8 @@ class NTHashTest(_HandlerTestCase):
 #=========================================================
 from passlib.hash import sha1_crypt
 
-class SHA1CryptTest(_HandlerTestcase):
-    handler = sha1_crypt
+class SHA1CryptTest(_HandlerTestCase):
+    handler = sha1_crypt.sha1_crypt
 
     known_correct = (
         ("password", "$sha1$19703$iVdJqfSE$v4qYKl1zqYThwpjJAoKX6UvlHq/a"),
