@@ -32,6 +32,16 @@ __all__ = [
     'norm_salt',
     'norm_rounds',
 ]
+
+#=================================================================================
+#os crypt helpers
+#=================================================================================
+try:
+    #NOTE: just doing this import once, for all the various hashes that need it.
+    from crypt import crypt as os_crypt
+except ImportError:
+    os_crypt = None
+
 #=================================================================================
 #decorators
 #=================================================================================
@@ -43,6 +53,17 @@ class classproperty(object):
 
     def __get__(self, obj, cls):
         return self.im_func(cls)
+        
+class memoized_class_property(object):
+    """function decorator which calls function as classmethod, and replaces itself with result for current and all future invocations"""
+    def __init__(self, func):
+        self.im_func = func
+
+    def __get__(self, obj, cls):
+        func = self.im_func
+        value = func(cls)
+        setattr(cls, func.__name__, value)
+        return value
 
 def abstractmethod(func):
     """Method decorator which indicates this is a placeholder method which

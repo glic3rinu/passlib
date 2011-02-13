@@ -45,7 +45,7 @@ if _EVP:
 #=========================================================
 #sha1-crypt
 #=========================================================
-class SHA1Crypt(BaseHandler):
+class Sha1Crypt(BaseHandler):
 
     #=========================================================
     #class attrs
@@ -129,8 +129,8 @@ class SHA1Crypt(BaseHandler):
     #eoc
     #=========================================================
 
-autodocument(SHA1Crypt)
-register_crypt_handler(SHA1Crypt)
+autodocument(Sha1Crypt)
+register_crypt_handler(Sha1Crypt)
 #=========================================================
 #eof
 #=========================================================

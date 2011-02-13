@@ -10,8 +10,8 @@ from warnings import warn
 #site
 #libs
 from passlib.base import register_crypt_handler
-from passlib.utils import norm_salt, h64, autodocument
-from passlib.utils.handlers import BaseHandler
+from passlib.utils import h64, autodocument, classproperty, os_crypt
+from passlib.utils.handlers import BackendBaseHandler
 from passlib.utils.des import mdes_encrypt_int_block
 #pkg
 #local
@@ -82,7 +82,7 @@ except ImportError:
 #=========================================================
 #handler
 #=========================================================
-class DesCrypt(BaseHandler):
+class DesCrypt(BackendBaseHandler):
     #=========================================================
     #class attrs
     #=========================================================
@@ -121,7 +121,22 @@ class DesCrypt(BaseHandler):
     #=========================================================
     #backend
     #=========================================================
-    def calc_checksum(self, secret):
+    backends = ("os_crypt", "builtin")
+
+    _has_backend_builtin = True
+
+    @classproperty
+    def _has_backend_os_crypt(cls):
+        return os_crypt and os_crypt("test", "ab") == 'abgOeLfPimXQo'
+
+    def _calc_checksum_builtin(self, secret):
+        if '\x00' in secret:
+            raise ValueError, "null char in secret"
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return raw_crypt(secret, self.salt)
+
+    def _calc_checksum_os_crypt(self, secret):
         #forbidding nul chars because linux crypt (and most C implementations) won't accept it either.
         if '\x00' in secret:
             raise ValueError, "null char in secret"
@@ -131,24 +146,20 @@ class DesCrypt(BaseHandler):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
 
-        #run through chosen backend
-        if crypt:
-            #XXX: given a single letter salt, linux crypt returns a hash with the original salt doubled,
-            #     but appears to calculate the hash based on the letter + "G" as the second byte.
-            #     this results in a hash that won't validate, which is DEFINITELY wrong.
-            #     need to find out it's underlying logic, and if it's part of spec,
-            #     or just weirdness that should actually be an error.
-            #     until then, passlib raises an error in genconfig()
+        #XXX: given a single letter salt, linux crypt returns a hash with the original salt doubled,
+        #     but appears to calculate the hash based on the letter + "G" as the second byte.
+        #     this results in a hash that won't validate, which is DEFINITELY wrong.
+        #     need to find out it's underlying logic, and if it's part of spec,
+        #     or just weirdness that should actually be an error.
+        #     until then, passlib raises an error in genconfig()
 
-            #XXX: given salt chars outside of h64.CHARS range, linux crypt
-            #     does something unknown when decoding salt to 12 bit int,
-            #     successfully creates a hash, but reports the original salt.
-            #     need to find out it's underlying logic, and if it's part of spec,
-            #     or just weirdness that should actually be an error.
-            #     until then, passlib raises an error for bad salt chars.
-            return self.from_string(crypt(secret, self.to_string())).checksum
-        else:
-            return raw_crypt(secret, self.salt)
+        #XXX: given salt chars outside of h64.CHARS range, linux crypt
+        #     does something unknown when decoding salt to 12 bit int,
+        #     successfully creates a hash, but reports the original salt.
+        #     need to find out it's underlying logic, and if it's part of spec,
+        #     or just weirdness that should actually be an error.
+        #     until then, passlib raises an error for bad salt chars.
+        return os_crypt(secret, self.salt)[2:]
 
     #=========================================================
     #eoc

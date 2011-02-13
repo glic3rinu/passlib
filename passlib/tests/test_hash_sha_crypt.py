@@ -17,7 +17,7 @@ import warnings
 from passlib.tests.utils import TestCase, enable_option
 from passlib.tests.handler_utils import _HandlerTestCase
 import passlib.hash.sha256_crypt as mod2
-import passlib.hash.sha512_crypt as mod5
+from passlib.hash.sha512_crypt import Sha512Crypt
 #module
 log = getLogger(__name__)
 
@@ -63,8 +63,8 @@ if mod2.backend != "builtin" and enable_option("all-backends"):
 #=========================================================
 #test sha512-crypt
 #=========================================================
-class SHA512CryptTest(_HandlerTestCase):
-    handler = mod5.SHA512Crypt
+class Sha512CryptTest(_HandlerTestCase):
+    handler = Sha512Crypt
     supports_unicode = True
 
     known_correct = (
@@ -139,19 +139,17 @@ class SHA512CryptTest(_HandlerTestCase):
         if catch_warnings:
             ctx.__exit__(None,None,None)
 
-if mod5.backend != "builtin" and enable_option("all-backends"):
+if Sha512Crypt.get_backend() != "builtin" and enable_option("all-backends"):
 
-    #monkeypatch sha512-crypt mod so it uses builtin backend
-
-    class BuiltinSHA512CryptTest(SHA512CryptTest):
+    class BuiltinSha512CryptTest(Sha512CryptTest):
         case_prefix = "sha512-crypt (builtin backend)"
 
         def setUp(self):
-            self.tmp = mod5.crypt
-            mod5.crypt = None
+            self.tmp = self.handler.get_backend()
+            self.handler.set_backend("builtin")
 
         def cleanUp(self):
-            mod5.crypt = self.tmp
+            self.handler.set_backend(self.tmp)
 #=========================================================
 #EOF
 #=========================================================

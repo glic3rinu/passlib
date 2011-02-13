@@ -14,18 +14,14 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64, autodocument
+from passlib.utils import h64, autodocument, classproperty, os_crypt
 from passlib.hash.sha256_crypt import raw_sha_crypt
-from passlib.utils.handlers import BaseHandler
+from passlib.utils.handlers import BackendBaseHandler
 from passlib.base import register_crypt_handler
 #pkg
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "Sha512Crypt",
 ]
 
 #=========================================================
@@ -67,39 +63,16 @@ _512_offsets = (
 )
 
 #=========================================================
-#choose backend
-#=========================================================
-
-#fallback to default backend (defined above)
-backend = "builtin"
-
-#check if stdlib crypt is available, and if so, if OS supports $5$ and $6$
-#XXX: is this test expensive enough it should be delayed
-#until sha-crypt is requested?
-
-try:
-    from crypt import crypt
-except ImportError:
-    crypt = None
-else:
-    if crypt("test", "$6$rounds=1000$test") == "$6$rounds=1000$test$2M/Lx6MtobqjLjobw0Wmo4Q5OFx5nVLJvmgseatA6oMnyWeBdRDx4DU.1H3eGmse6pgsOgDisWBGI5c7TZauS0":
-        backend = "os-crypt"
-    else:
-        crypt = None
-
-crypt = None
-
-#=========================================================
 #sha 512 crypt
 #=========================================================
-class SHA512Crypt(BaseHandler):
+class Sha512Crypt(BackendBaseHandler):
 
     #=========================================================
     #algorithm information
     #=========================================================
     name = "sha512_crypt"
 
-    setting_kwds = ("salt", "rounds")
+    setting_kwds = ("salt", "rounds", "implicit_rounds")
 
     min_salt_chars = 0
     max_salt_chars = 16
@@ -136,8 +109,10 @@ class SHA512Crypt(BaseHandler):
             (?P<salt1>[^:$\n]*)
             |
             (?P<salt2>[^:$\n]{0,16})
-            \$
-            (?P<chk>[A-Za-z0-9./]{86})?
+            (
+                \$
+                (?P<chk>[A-Za-z0-9./]{86})?
+            )?
         )
         $
         """, re.X)
@@ -146,6 +121,8 @@ class SHA512Crypt(BaseHandler):
     def from_string(cls, hash):
         if not hash:
             raise ValueError, "no hash specified"
+        #TODO: write non-regexp based parser,
+        # and rely on norm_salt etc to handle more of the validation.
         m = cls._pat.match(hash)
         if not m:
             raise ValueError, "invalid sha512-crypt hash"
@@ -169,30 +146,49 @@ class SHA512Crypt(BaseHandler):
     #=========================================================
     #backend
     #=========================================================
-    def calc_checksum(self, secret):
-        #run through chosen backend
-        if crypt:
-            #using system's crypt routine.
-            if isinstance(secret, unicode):
-                secret = secret.encode("utf-8")
-            return self.from_string(crypt(secret, self.to_string())).checksum
-        else:
-            #using builtin routine
-            checksum, salt, rounds = raw_sha512_crypt(secret, self.salt, self.rounds)
-            assert salt == self.salt, "class doesn't agree w/ builtin backend"
-            assert rounds == self.rounds, "class doesn't agree w/ builtin backend"
-            return checksum
+    backends = ("os_crypt", "builtin")
+
+    _has_backend_builtin = True
+
+    @classproperty
+    def _has_backend_os_crypt(cls):
+        return bool(
+            os_crypt and
+            os_crypt("test", "$6$rounds=1000$test") ==
+            "$6$rounds=1000$test$2M/Lx6MtobqjLjobw0Wmo4Q5OFx5nVLJvmgseatA6oMnyWeBdRDx4DU.1H3eGmse6pgsOgDisWBGI5c7TZauS0"
+            )
+
+    def _calc_checksum_builtin(self, secret):
+        checksum, salt, rounds = raw_sha512_crypt(secret, self.salt, self.rounds)
+        assert salt == self.salt, "class doesn't agree w/ builtin backend"
+        assert rounds == self.rounds, "class doesn't agree w/ builtin backend"
+        return checksum
+
+    def _calc_checksum_os_crypt(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        #NOTE: avoiding full parsing routine via from_string().checksum,
+        # and just extracting the bit we need.
+        result = os_crypt(secret, self.to_string())
+        assert result.startswith("$6$")
+        chk = result[-86:]
+        assert '$' not in chk
+        return chk
 
     #=========================================================
     #eoc
     #=========================================================
 
-        ##:param implicit_rounds:
-        ##
-        ##    this is an internal option which generally doesn't need to be touched.
+autodocument(Shas512Crypt, settings_doc="""
+:param implicit_rounds:
+    this is an internal option which generally doesn't need to be touched.
 
-autodocument(SHA512Crypt)
-register_crypt_handler(SHA512Crypt)
+    this flag determines whether the hash should omit the rounds parameter
+    when encoding it to a string; this is only permitted by the spec for rounds=5000,
+    and the flag is ignored otherwise. the spec requires the two different
+    encodings be preserved as they are, instead of normalizing them.
+""")
+register_crypt_handler(Sha512Crypt)
 #=========================================================
 #eof
 #=========================================================

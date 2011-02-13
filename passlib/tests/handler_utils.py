@@ -79,9 +79,9 @@ class _HandlerTestCase(TestCase):
     #default behavior should be sufficient
     def case_prefix(self):
         name = self.handler.name if self.handler else self.__class__.__name__
-        backend = getattr(self.handler, "backend", None) #set by some of the builtin handlers
+        backend = getattr(self.handler, "get_backend", None) #set by some of the builtin handlers
         if backend:
-            name += " (%s backend)" % (backend,)
+            name += " (%s backend)" % (backend(),)
         return name
 
     #=========================================================

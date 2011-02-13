@@ -60,8 +60,6 @@ def raw_ext_crypt(secret, rounds, salt):
     #run h64 encode on result
     return h64.encode_dc_int64(result)
 
-#TODO: check if crypt supports ext-des-crypt.
-
 #=========================================================
 #handler
 #=========================================================
@@ -120,6 +118,8 @@ class ExtDesCrypt(BaseHandler):
     #=========================================================
     #backend
     #=========================================================
+    #TODO: check if os_crypt supports ext-des-crypt.
+
     def calc_checksum(self, secret):
         return raw_ext_crypt(secret, self.rounds, self.salt)
 

@@ -578,5 +578,64 @@ class WrapperHandler(object):
     #=====================================================
 
 #=========================================================
+#
+#=========================================================
+class BackendMixin(object):
+
+    #NOTE: subclass must provide:
+    #   * attr 'backends' containing list of known backends (top priority backend first)
+    #   * attr '_has_backend_xxx' for each backend 'xxx', indicating if backend is available on system
+    #   * attr '_calc_checksum_xxx' for each backend 'xxx', containing calc_checksum implementation using that backend
+
+    _backend = None
+
+    @classmethod
+    def get_backend(cls):
+        "return name of active backend"
+        return cls._backend or cls.set_backend()
+
+    @classmethod
+    def has_backend(cls, name):
+        "check if specified class can be loaded"
+        return getattr(cls, "_has_backend_" + name)
+
+    @classmethod
+    def set_backend(cls, name=None):
+        "change class to use specified backend"
+        if not name or name == "default":
+            if not name:
+                name = cls._backend
+                if name:
+                    return name
+            for name in cls.backends:
+                if cls.has_backend(name):
+                    cls.calc_checksum = getattr(cls, "_calc_checksum_" + name)
+                    cls._backend = name
+                    return name
+            raise EnvironmentError, "no %s backends available" % (cls.name,)
+        else:
+            ##if name not in cls.backends:
+            ##    raise ValueError, "unknown %s backend: %r" % (cls.name, name)
+            if not cls.has_backend(name):
+                raise ValueError, "%s backend not available: %r" % (cls.name, name)
+            cls.calc_checksum = getattr(cls, "_calc_checksum_" + name)
+            cls._backend = name
+            return name
+
+    def calc_checksum(self, secret):
+        "stub for calc_checksum(), default backend will be selected first time stub is called"
+        #backend not loaded - run detection and call replacement
+        assert not self._backend, "set_backend() failed to replace lazy loader"
+        self.set_backend()
+        assert self._backend, "set_backend() failed to load a default backend"
+        return self.calc_checksum(secret)
+
+class BackendBaseHandler(BackendMixin, BaseHandler):
+    pass
+
+class BackendPlainHandler(BackendMixin, PlainHandler):
+    pass
+
+#=========================================================
 # eof
 #=========================================================
