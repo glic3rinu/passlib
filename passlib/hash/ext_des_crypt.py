@@ -8,6 +8,8 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
+from passlib.base import register_crypt_handler
+from passlib.utils.handlers import BaseHandler
 from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 from passlib.utils.des import mdes_encrypt_int_block
 from passlib.hash.des_crypt import _crypt_secret_to_key
@@ -61,89 +63,72 @@ def raw_ext_crypt(secret, rounds, salt):
 #TODO: check if crypt supports ext-des-crypt.
 
 #=========================================================
-#algorithm information
+#handler
 #=========================================================
-name = "ext_des_crypt"
-#stats: 64 bit checksum, 24 bit salt, 0..(1<<24)-1 rounds
+class ExtDesCrypt(BaseHandler):
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "ext_des_crypt"
+    setting_kwds = ("salt", "rounds")
 
-setting_kwds = ("salt", "rounds")
-context_kwds = ()
+    min_salt_chars = max_salt_chars = 4
 
-min_salt_chars = max_salt_chars = 4
+    default_rounds = 1000
+    min_rounds = 0
+    max_rounds = 16777215 # (1<<24)-1
+    rounds_cost = "linear"
 
-default_rounds = 10000
-min_rounds = 0 #NOTE: some sources (OpenBSD login.conf) report 7250 as minimum allowed rounds
-max_rounds = 16777215 # (1<<24)-1
+    checksum_chars = 11
 
-rounds_cost = "linear"
+    # NOTE: OpenBSD login.conf reports 7250 as minimum allowed rounds,
+    # but not sure if that's strictly enforced, or silently clipped.
 
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"""
-    ^
-    _
-    (?P<rounds>[./a-z0-9]{4})
-    (?P<salt>[./a-z0-9]{4})
-    (?P<chk>[./a-z0-9]{11})?
-    $""", re.X|re.I)
+    #=========================================================
+    #internal helpers
+    #=========================================================
+    _pat = re.compile(r"""
+        ^
+        _
+        (?P<rounds>[./a-z0-9]{4})
+        (?P<salt>[./a-z0-9]{4})
+        (?P<chk>[./a-z0-9]{11})?
+        $""", re.X|re.I)
 
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid ext-des-crypt hash"
-    rounds, salt, chk = m.group("rounds", "salt", "chk")
-    return dict(
-        rounds=h64.decode_int24(rounds),
-        salt=salt,
-        checksum=chk,
-    )
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
-def render(rounds, salt, checksum=None):
-    if rounds < 0:
-        raise ValueError, "invalid rounds"
-    if len(salt) != 4:
-        raise ValueError, "invalid salt"
-    if checksum and len(checksum) != 11:
-        raise ValueError, "invalid checksum"
-    return "_%s%s%s" % (h64.encode_int24(rounds), salt, checksum or '')
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid ext-des-crypt hash"
+        rounds, salt, chk = m.group("rounds", "salt", "chk")
+        return cls(
+            rounds=h64.decode_int24(rounds),
+            salt=salt,
+            checksum=chk,
+            strict=bool(chk),
+        )
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(salt=None, rounds=None):
-    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
-    rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
-    return render(rounds, salt, None)
+    def to_string(self):
+        return "_%s%s%s" % (h64.encode_int24(self.rounds), self.salt, self.checksum or '')
 
-def genhash(secret, config):
-    #parse and run through genconfig to validate configuration
-    #TODO: could *easily* optimize this to skip excess render/parse
-    info = parse(config)
-    info.pop("checksum")
-    config = genconfig(**info)
-    info = parse(config)
-    rounds, salt = info['rounds'], info['salt']
+    #=========================================================
+    #backend
+    #=========================================================
+    def calc_checksum(self, secret):
+        return raw_ext_crypt(secret, self.rounds, self.salt)
 
-    #run through chosen backend
-    checksum = raw_ext_crypt(secret, rounds, salt)
-    return render(rounds, salt, checksum)
+    #=========================================================
+    #eoc
+    #=========================================================
 
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
-
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
-
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+autodocument(ExtDesCrypt)
+register_crypt_handler(ExtDesCrypt, force=True)
 #=========================================================
 #eof
 #=========================================================

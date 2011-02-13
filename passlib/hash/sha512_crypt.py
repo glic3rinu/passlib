@@ -16,7 +16,7 @@ from warnings import warn
 #libs
 from passlib.utils import norm_rounds, norm_salt, h64, autodocument
 from passlib.hash.sha256_crypt import raw_sha_crypt
-from passlib.utils.handlers import BaseSRHandler
+from passlib.utils.handlers import BaseHandler
 from passlib.base import register_crypt_handler
 #pkg
 #local
@@ -92,7 +92,7 @@ crypt = None
 #=========================================================
 #sha 512 crypt
 #=========================================================
-class sha512_crypt(BaseSRHandler):
+class SHA512Crypt(BaseHandler):
 
     #=========================================================
     #algorithm information
@@ -100,7 +100,6 @@ class sha512_crypt(BaseSRHandler):
     name = "sha512_crypt"
 
     setting_kwds = ("salt", "rounds")
-    context_kwds = ()
 
     min_salt_chars = 0
     max_salt_chars = 16
@@ -111,8 +110,23 @@ class sha512_crypt(BaseSRHandler):
     max_rounds = 999999999
     rounds_cost = "linear"
 
+    #=========================================================
+    #init
+    #=========================================================
+    def __init__(self, implicit_rounds=None, **kwds):
+        if implicit_rounds is None:
+            implicit_rounds = True
+        self.implicit_rounds = implicit_rounds
+        super(SHA512Crypt, self).__init__(**kwds)
 
-    #regexp used to recognize & parse hashes
+    #=========================================================
+    #parsing
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and hash.startswith("$6$")
+
+    #: regexp used to parse hashes
     _pat = re.compile(r"""
         ^
         \$6
@@ -128,71 +142,6 @@ class sha512_crypt(BaseSRHandler):
         $
         """, re.X)
 
-    #=========================================================
-    #
-    #=========================================================
-    def __init__(self, implicit_rounds=None, **kwds):
-        self.__super = super(sha512_crypt, self)
-        self.__super.__init__(**kwds)
-        self.implicit_rounds = implicit_rounds
-
-    #=========================================================
-    #password hash api - primary interface
-    #=========================================================
-    @classmethod
-    def genconfig(cls, salt=None, rounds=None, implicit_rounds=True):
-        """generate sha512-crypt configuration string
-
-        :param salt:
-            optional salt string to use.
-
-            if omitted, one will be automatically generated (recommended).
-
-            length must be 0 .. 16 characters inclusive.
-            characters must be in range ``A-Za-z0-9./``.
-
-        :param rounds:
-
-            optional number of rounds, must be between 1000 and 999999999 inclusive.
-
-        :param implicit_rounds:
-
-            this is an internal option which generally doesn't need to be touched.
-
-        :returns:
-            sha512-crypt configuration string.
-        """
-        return cls(salt=salt, rounds=rounds, implicit_rounds=implicit_rounds).to_string()
-
-    @classmethod
-    def genhash(cls, secret, config):
-        #parse and run through genconfig to validate configuration
-        self = cls.from_string(config)
-
-        #run through chosen backend
-        if crypt:
-            #using system's crypt routine.
-            if isinstance(secret, unicode):
-                secret = secret.encode("utf-8")
-            return crypt(secret, config)
-        else:
-            #using builtin routine
-            self.checksum, self.salt, self.rounds = raw_sha512_crypt(secret, self.salt, self.rounds)
-            return self.to_string()
-
-    #=========================================================
-    #password hash api - secondary interface
-    #=========================================================
-    @classmethod
-    def identify(cls, hash):
-        return bool(hash) and hash.startswith("$6$")
-
-    #encrypt - use default method that wraps genconfig + genhash
-    #verify - use default method that uses equality + genhash
-
-    #=========================================================
-    #password hash api - parsing interface
-    #=========================================================
     @classmethod
     def from_string(cls, hash):
         if not hash:
@@ -211,19 +160,39 @@ class sha512_crypt(BaseSRHandler):
             strict=bool(chk),
         )
 
-    def to_string(self): #, rounds, salt, checksum=None, implicit_rounds=True):
-        assert '$' not in self.salt
+    def to_string(self):
         if self.rounds == 5000 and self.implicit_rounds:
             return "$6$%s$%s" % (self.salt, self.checksum or '')
         else:
             return "$6$rounds=%d$%s$%s" % (self.rounds, self.salt, self.checksum or '')
 
     #=========================================================
+    #backend
+    #=========================================================
+    def calc_checksum(self, secret):
+        #run through chosen backend
+        if crypt:
+            #using system's crypt routine.
+            if isinstance(secret, unicode):
+                secret = secret.encode("utf-8")
+            return self.from_string(crypt(secret, self.to_string())).checksum
+        else:
+            #using builtin routine
+            checksum, salt, rounds = raw_sha512_crypt(secret, self.salt, self.rounds)
+            assert salt == self.salt, "class doesn't agree w/ builtin backend"
+            assert rounds == self.rounds, "class doesn't agree w/ builtin backend"
+            return checksum
+
+    #=========================================================
     #eoc
     #=========================================================
 
-autodocument(sha512_crypt)
-register_crypt_handler(sha512_crypt)
+        ##:param implicit_rounds:
+        ##
+        ##    this is an internal option which generally doesn't need to be touched.
+
+autodocument(SHA512Crypt)
+register_crypt_handler(SHA512Crypt)
 #=========================================================
 #eof
 #=========================================================

@@ -63,8 +63,8 @@ if mod2.backend != "builtin" and enable_option("all-backends"):
 #=========================================================
 #test sha512-crypt
 #=========================================================
-class Sha512CryptTest(_HandlerTestCase):
-    handler = mod5.sha512_crypt
+class SHA512CryptTest(_HandlerTestCase):
+    handler = mod5.SHA512Crypt
     supports_unicode = True
 
     known_correct = (
@@ -74,15 +74,13 @@ class Sha512CryptTest(_HandlerTestCase):
         ('Compl3X AlphaNu3meric', '$6$rounds=10787$wakX8nGKEzgJ4Scy$X78uqaX1wYXcSCtS4BVYw2trWkvpa8p7lkAtS9O/6045fK4UB2/Jia0Uy/KzCpODlfVxVNZzCCoV9s2hoLfDs/'),
         ('4lpHa N|_|M3r1K W/ Cur5Es: #$%(*)(*%#', '$6$rounds=11065$5KXQoE1bztkY5IZr$Jf6krQSUKKOlKca4hSW07MSerFFzVIZt/N3rOTsUgKqp7cUdHrwV8MoIVNCk9q9WL3ZRMsdbwNXpVk0gVxKtz1'),
         )
-    known_invalid = (
+
+    known_identified_invalid = [
+        #zero-padded rounds
+        '$6$rounds=011021$KsvQipYPWpr93wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
         #bad char in otherwise correct hash
         '$6$rounds=11021$KsvQipYPWpr9:wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
-    )
-
-    known_identified_invalid = (
-        ###zero-padded rounds
-        '$6$rounds=011021$KsvQipYPWpr93wWP$v7xjI4X6vyVptJjB1Y02vZC5SaSijBkGmq1uJhPr3cvqvvkd42Xvo48yLVPFt8dvhCsnlUgpX.//Cxn91H4qy1',
-    )
+    ]
 
     #NOTE: these test cases taken from spec definition at http://www.akkadia.org/drepper/SHA-crypt.txt
     cases512 = [
@@ -121,7 +119,7 @@ class Sha512CryptTest(_HandlerTestCase):
 
     def test_spec_vectors(self):
         "verify sha512-crypt passes specification test vectors"
-        handler = mod5
+        handler = self.handler
 
         #NOTE: the 'roundstoolow' vector is known to raise a warning, which we silence here
         if catch_warnings:
@@ -130,22 +128,13 @@ class Sha512CryptTest(_HandlerTestCase):
         warnings.filterwarnings("ignore", "sha512_crypt algorithm does not allow less than 1000 rounds: 10")
 
         for config, secret, hash in self.cases512:
-
-            result = handler.genhash(secret, config)
-
-            #parse config
-            settings = handler.parse(config)
-
             #make sure we got expected result back
+            result = handler.genhash(secret, config)
             self.assertEqual(result, hash, "hash=%r secret=%r:" % (hash, secret))
 
-            #parse result and check that salt was truncated to max 16 chars
-            info = handler.parse(result)
-            if len(settings['salt']) > 16:
-                #spec sez we can truncate salt
-                self.assertEqual(info['salt'], settings['salt'][:16], "hash=%r secret=%r:" % (hash, secret))
-            else:
-                self.assertEqual(info['salt'], settings['salt'], "hash=%r secret=%r:" % (hash, secret))
+            #make sure parser truncated salts
+            info = handler.from_string(config)
+            self.assert_(len(info.salt) <= 16, "hash=%r secret=%r:" % (hash, secret))
 
         if catch_warnings:
             ctx.__exit__(None,None,None)
@@ -154,7 +143,7 @@ if mod5.backend != "builtin" and enable_option("all-backends"):
 
     #monkeypatch sha512-crypt mod so it uses builtin backend
 
-    class BuiltinSha512CryptTest(Sha512CryptTest):
+    class BuiltinSHA512CryptTest(SHA512CryptTest):
         case_prefix = "sha512-crypt (builtin backend)"
 
         def setUp(self):

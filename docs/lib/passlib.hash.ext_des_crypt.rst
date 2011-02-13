@@ -75,3 +75,4 @@ This implementation of ext-des-crypt differs from others in one way:
 References
 ==========
 * `<http://fuse4bsd.creo.hu/localcgi/man-cgi.cgi?crypt+3>`_ - primary source used for description of ext-des-crypt format & algorithm
+* `<http://ftp.lava.net/cgi-bin/bsdi-man?proto=1.1&query=crypt&msection=3&apropos=0>`_ - another source describing algorithm

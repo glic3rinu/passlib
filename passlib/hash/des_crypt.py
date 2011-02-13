@@ -9,7 +9,9 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
+from passlib.base import register_crypt_handler
 from passlib.utils import norm_salt, h64, autodocument
+from passlib.utils.handlers import BaseHandler
 from passlib.utils.des import mdes_encrypt_int_block
 #pkg
 #local
@@ -78,98 +80,82 @@ except ImportError:
     crypt = None
 
 #=========================================================
-#algorithm information
+#handler
 #=========================================================
-name = "des_crypt"
-#stats: 64 bit checksum, 12 bit salt, max 8 chars of secret
+class DesCrypt(BaseHandler):
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "des_crypt"
+    setting_kwds = ("salt",)
+    min_salt_chars = max_salt_chars = 2
 
-setting_kwds = ("salt",)
-context_kwds = ()
+    #=========================================================
+    #formatting
+    #=========================================================
+    #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
 
-min_salt_chars = max_salt_chars = 2
+    _pat = re.compile(r"""
+        ^
+        (?P<salt>[./a-z0-9]{2})
+        (?P<chk>[./a-z0-9]{11})?
+        $""", re.X|re.I)
 
-#=========================================================
-#internal helpers
-#=========================================================
-#FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
-_pat = re.compile(r"""
-    ^
-    (?P<salt>[./a-z0-9]{2})
-    (?P<chk>[./a-z0-9]{11})?
-    $""", re.X|re.I)
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid des-crypt hash"
-    salt, chk = m.group("salt", "chk")
-    return dict(
-        salt=salt,
-        checksum=chk,
-    )
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid des-crypt hash"
+        salt, chk = m.group("salt", "chk")
+        return cls(salt=salt, checksum=chk, strict=bool(chk))
 
-def render(salt, checksum=None):
-    if len(salt) < 2:
-        raise ValueError, "invalid salt"
-    return "%s%s" % (salt[:2], checksum or '')
+    def to_string(self):
+        return "%s%s" % (self.salt, self.checksum or '')
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(salt=None):
-    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
-    return render(salt, None)
+    #=========================================================
+    #backend
+    #=========================================================
+    def calc_checksum(self, secret):
+        #forbidding nul chars because linux crypt (and most C implementations) won't accept it either.
+        if '\x00' in secret:
+            raise ValueError, "null char in secret"
 
-def genhash(secret, config):
-    #parse and run through genconfig to validate configuration
-    info = parse(config)
-    info.pop("checksum")
-    config = genconfig(**info)
+        #XXX: des-crypt predates unicode, not sure if there's an official policy for handing it.
+        #for now, just coercing to utf-8.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
 
-    #forbidding nul chars because linux crypt (and most C implementations) won't accept it either.
-    if '\x00' in secret:
-        raise ValueError, "null char in secret"
+        #run through chosen backend
+        if crypt:
+            #XXX: given a single letter salt, linux crypt returns a hash with the original salt doubled,
+            #     but appears to calculate the hash based on the letter + "G" as the second byte.
+            #     this results in a hash that won't validate, which is DEFINITELY wrong.
+            #     need to find out it's underlying logic, and if it's part of spec,
+            #     or just weirdness that should actually be an error.
+            #     until then, passlib raises an error in genconfig()
 
-    #XXX: des-crypt predates unicode, not sure if there's an official policy for handing it.
-    #for now, just coercing to utf-8.
-    if isinstance(secret, unicode):
-        secret = secret.encode("utf-8")
+            #XXX: given salt chars outside of h64.CHARS range, linux crypt
+            #     does something unknown when decoding salt to 12 bit int,
+            #     successfully creates a hash, but reports the original salt.
+            #     need to find out it's underlying logic, and if it's part of spec,
+            #     or just weirdness that should actually be an error.
+            #     until then, passlib raises an error for bad salt chars.
+            return self.from_string(crypt(secret, self.to_string())).checksum
+        else:
+            return raw_crypt(secret, self.salt)
 
-    #run through chosen backend
-    if crypt:
-        #XXX: given a single letter salt, linux crypt returns a hash with the original salt doubled,
-        #     but appears to calculate the hash based on the letter + "G" as the second byte.
-        #     this results in a hash that won't validate, which is DEFINITELY wrong.
-        #     need to find out it's underlying logic, and if it's part of spec,
-        #     or just weirdness that should actually be an error.
-        #     until then, passlib raises an error in genconfig()
+    #=========================================================
+    #eoc
+    #=========================================================
 
-        #XXX: given salt chars outside of h64.CHARS range, linux crypt
-        #     does something unknown when decoding salt to 12 bit int,
-        #     successfully creates a hash, but reports the original salt.
-        #     need to find out it's underlying logic, and if it's part of spec,
-        #     or just weirdness that should actually be an error.
-        #     until then, passlib raises an error for bad salt chars.
-        return crypt(secret, config)
-    else:
-        salt = config[:2]
-        return render(salt, raw_crypt(secret, salt))
-
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
-
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
-
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+autodocument(DesCrypt)
+register_crypt_handler(DesCrypt)
 #=========================================================
 #eof
 #=========================================================

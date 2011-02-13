@@ -19,7 +19,7 @@ log = getLogger(__name__)
 from passlib.hash import phpass
 
 class PHPassTest(_HandlerTestCase):
-    handler = phpass
+    handler = phpass.PHPass
 
     known_correct = (
         ('', '$P$7JaFQsPzJSuenezefD/3jHgt5hVfNH0'),
@@ -27,10 +27,10 @@ class PHPassTest(_HandlerTestCase):
         ('test12345', '$P$9IQRaTwmfeRo7ud9Fh4E2PdI0S3r.L0'), #from the source
         )
 
-    known_invalid = (
+    known_identified_invalid = [
         #bad char in otherwise correct hash
         '$P$9IQRaTwmfeRo7ud9Fh4E2PdI0S3r!L0',
-        )
+        ]
 
 #=========================================================
 #NTHASH for unix
@@ -56,17 +56,17 @@ class NTHashTest(_HandlerTestCase):
 from passlib.hash import sha1_crypt
 
 class SHA1CryptTest(_HandlerTestCase):
-    handler = sha1_crypt.sha1_crypt
+    handler = sha1_crypt.SHA1Crypt
 
     known_correct = (
         ("password", "$sha1$19703$iVdJqfSE$v4qYKl1zqYThwpjJAoKX6UvlHq/a"),
         ("password", "$sha1$21773$uV7PTeux$I9oHnvwPZHMO0Nq6/WgyGV/tDJIH"),
     )
 
-    known_invalid = (
+    known_identified_invalid = [
         #bad char in otherwise correct hash
         '$sha1$21773$u!7PTeux$I9oHnvwPZHMO0Nq6/WgyGV/tDJIH',
-    )
+    ]
 
 #=========================================================
 #EOF

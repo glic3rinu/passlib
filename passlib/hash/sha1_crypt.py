@@ -18,7 +18,7 @@ except ImportError:
     _EVP = None
 #libs
 from passlib.utils import norm_rounds, norm_salt, autodocument, h64
-from passlib.utils.handlers import BaseSRHandler
+from passlib.utils.handlers import BaseHandler
 from passlib.base import register_crypt_handler
 #pkg
 #local
@@ -45,16 +45,13 @@ if _EVP:
 #=========================================================
 #sha1-crypt
 #=========================================================
-class sha1_crypt(BaseSRHandler):
+class SHA1Crypt(BaseHandler):
 
     #=========================================================
-    #algorithm information
+    #class attrs
     #=========================================================
     name = "sha1_crypt"
-    #stats: ?? bit checksum, ?? bit salt, 2**(4..31) rounds
-
     setting_kwds = ("salt", "rounds")
-    context_kwds = ()
 
     default_salt_chars = 8
     min_salt_chars = 0
@@ -66,14 +63,18 @@ class sha1_crypt(BaseSRHandler):
     rounds_cost = "linear"
 
     #=========================================================
-    #internal helpers
+    #formatting
     #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and hash.startswith("$sha1$")
+
     _pat = re.compile(r"""
         ^
         \$sha1
         \$(?P<rounds>\d+)
         \$(?P<salt>[A-Za-z0-9./]{0,64})
-        (\$(?P<chk>[A-Za-z0-9./]{28}))?
+        (\$(?P<chk>[A-Za-z0-9./]{28})?)?
         $
         """, re.X)
 
@@ -91,6 +92,7 @@ class sha1_crypt(BaseSRHandler):
             rounds=int(rounds),
             salt=salt,
             checksum=chk,
+            strict=bool(chk),
         )
 
     def to_string(self):
@@ -100,22 +102,18 @@ class sha1_crypt(BaseSRHandler):
         return out
 
     #=========================================================
-    #primary interface
+    #backend
     #=========================================================
-
-    #genconfig - uses default method that wraps cls() + to_string()
-    #genhash - uses default method that wraps from_string() + calc_checksum() + to_string()
-
     def calc_checksum(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         rounds = self.rounds
-        result = self.salt + "$sha1$" + str(rounds)
+        result = "%s$sha1$%s" % (self.salt, rounds)
         r = 0
         while r < rounds:
             result = hmac_sha1(secret, result)
             r += 1
-        return h64.encode_transposed_bytes(result, cls._chk_offsets)
+        return h64.encode_transposed_bytes(result, self._chk_offsets)
 
     _chk_offsets = [
         2,1,0,
@@ -128,20 +126,11 @@ class sha1_crypt(BaseSRHandler):
     ]
 
     #=========================================================
-    #secondary interface
-    #=========================================================
-    def identify(hash):
-        return bool(hash) and hash.startswith("$sha1$")
-
-    #encrypt - use default method that wraps cls() + calc_checksum() + to_string()
-    #verify - use default method that uses equality + from_string() + calc_checksum()
-
-    #=========================================================
     #eoc
     #=========================================================
 
-autodocument(sha1_crypt)
-register_crypt_handler(sha1_crypt)
+autodocument(SHA1Crypt)
+register_crypt_handler(SHA1Crypt)
 #=========================================================
 #eof
 #=========================================================

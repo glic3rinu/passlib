@@ -18,7 +18,9 @@ from warnings import warn
 #site
 #libs
 #pkg
+from passlib.base import register_crypt_handler
 from passlib.utils import autodocument
+from passlib.utils.handlers import PlainHandler
 #local
 __all__ = [
     "genhash",
@@ -31,61 +33,68 @@ __all__ = [
 #=========================================================
 #backend
 #=========================================================
+class MySQL_323(PlainHandler):
 
-#=========================================================
-#algorithm information
-#=========================================================
-name = "mysql_323"
-#stats: 62 bit checksum, no salt
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "mysql_323"
 
-setting_kwds = ()
-context_kwds = ()
+    #=========================================================
+    #init
+    #=========================================================
+    @classmethod
+    def norm_checksum(cls, chk, strict=False):
+        if chk:
+            return chk.lower() #to make upper-case strings verify properly
+        return None
 
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"^[0-9a-f]{16}$", re.I)
+    #=========================================================
+    #formatting
+    #=========================================================
+    _pat = re.compile(r"^[0-9a-f]{16}$", re.I)
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig():
-    return None
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
-def genhash(secret, config):
-    if config and not identify(config):
-        raise ValueError, "not a mysql-323 hash"
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "not a recognized mysql-323 hash"
+        return cls(checksum=hash)
 
-    MASK_32 = 0xffffffff
-    MASK_31 = 0x7fffffff
+    def to_string(self):
+        return self.checksum
 
-    nr1 = 0x50305735
-    nr2 = 0x12345671
-    add = 7
-    for c in secret:
-        if c in ' \t':
-            continue
-        tmp = ord(c)
-        nr1 ^= ((((nr1 & 63)+add)*tmp) + (nr1 << 8)) & MASK_32
-        nr2 = (nr2+((nr2 << 8) ^ nr1)) & MASK_32
-        add = (add+tmp) & MASK_32
-    return "%08x%08x" % (nr1 & MASK_31, nr2 & MASK_31)
+    #=========================================================
+    #backend
+    #=========================================================
+    def calc_checksum(self, secret):
+        MASK_32 = 0xffffffff
+        MASK_31 = 0x7fffffff
 
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
+        nr1 = 0x50305735
+        nr2 = 0x12345671
+        add = 7
+        for c in secret:
+            if c in ' \t':
+                continue
+            tmp = ord(c)
+            nr1 ^= ((((nr1 & 63)+add)*tmp) + (nr1 << 8)) & MASK_32
+            nr2 = (nr2+((nr2 << 8) ^ nr1)) & MASK_32
+            add = (add+tmp) & MASK_32
+        return "%08x%08x" % (nr1 & MASK_31, nr2 & MASK_31)
 
-def verify(secret, hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    return hash.lower() == genhash(secret, hash)
+    #=========================================================
+    #eoc
+    #=========================================================
 
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+autodocument(MySQL_323)
+register_crypt_handler(MySQL_323)
 #=========================================================
 #eof
 #=========================================================

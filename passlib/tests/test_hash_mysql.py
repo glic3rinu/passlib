@@ -17,19 +17,19 @@ log = getLogger(__name__)
 #=========================================================
 #database hashes
 #=========================================================
-class Mysql323CryptTest(_HandlerTestCase):
-    handler = mod3
+class MySQL_323Test(_HandlerTestCase):
+    handler = mod3.MySQL_323
 
-    #remove single space from secrets, since mysql-10 DISCARDS WHITESPACE !?!
+    #remove single space from secrets, since mysql-323 ignores all whitespace (?!)
     standard_secrets = [ x for x in _HandlerTestCase.standard_secrets if x != ' ' ]
 
     known_correct = (
         ('mypass', '6f8c114b58f2ce9e'),
     )
-    known_invalid = (
+    known_invalid = [
         #bad char in otherwise correct hash
         '6z8c114b58f2ce9e',
-    )
+    ]
 
     def test_whitespace(self):
         "check whitespace is ignored per spec"

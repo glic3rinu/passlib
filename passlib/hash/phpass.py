@@ -16,6 +16,8 @@ from warnings import warn
 #site
 #libs
 from passlib.utils import norm_rounds, norm_salt, h64, autodocument
+from passlib.utils.handlers import BaseHandler
+from passlib.base import register_crypt_handler
 #pkg
 #local
 __all__ = [
@@ -27,133 +29,113 @@ __all__ = [
 ]
 
 #=========================================================
-#algorithm information
+#phpass
 #=========================================================
-name = "phpass"
-#stats: 128 bit checksum, 24 bit salt
+class PHPass(BaseHandler):
 
-setting_kwds = ("salt", "rounds")
-context_kwds = ()
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "phpass"
+    setting_kwds = ("salt", "rounds", "ident")
 
-min_salt_chars = max_salt_chars = 8
+    min_salt_chars = max_salt_chars = 8
 
-default_rounds = 9
-min_rounds = 7
-max_rounds = 30
+    default_rounds = 9
+    min_rounds = 7
+    max_rounds = 30
+    rounds_cost = "log2"
 
-rounds_cost = "log2"
+    _strict_rounds_bounds = True
+    _extra_init_settings = ("ident",)
 
-#=========================================================
-#internal helpers
-#=========================================================
-#$P$9IQRaTwmfeRo7ud9Fh4E2PdI0S3r.L0
-# $P$ 9 IQRaTwmf eRo7ud9Fh4E2PdI0S3r.L0
+    #=========================================================
+    #instance attrs
+    #=========================================================
+    ident = None
 
-_pat = re.compile(r"""
-    ^
-    \$
-    (?P<ident>[PH])
-    \$
-    (?P<rounds>[A-Za-z0-9./])
-    (?P<salt>[A-Za-z0-9./]{8})
-    (?P<chk>[A-Za-z0-9./]{22})?
-    $
-    """, re.X)
+    #=========================================================
+    #init
+    #=========================================================
+    @classmethod
+    def norm_ident(cls, ident, strict=False):
+        if not ident:
+            if strict:
+                raise ValueError, "no ident specified"
+            ident = "P"
+        if ident not in ("P", "H"):
+            raise ValueError, "invalid ident: %r" % (ident,)
+        return ident
 
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid phpass portable hash"
-    ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
-    out = dict(
-        rounds=h64.decode_6bit(rounds),
-        salt=salt,
-        checksum=chk,
-    )
-    if ident != "P":
-        out['ident'] = ident
-    return out
+    #=========================================================
+    #formatting
+    #=========================================================
 
-def render(rounds, salt, checksum=None, ident="P"):
-    if rounds < 0 or rounds > 31:
-        raise ValueError, "invalid rounds"
-    return "$%s$%s%s%s" % (ident, h64.encode_6bit(rounds), salt, checksum or '')
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and (hash.startswith("$P$") or hash.startswith("$H$"))
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(salt=None, rounds=None, ident="P"):
-    """generate md5-crypt configuration string
+    #$P$9IQRaTwmfeRo7ud9Fh4E2PdI0S3r.L0
+    # $P$
+    # 9
+    # IQRaTwmf
+    # eRo7ud9Fh4E2PdI0S3r.L0
+    _pat = re.compile(r"""
+        ^
+        \$
+        (?P<ident>[PH])
+        \$
+        (?P<rounds>[A-Za-z0-9./])
+        (?P<salt>[A-Za-z0-9./]{8})
+        (?P<chk>[A-Za-z0-9./]{22})?
+        $
+        """, re.X)
 
-    :param salt:
-        optional salt string to use.
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid phpass portable hash"
+        ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
+        return cls(
+            ident=ident,
+            rounds=h64.decode_6bit(rounds),
+            salt=salt,
+            checksum=chk,
+            strict=bool(chk),
+        )
 
-        if omitted, one will be automatically generated (recommended).
+    def to_string(self):
+        return "$%s$%s%s%s" % (self.ident, h64.encode_6bit(self.rounds), self.salt, self.checksum or '')
 
-        length must be be 8 characters.
-        characters must be in range ``./A-Za-z0-9``.
+    #=========================================================
+    #backend
+    #=========================================================
+    def calc_checksum(self, secret):
+        #FIXME: can't find definitive policy on how phpass handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        real_rounds = 1<<self.rounds
+        result = md5(self.salt + secret).digest()
+        r = 0
+        while r < real_rounds:
+            result = md5(result + secret).digest()
+            r += 1
+        return h64.encode_bytes(result)
 
-    :param rounds:
-        optional rounds parameter.
+    #=========================================================
+    #eoc
+    #=========================================================
 
-        like bcrypt's rounds value, phpass' rounds value is logarithmic,
-        each increase of +1 will double the actual number of rounds used.
-
-    :param ident:
-
-        phpBB3 uses ``H`` instead of ``P`` for it's identifier.
-        this may be set to ``H`` in order to generate phpBB3 compatible hashes.
-
-    :returns:
-        phpass configuration string.
-    """
-    if ident not in ("P", "H"):
-        raise ValueError, "invalid ident: %r" % (ident,)
-    salt = norm_salt(salt, 8, name=name)
-    if rounds is None:
-        rounds = default_rounds
-    if rounds < 7 or rounds > 30:
-        #NOTE: PHPass raises error when encrypting if rounds are outside these bounds.
-        raise ValueError, "rounds must be between 7..30 inclusive"
-    return render(rounds, salt, None, ident)
-
-def genhash(secret, config):
-    #parse and run through genconfig to validate configuration
-    info = parse(config)
-    info.pop("checksum")
-    config = genconfig(**info)
-    info = parse(config)
-    ident, rounds, salt = info.get("ident","P"), info['rounds'], info['salt']
-
-    #FIXME: can't find definitive policy on how phpass handles non-ascii.
-    if isinstance(secret, unicode):
-        secret = secret.encode("utf-8")
-
-    real_rounds = 1<<rounds
-    result = md5(salt + secret).digest()
-    r = 0
-    while r < real_rounds:
-        result = md5(result + secret).digest()
-        r += 1
-
-    checksum = h64.encode_bytes(result)
-    return render(rounds, salt, checksum, ident)
-
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
-
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
-
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+autodocument(PHPass, settings_doc="""
+:param ident:
+    phpBB3 uses ``H`` instead of ``P`` for it's identifier,
+    this may be set to ``H`` in order to generate phpBB3 compatible hashes.
+    it defaults to ``P``.
+""")
+register_crypt_handler(PHPass)
 #=========================================================
 #eof
 #=========================================================

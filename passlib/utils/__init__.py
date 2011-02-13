@@ -435,7 +435,7 @@ class dict_proxy(object):
         except KeyError:
             raise AttributeError, "attribute not found: %r" % (key,)
 
-def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
+def autodocument(scope, salt_charset="[./0-9A-Za-z]", settings_doc='', context_doc=''):
     """helper to auto-generate documentation for password hash handler
 
     :arg scope: dict containing encrypt/verify/etc functions (module scope or class dict)
@@ -468,6 +468,8 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
 
     if context_doc:
         context_doc = context_doc.rstrip() + "\n"
+    if settings_doc:
+        settings_doc = settings_doc.rstrip() + "\n"
 
     def get_func(name):
         func = getattr(scope, name)
@@ -481,7 +483,7 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
     genconfig = get_func("genconfig")
     if not genconfig.__doc__:
         if setting_kwds:
-            if has_other:
+            if has_other and not settings_doc:
                 raise NotImplementedError, "can't auto generate genconfig docs w/ unknown setting_kwds"
             d = "generate %(name)s configuration string\n\n" % dict(name=name)
 
@@ -499,6 +501,9 @@ def autodocument(scope, salt_charset="[./0-9A-Za-z]", context_doc=''):
                 d += """:param rounds:\n    optional number of rounds to apply (default is %d).\n    value must be between %d and %d, inclusive.\n"""  %(default_rounds, min_rounds, max_rounds)
                 if log_rounds:
                     d += """    %(name)s's rounds value is logarithmic, the actual number of rounds used is ``2**rounds``.\n""" % dict(name=name)
+
+            if settings_doc:
+                d += settings_doc + "\n"
 
             d += """\n:raises ValueError: if invalid settings are passed in\n\n"""
             d += """:returns:\n    %(name)s configuration string\n""" % dict(name=name)

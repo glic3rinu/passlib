@@ -20,7 +20,7 @@ log = getLogger(__name__)
 #=========================================================
 class DesCryptTest(_HandlerTestCase):
     "test DesCrypt algorithm"
-    handler = mod
+    handler = mod.DesCrypt
     secret_chars = 8
 
     #TODO: test
@@ -35,10 +35,10 @@ class DesCryptTest(_HandlerTestCase):
         ('AlOtBsOl', 'cEpWz5IUCShqM'),
         (u'hell\u00D6', 'saykDgk3BPZ9E'),
         )
-    known_invalid = (
+    known_invalid = [
         #bad char in otherwise correctly formatted hash
         '!gAwTx2l6NADI',
-        )
+        ]
 
 if mod.backend != "builtin" and enable_option("all-backends"):
 
@@ -56,7 +56,7 @@ if mod.backend != "builtin" and enable_option("all-backends"):
 
 class ExtDesCryptTest(_HandlerTestCase):
     "test ExtDesCrypt algorithm"
-    handler = mod2
+    handler = mod2.ExtDesCrypt
     known_correct = (
         (" ", "_K1..crsmZxOLzfJH8iw"),
         ("my", '_KR/.crsmykRplHbAvwA'), #<- to detect old 12-bit rounds bug
