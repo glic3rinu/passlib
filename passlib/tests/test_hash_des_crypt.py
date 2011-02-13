@@ -57,17 +57,17 @@ if mod.backend != "builtin" and enable_option("all-backends"):
 class ExtDesCryptTest(_HandlerTestCase):
     "test ExtDesCrypt algorithm"
     handler = mod2.ExtDesCrypt
-    known_correct = (
+    known_correct = [
         (" ", "_K1..crsmZxOLzfJH8iw"),
         ("my", '_KR/.crsmykRplHbAvwA'), #<- to detect old 12-bit rounds bug
         ("my socra", "_K1..crsmf/9NzZr1fLM"),
         ("my socrates", '_K1..crsmOv1rbde9A9o'),
         ("my socrates note", "_K1..crsm/2qeAhdISMA"),
-    )
-    known_invalid = (
+    ]
+    known_invalid = [
         #bad char in otherwise correctly formatted hash
        "_K1.!crsmZxOLzfJH8iw"
-    )
+    ]
 
 #=========================================================
 #test activate backend (stored in mod._crypt)

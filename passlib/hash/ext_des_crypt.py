@@ -55,7 +55,7 @@ def raw_ext_crypt(secret, rounds, salt):
         idx = next
 
     #run data through des using input of 0
-    result = mdes_encrypt_int_block(key_value, 0, rounds, salt_value)
+    result = mdes_encrypt_int_block(key_value, 0, salt_value, rounds)
 
     #run h64 encode on result
     return h64.encode_dc_int64(result)
