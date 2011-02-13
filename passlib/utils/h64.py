@@ -160,7 +160,7 @@ def encode_int18(value):
 #---------------------------------------------------------------------
 
 def decode_int24(value):
-    "decode 4 chars of hash-64 format, returning 24-bit integer"
+    "decode 4 chars of hash-64 format in little-endian order, returning 24-bit integer"
     try:
         return  decode_6bit(value[0]) +\
                 (decode_6bit(value[1])<<6)+\
@@ -170,7 +170,7 @@ def decode_int24(value):
         raise ValueError, "invalid character"
 
 def encode_int24(value):
-    "encode 4 chars of hash-64 format from a 24-bit integer"
+    "encode 4 chars of hash-64 format in little-endian order, from a 24-bit integer"
     return  encode_6bit(value & 0x3f) + \
             encode_6bit((value>>6) & 0x3f) + \
             encode_6bit((value>>12) & 0x3f) + \
@@ -179,12 +179,23 @@ def encode_int24(value):
 #---------------------------------------------------------------------
 
 def decode_int64(value):
-    "decode 64-bit integer from 11 chars of hash-64 format"
+    "decode 64-bit integer from 11 chars of hash-64 format in little-endian order"
     return decode_int(value)
 
 def encode_int64(value):
-    "encode 64-bit integer to hash-64 format, returning 11 chars"
-    return encode_int(value)
+    "encode 64-bit integer to hash-64 format, returning 11 chars in little-endian order"
+    return encode_int(value, 11)
+
+def decode_dc_int64(value):
+    "decode 64-bit integer from 11 chars of hash-64 format using des-crypt -specific format (modified little-endian)"
+    #NOTE: lower 2 bits of last char are ignored (should be 0)
+    return (decode_int(value[:11])<<4) + (decode_6bit(value[11])>>2)
+
+def encode_dc_int64(value):
+    "encode 64-bit integer to hash-64 format, returning 11 chars using des-crypt -specific format (modified little-endian)"
+    #NOTE: basically, this format encodes the lower 4 bits + 2 padding bits as the last digit,
+    #then encodes the remaining 60 bits into 10 chars in little-endian format
+    return encode_int(value>>4,10) + encode_6bit((value<<2)&0x3f)
 
 #---------------------------------------------------------------------
 

@@ -45,17 +45,18 @@ def raw_ext_crypt(secret, rounds, salt):
 
     #convert secret string into an integer
     key_value = _crypt_secret_to_key(secret)
-    while len(secret) > 8:
-        secret = secret[8:]
-        key_value = mdes_encrypt_int_block(key_value, key_value, salt=0, rounds=1)
-        for i,c in enumerate(secret[:8]):
-            key_value ^= (ord(c)&0x7f)<<(57-8*i)
+    idx = 8
+    end = len(secret)
+    while idx < end:
+        next = idx+8
+        key_value = mdes_encrypt_int_block(key_value, key_value) ^ _crypt_secret_to_key(secret[idx:next])
+        idx = next
 
     #run data through des using input of 0
-    result = mdes_encrypt_int_block(key_value, 0, salt=salt_value, rounds=rounds)
+    result = mdes_encrypt_int_block(key_value, 0, rounds, salt_value)
 
     #run h64 encode on result
-    return h64.encode_int64(result)
+    return h64.encode_dc_int64(result)
 
 #TODO: check if crypt supports ext-des-crypt.
 

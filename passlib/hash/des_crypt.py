@@ -25,7 +25,7 @@ __all__ = [
 #pure-python backend
 #=========================================================
 def _crypt_secret_to_key(secret):
-    "hash secret -> key using crypt format"
+    "crypt helper which converts lower 7 bits of first 8 chars of secret -> 56-bit des key"
     key_value = 0
     for i, c in enumerate(secret[:8]):
         key_value |= (ord(c)&0x7f) << (57-8*i)
@@ -53,7 +53,7 @@ def raw_crypt(secret, salt):
     result = mdes_encrypt_int_block(key_value, 0, salt=salt_value, rounds=25)
 
     #run h64 encode on result
-    return h64.encode_int64(result)
+    return h64.encode_dc_int64(result)
 
 #=========================================================
 #choose backend
