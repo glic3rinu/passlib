@@ -8,10 +8,10 @@ import hashlib
 from logging import getLogger
 #site
 #pkg
-from passlib.tests.handler_utils import _HandlerTestCase
+from passlib.tests.handler_utils import _HandlerTestCase, create_backend_case
 from passlib.tests.utils import enable_option
-import passlib.hash.md5_crypt as mod
-import passlib.hash.apr_md5_crypt as apr
+from passlib.hash.md5_crypt import Md5Crypt
+from passlib.hash.apr_md5_crypt import AprMd5Crypt
 #module
 log = getLogger(__name__)
 
@@ -19,7 +19,7 @@ log = getLogger(__name__)
 #md5 crypt
 #=========================================================
 class Md5CryptTest(_HandlerTestCase):
-    handler = mod
+    handler = Md5Crypt
 
     known_correct = (
         ('', '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
@@ -30,40 +30,28 @@ class Md5CryptTest(_HandlerTestCase):
         ('test', '$1$SuMrG47N$ymvzYjr7QcEQjaK5m1PGx1'),
         )
 
-    known_invalid = (
+    known_identified_invalid = [
         #bad char in otherwise correct hash
         '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o!',
-        )
+        ]
 
-if mod.backend != "builtin" and enable_option("all-backends"):
-
-    #monkeypatch md5-crypt mod so it uses builtin backend
-
-    class BuiltinMd5CryptTest(Md5CryptTest):
-        case_prefix = "md5-crypt (builtin backend)"
-
-        def setUp(self):
-            self.tmp = mod.crypt
-            mod.crypt = None
-
-        def cleanUp(self):
-            mod.crypt = self.tmp
+BuiltinMd5CryptTest = create_backend_case(Md5CryptTest, "builtin")
 
 #=========================================================
 #apr md5 crypt
 #=========================================================
 class AprMd5CryptTest(_HandlerTestCase):
-    handler = apr
+    handler = AprMd5Crypt
 
     #values taken from http://httpd.apache.org/docs/2.2/misc/password_encryptions.html
     known_correct = (
         ('myPassword', '$apr1$r31.....$HqJZimcKQFAMYayBlzkrA/'),
         )
 
-    known_invalid = (
+    known_identified_invalid = [
         #bad char in otherwise correct hash
         '$apr1$r31.....$HqJZimcKQFAMYayBlzkrA!'
-        )
+        ]
 
 #=========================================================
 #EOF

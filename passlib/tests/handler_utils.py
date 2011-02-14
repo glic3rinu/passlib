@@ -7,11 +7,12 @@ import re
 #site
 from nose.plugins.skip import SkipTest
 #pkg
-from passlib.tests.utils import TestCase
-from passlib.utils.handlers import BaseHandler, PlainHandler
+from passlib.tests.utils import TestCase, enable_option
+from passlib.utils.handlers import BaseHandler, PlainHandler, BackendMixin
 #module
 __all__ = [
-    "_HandlerTestCase"
+    "_HandlerTestCase",
+    "create_backend_test",
 ]
 #=========================================================
 #other unittest helpers
@@ -316,6 +317,40 @@ class _HandlerTestCase(TestCase):
     #=========================================================
     #eoc
     #=========================================================
+
+#=========================================================
+#backend test helpers
+#=========================================================
+def enable_backend_case(handler, name):
+    "helper to check if a separate test is needed for the specified backend"
+    assert issubclass(handler, BackendMixin)
+    return enable_option("all-backends") and handler.get_backend() != name
+
+def create_backend_case(base_test, name):
+    "create a test case (subclassing); if test doesn't need to be enabled, returns None"
+    handler = base_test.handler
+
+    if not enable_backend_case(handler, name):
+        return None
+
+    assert issubclass(handler, BackendMixin) #sanity check
+    assert name in handler.backends #sanity check
+
+    assert getattr(base_test, "setUp", None) is None #just haven't implemented this
+    assert getattr(base_test, "cleanUp", None) is None #ditto
+
+    class dummy(base_test):
+        case_prefix = "%s (%s backend)" % (handler.name, name)
+
+        def setUp(self):
+            self.orig_backend = self.handler.get_backend()
+            self.handler.set_backend(name)
+
+        def cleanUp(self):
+            self.handler.set_backend(self.orig_backend)
+
+    dummy.__name__ = name.title() + base_test.__name__
+    return dummy
 
 #=========================================================
 #EOF

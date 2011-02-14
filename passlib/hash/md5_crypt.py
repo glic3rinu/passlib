@@ -9,15 +9,13 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64, autodocument
+from passlib.base import register_crypt_handler
+from passlib.utils import h64, autodocument, os_crypt
+from passlib.utils.handlers import BackendBaseHandler
 #pkg
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "Md5Crypt",
 ]
 
 #=========================================================
@@ -119,121 +117,79 @@ _chk_offsets = (
 )
 
 #=========================================================
-#choose backend
+#handler
 #=========================================================
+class Md5Crypt(BackendBaseHandler):
+    #=========================================================
+    #algorithm information
+    #=========================================================
+    name = "md5_crypt"
+    #stats: 128 bit checksum, 48 bit salt
 
-#fallback to default backend (defined above)
-backend = "builtin"
+    setting_kwds = ("salt",)
 
-#check if stdlib crypt is available, and if so, if OS supports $1$
-#XXX: is this test expensive enough it should be delayed
-#until md5-crypt is requested?
+    min_salt_chars = 0
+    max_salt_chars = 8
 
-try:
-    from crypt import crypt
-except ImportError:
-    crypt = None
-else:
-    if crypt("test", "$1$test") == '$1$test$pi/xDtU5WFVRqYS6BMU8X/':
-        backend = "os-crypt"
-    else:
-        crypt = None
+    checksum_chars = 22
 
-#TODO: could check for libssl support (openssl passwd -1)
+    #=========================================================
+    #internal helpers
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and hash.startswith("$1$")
 
-#=========================================================
-#algorithm information
-#=========================================================
-name = "md5_crypt"
-#stats: 128 bit checksum, 48 bit salt
+    _pat = re.compile(r"""
+        ^
+        \$1
+        \$(?P<salt>[A-Za-z0-9./]{,8})
+        (\$(?P<chk>[A-Za-z0-9./]{22})?)?
+        $
+        """, re.X)
 
-setting_kwds = ("salt",)
-context_kwds = ()
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid md5-crypt hash"
+        salt, chk = m.group("salt", "chk")
+        return cls(salt=salt, checksum=chk, strict=bool(chk))
 
-min_salt_chars = 0
-max_salt_chars = 8
+    def to_string(self):
+        return "$1$%s$%s" % (self.salt, self.checksum or '')
 
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"""
-    ^
-    \$1
-    \$(?P<salt>[A-Za-z0-9./]{,8})
-    (\$(?P<chk>[A-Za-z0-9./]{22})?)?
-    $
-    """, re.X)
+    #=========================================================
+    #primary interface
+    #=========================================================
+    backends = ("os_crypt", "builtin")
 
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid md5-crypt hash"
-    salt, chk = m.group("salt", "chk")
-    return dict(
-        salt=salt,
-        checksum=chk,
-    )
+    _has_backend_builtin = True
 
-def render(salt, checksum=None):
-    return "$1$%s$%s" % (salt, checksum or '')
+    @classmethod
+    def _has_backend_os_crypt(cls):
+        return os_crypt and os_crypt("test", "$1$test") == '$1$test$pi/xDtU5WFVRqYS6BMU8X/'
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(salt=None):
-    ##"""generate md5-crypt configuration string
-    ##
-    ##:param salt:
-    ##    optional salt string to use.
-    ##
-    ##    if omitted, one will be automatically generated (recommended).
-    ##
-    ##    length must be between 0 and 8 characters inclusive.
-    ##    characters must be in range ``A-Za-z0-9./``.
-    ##
-    ##:returns:
-    ##    md5-crypt configuration string.
-    ##"""
-    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
-    return render(salt, None)
+    def _calc_checksum_builtin(self, secret):
+        #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return raw_md5_crypt(secret, self.salt)
 
-def genhash(secret, config):
-    #parse and run through genconfig to validate configuration
-    info = parse(config)
-    info.pop("checksum")
-    config = genconfig(**info)
+    def _calc_checksum_os_crypt(self, secret):
+        #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return os_crypt(secret, self.to_string())[-22:]
 
-    #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
-    if isinstance(secret, unicode):
-        secret = secret.encode("utf-8")
+    #=========================================================
+    #eoc
+    #=========================================================
 
-    #run through chosen backend
-    if crypt:
-        #use OS's crypt(), should be faster than builtin backend
-        return crypt(secret, config)
-
-    else:
-        #fallback to builtin backend
-        info = parse(config)
-        salt = info['salt']
-        checksum = raw_md5_crypt(secret, salt)
-        return render(salt, checksum)
-
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
-
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
-
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+autodocument(Md5Crypt)
+register_crypt_handler(Md5Crypt)
 #=========================================================
 #eof
 #=========================================================
