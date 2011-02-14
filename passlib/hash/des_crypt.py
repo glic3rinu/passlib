@@ -60,7 +60,7 @@ from warnings import warn
 #libs
 from passlib.base import register_crypt_handler
 from passlib.utils import h64, autodocument, classproperty, os_crypt
-from passlib.utils.handlers import BackendBaseHandler
+from passlib.utils.handlers import BackendExtHandler
 from passlib.utils.des import mdes_encrypt_int_block
 #pkg
 #local
@@ -103,7 +103,7 @@ def raw_crypt(secret, salt):
 #=========================================================
 #handler
 #=========================================================
-class DesCrypt(BackendBaseHandler):
+class DesCrypt(BackendExtHandler):
     #=========================================================
     #class attrs
     #=========================================================

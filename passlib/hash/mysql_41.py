@@ -21,7 +21,7 @@ from warnings import warn
 #pkg
 from passlib.base import register_crypt_handler
 from passlib.utils import autodocument
-from passlib.utils.handlers import WrapperHandler
+from passlib.utils.handlers import BaseHandler
 #local
 __all__ = [
     "MySQL_41",
@@ -30,7 +30,7 @@ __all__ = [
 #=========================================================
 #handler
 #=========================================================
-class MySQL_41(WrapperHandler):
+class MySQL_41(BaseHandler):
     #=========================================================
     #algorithm information
     #=========================================================

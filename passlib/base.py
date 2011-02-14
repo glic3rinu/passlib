@@ -27,7 +27,7 @@ from warnings import warn
 from pkg_resources import resource_string
 #libs
 import passlib.hash as _hmod
-from passlib.utils import abstractclassmethod, Undef, is_crypt_handler, splitcomma, rng
+from passlib.utils import Undef, is_crypt_handler, splitcomma, rng
 #pkg
 #local
 __all__ = [

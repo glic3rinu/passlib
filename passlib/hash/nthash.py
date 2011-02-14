@@ -11,7 +11,7 @@ from warnings import warn
 from passlib.base import register_crypt_handler
 from passlib.utils.md4 import md4
 from passlib.utils import autodocument
-from passlib.utils.handlers import BaseHandler
+from passlib.utils.handlers import ExtHandler
 #pkg
 #local
 __all__ = [
@@ -29,7 +29,7 @@ def raw_nthash(secret, hex=False):
 #=========================================================
 #handler
 #=========================================================
-class NTHash(BaseHandler):
+class NTHash(ExtHandler):
     #=========================================================
     #class attrs
     #=========================================================

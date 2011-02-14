@@ -15,8 +15,8 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64, autodocument
-from passlib.utils.handlers import BaseHandler
+from passlib.utils import h64, autodocument
+from passlib.utils.handlers import ExtHandler
 from passlib.base import register_crypt_handler
 #pkg
 #local
@@ -31,7 +31,7 @@ __all__ = [
 #=========================================================
 #phpass
 #=========================================================
-class PHPass(BaseHandler):
+class PHPass(ExtHandler):
 
     #=========================================================
     #class attrs

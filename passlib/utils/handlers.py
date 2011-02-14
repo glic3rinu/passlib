@@ -12,123 +12,140 @@ import time
 import os
 #site
 #libs
-from passlib.utils import abstractmethod, abstractclassmethod, classproperty, h64, \
-    getrandstr, rng, Undef, is_crypt_handler
+from passlib.utils import classproperty, h64, getrandstr, rng, is_crypt_handler
 #pkg
 #local
 __all__ = [
 
     #framework for implementing handlers
     'BaseHandler',
-    'PlainHandler',
+    'ExtHandler',
+    'StaticHandler',
+
+    'BackendMixin',
+        'BackendExtHandler',
+        'BackendStaticHandler',
 ]
 
-###==========================================================
-###base interface for all the crypt algorithm implementations
-###==========================================================
-##class CryptHandler(object):
-##    """helper class for implementing a password algorithm using class methods"""
-##
-##    #=========================================================
-##    #class attrs
-##    #=========================================================
-##
-##    name = None #globally unique name to identify algorithm. should be lower case and hyphens only
-##    context_kwds = () #tuple of additional kwds required for any encrypt / verify operations; eg "realm" or "user"
-##    setting_kwds = () #tuple of additional kwds that encrypt accepts for configuration algorithm; eg "salt" or "rounds"
-##
-##    #=========================================================
-##    #primary interface - primary methods implemented by each handler
-##    #=========================================================
-##
-##    @abstractclassmethod
-##    def genhash(cls, secret, config, **context):
-##        """encrypt secret to hash"""
-##
-##    @classmethod
-##    def genconfig(cls, **settings):
-##        """return configuration string encoding settings for hash generation"""
-##        #NOTE: this implements a default method which is suitable ONLY for classes with no configuration.
-##        if cls.setting_kwds:
-##            raise NotImplementedError, "classes with config kwds must implement genconfig()"
-##        if settings:
-##            raise TypeError, "%s has no configuration options" % (cls,)
-##        return None
-##
-##    #=========================================================
-##    #secondary interface - more useful interface for user,
-##    # frequently implemented more efficiently by specific handlers
-##    #=========================================================
-##
-##    @classmethod
-##    def identify(cls, hash):
-##        """identify if a hash string belongs to this algorithm."""
-##        #NOTE: this default method is going to be *really* slow for most implementations,
-##        #they should override it. but if genhash() conforms to the specification, this will do.
-##        if cls.context_kwds:
-##            raise NotImplementedError, "classes with context kwds must implement identify()"
-##        if not hash:
-##            return False
-##        try:
-##            cls.genhash("stub", hash)
-##        except ValueError:
-##            return False
-##        return True
-##
-##    @classmethod
-##    def encrypt(cls, secret, **kwds):
-##        """encrypt secret, returning resulting hash string."""
-##        if cls.context_kwds:
-##            context = dict(
-##                (k,kwds.pop(k))
-##                for k in cls.context_kwds
-##                if k in kwds
-##            )
-##            config = cls.genconfig(**kwds)
-##            return cls.genhash(secret, config, **context)
-##        else:
-##            config = cls.genconfig(**kwds)
-##            return cls.genhash(secret, config)
-##
-##    @classmethod
-##    def verify(cls, secret, hash, **context):
-##        """verify a secret against an existing hash."""
-##        #NOTE: methods whose hashes have multiple encodings should override this,
-##        # as the hash will need to be normalized before comparing via string equality.
-##        # alternately, the ExtCryptHandler class provides a more flexible framework.
-##
-##        #ensure hash was specified - genhash() won't throw error for this
-##        if not hash:
-##            raise ValueError, "no hash specified"
-##
-##        #the genhash() implementation for most setting-less algorithms
-##        #simply ignores the config string provided; whereas most
-##        #algorithms with settings have to inspect and validate it.
-##        #therefore, we do this quick check IFF it's setting-less
-##        if not cls.setting_kwds and not cls.identify(hash):
-##            raise ValueError, "not a %s hash" % (cls.name,)
-##
-##        #do simple string comparison
-##        return hash == cls.genhash(secret, hash, **context)
-##
-##    #=========================================================
-##    #eoc
-##    #=========================================================
+#=========================================================
+#base handler
+#=========================================================
+class BaseHandler(object):
+    """helper for implementing password hash handler with minimal methods
+
+    hash implementations should fill out the following:
+
+        * all required class attributes: name, setting_kwds
+        * classmethods genconfig() and genhash()
+
+    many implementations will want to override the following:
+
+        * classmethod identify() can usually be done more efficiently
+
+    most implementations can use defaults for the following:
+
+        * encrypt(), verify()
+
+    note this class does not support context kwds of any type,
+    since that is a rare enough requirement inside passlib.
+
+    implemented subclasses may call cls.validate_class() to check attribute consistency
+    (usually only required in unittests, etc)
+    """
+
+    #=====================================================
+    #required attributes
+    #=====================================================
+    name = None #required by subclass
+    setting_kwds = None #required by subclass
+    context_kwds = ()
+
+    #=====================================================
+    #init
+    #=====================================================
+    @classmethod
+    def validate_class(cls):
+        "helper to ensure class is configured property"
+        if not cls.name:
+            raise AssertionError, "class must have .name attribute set"
+
+        if cls.setting_kwds is None:
+            raise AssertionError, "class must have .setting_kwds attribute set"
+
+    #=====================================================
+    #init helpers
+    #=====================================================
+    @classproperty
+    def _has_settings(cls):
+        "attr for checking if class has ANY settings, memoizes itself on first use"
+        if cls.name is None:
+            #otherwise this would optimize itself away prematurely
+            raise RuntimeError, "_has_settings must be called on subclass only: %r" % (cls,)
+        value = cls._has_settings = bool(cls.setting_kwds)
+        return value
+
+    #=====================================================
+    #formatting (usually subclassed)
+    #=====================================================
+    @classmethod
+    def identify(cls, hash):
+        #NOTE: this relys on genhash throwing error for invalid hashes.
+        # this approach is bad because genhash may take a long time on valid hashes,
+        # so subclasses *really* should override this.
+        try:
+            cls.genhash('stub', hash)
+            return True
+        except ValueError:
+            return False
+
+    #=====================================================
+    #primary interface (must be subclassed)
+    #=====================================================
+    @classmethod
+    def genconfig(cls, **settings):
+        if cls._has_settings:
+            raise NotImplementedError, "%s subclass must implement genconfig()" % (cls,)
+        else:
+            if settings:
+                raise TypeError, "%s genconfig takes no kwds" % (cls.name,)
+            return None
+
+    @classmethod
+    def genhash(cls, secret, config):
+        raise NotImplementedError, "%s subclass must implement genhash()" % (cls,)
+
+    #=====================================================
+    #secondary interface (rarely subclassed)
+    #=====================================================
+    @classmethod
+    def encrypt(cls, secret, **settings):
+        config = cls.genconfig(**settings)
+        return cls.genhash(secret, config)
+
+    @classmethod
+    def verify(cls, secret, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        return hash == cls.genhash(secret, hash)
+
+    #=====================================================
+    #eoc
+    #=====================================================
 
 #=========================================================
-# BaseHandler
+# ExtHandler
 #   rounds+salt+xtra    phpass, sha256_crypt, sha512_crypt
 #   rounds+salt         bcrypt, ext_des_crypt, sha1_crypt, sun_md5_crypt
 #   salt only           apr_md5_crypt, des_crypt, md5_crypt
 #=========================================================
-class BaseHandler(object):
+class ExtHandler(BaseHandler):
     """helper class for implementing hash schemes
 
     hash implementations should fill out the following:
-        * all required class attributes
+        * all required class attributes:
             - name, setting_kwds
-            - max_salt_chars, min_salt_chars, etc - only if salt is used
-            - max_rounds, min_rounds, default_roudns - only if rounds are used
+            - max_salt_chars, min_salt_chars - only if salt is used
+            - max_rounds, min_rounds, default_rounds - only if rounds are used
         * classmethod from_string()
         * instancemethod to_string()
         * instancemethod calc_checksum()
@@ -140,6 +157,7 @@ class BaseHandler(object):
     most implementations can use defaults for the following:
         * genconfig(), genhash(), encrypt(), verify(), etc
         * norm_checksum() usually only needs overriding if checksum has multiple encodings
+        * salt_charset, default_salt_charset, default_salt_chars - if does not match common case
 
     note this class does not support context kwds of any type,
     since that is a rare enough requirement inside passlib.
@@ -155,8 +173,8 @@ class BaseHandler(object):
     #----------------------------------------------
     #password hash api - required attributes
     #----------------------------------------------
-    name = None #required by BaseHandler
-    setting_kwds = None #required by BaseHandler
+    name = None #required by ExtHandler
+    setting_kwds = None #required by ExtHandler
     context_kwds = ()
 
     #----------------------------------------------
@@ -168,7 +186,7 @@ class BaseHandler(object):
     #----------------------------------------------
     #salt information
     #----------------------------------------------
-    max_salt_chars = None #required by BaseHandler.norm_salt()
+    max_salt_chars = None #required by ExtHandler.norm_salt()
 
     @classproperty
     def min_salt_chars(cls):
@@ -190,15 +208,15 @@ class BaseHandler(object):
     #rounds information
     #----------------------------------------------
     min_rounds = 0
-    max_rounds = None #required by BaseHandler.norm_rounds()
-    default_rounds = None #if not specified, BaseHandler.norm_rounds() will require explicit rounds value every time
+    max_rounds = None #required by ExtHandler.norm_rounds()
+    default_rounds = None #if not specified, ExtHandler.norm_rounds() will require explicit rounds value every time
     rounds_cost = "linear" #common case
 
     #----------------------------------------------
-    #misc BaseHandler configuration
+    #misc ExtHandler configuration
     #----------------------------------------------
     _strict_rounds_bounds = False #if true, always raises error if specified rounds values out of range - required by spec for some hashes
-    _extra_init_settings = () #settings that BaseHandler.__init__ should handle by calling norm_<key>()
+    _extra_init_settings = () #settings that ExtHandler.__init__ should handle by calling norm_<key>()
 
     #=========================================================
     #instance attributes
@@ -223,16 +241,12 @@ class BaseHandler(object):
                 norm = getattr(self, "norm_" + key)
                 value = norm(value, strict=strict)
                 setattr(self, key, value)
-        super(BaseHandler, self).__init__(**kwds)
+        super(ExtHandler, self).__init__(**kwds)
 
     @classmethod
     def validate_class(cls):
         "helper to ensure class is configured property"
-        if not cls.name:
-            raise AssertionError, "class must have .name attribute set"
-
-        if cls.setting_kwds is None:
-            raise AssertionError, "class must have .setting_kwds attribute set"
+        super(ExtHandler, cls).validate_class()
 
         if any(k not in cls.setting_kwds for k in cls._extra_init_settings):
             raise AssertionError, "_extra_init_settings must be subset of setting_kwds"
@@ -274,19 +288,20 @@ class BaseHandler(object):
     #---------------------------------------------------------
     #internal tests for features
     #---------------------------------------------------------
+
     @classproperty
     def _has_salt(cls):
-        "attr for checking if salts are supported, optimizes itself on first use"
-        if cls is BaseHandler:
-            raise RuntimeError, "not allowed for BaseHandler directly"
+        "attr for checking if salts are supported, memoizes itself on first use"
+        if cls is ExtHandler:
+            raise RuntimeError, "not allowed for ExtHandler directly"
         value = cls._has_salt = 'salt' in cls.setting_kwds
         return value
 
     @classproperty
     def _has_rounds(cls):
-        "attr for checking if variable are supported, optimizes itself on first use"
-        if cls is BaseHandler:
-            raise RuntimeError, "not allowed for BaseHandler directly"
+        "attr for checking if variable are supported, memoizes itself on first use"
+        if cls is ExtHandler:
+            raise RuntimeError, "not allowed for ExtHandler directly"
         value = cls._has_rounds = 'rounds' in cls.setting_kwds
         return value
 
@@ -307,10 +322,30 @@ class BaseHandler(object):
 
     @classmethod
     def norm_salt(cls, salt, strict=False):
-        "helper to normalize salt string; strict flag causes error even for correctable errors"
+        """helper to normalize & validate user-provided salt string
+
+        :arg salt: salt string or ``None``
+        :param strict: enable strict checking (see below); disabled by default
+
+        :raises ValueError:
+
+            * if ``strict=True`` and no salt is provided
+            * if ``strict=True`` and salt contains greater than :attr:`max_salt_chars` characters
+            * if salt contains chars that aren't in :attr:`salt_charset`.
+            * if salt contains less than :attr:`min_salt_chars` characters.
+
+        if no salt provided and ``strict=False``, a random salt is generated
+        using :attr:`default_salt_chars` and :attr:`default_salt_charset`.
+        if the salt is longer than :attr:`max_salt_chars` and ``strict=False``,
+        the salt string is clipped to :attr:`max_salt_chars`.
+
+        :returns:
+            normalized or generated salt
+        """
         if not cls._has_salt:
+            #NOTE: special casing schemes which have no salt...
             if salt is not None:
-                raise ValueError, "%s does not support ``salt``" % (cls.name,)
+                raise ValueError, "%s does not support ``salt`` parameter" % (cls.name,)
             return None
 
         if salt is None:
@@ -319,23 +354,46 @@ class BaseHandler(object):
             return getrandstr(rng, cls.default_salt_charset, cls.default_salt_chars)
 
         #TODO: run salt_charset tests
+        sc = cls.salt_charset
+        if sc:
+            for c in salt:
+                if c not in sc:
+                    raise ValueError, "invalid character in %s salt: %r"  % (cls.name, c)
 
         mn = cls.min_salt_chars
         if mn and len(salt) < mn:
-            raise ValueError, "%s salt string must be >= %d characters" % (cls.name, mn)
+            raise ValueError, "%s salt string must be at least %d characters" % (cls.name, mn)
 
         mx = cls.max_salt_chars
         if len(salt) > mx:
             if strict:
-                raise ValueError, "%s salt string must be <= %d characters" % (cls.name, mx)
+                raise ValueError, "%s salt string must be at most %d characters" % (cls.name, mx)
             salt = salt[:mx]
 
         return salt
 
     @classmethod
     def norm_rounds(cls, rounds, strict=False):
-        "helper to normalize rounds value; strict flag causes error even for correctable errors"
+        """helper routine for normalizing rounds
+
+        :arg rounds: rounds integer or ``None``
+        :param strict: enable strict checking (see below); disabled by default
+
+        :raises ValueError:
+
+            * if rounds is ``None`` and ``strict=True``
+            * if rounds is ``None`` and no :attr:`default_rounds` are specified by class.
+            * if rounds is outside bounds of :attr:`min_rounds` and :attr:`max_rounds`, and ``strict=True``.
+
+        if rounds are not specified and ``strict=False``, uses :attr:`default_rounds`.
+        if rounds are outside bounds and ``strict=False``, rounds are clipped as appropriate,
+        but a warning is issued.
+
+        :returns:
+            normalized rounds value
+        """
         if not cls._has_rounds:
+            #NOTE: special casing schemes which don't have rounds
             if rounds is not None:
                 raise ValueError, "%s does not support ``rounds``" % (cls.name,)
             return None
@@ -345,7 +403,7 @@ class BaseHandler(object):
                 raise ValueError, "no rounds specified"
             rounds = cls.default_rounds
             if rounds is None:
-                raise ValueError, "%s requires an explicitly-specified rounds value" % (cls.name,)
+                raise ValueError, "%s rounds value must be specified explicitly" % (cls.name,)
             return rounds
 
         if cls._strict_rounds_bounds:
@@ -355,12 +413,14 @@ class BaseHandler(object):
         if rounds < mn:
             if strict:
                 raise ValueError, "%s rounds must be >= %d" % (cls.name, mn)
+            warn("%s does not allow less than %d rounds: %d" % (cls.name, mn, rounds))
             rounds = mn
 
         mx = cls.max_rounds
         if rounds > mx:
             if strict:
                 raise ValueError, "%s rounds must be <= %d" % (cls.name, mx)
+            warn("%s does not allow more than %d rounds: %d" % (cls.name, mx, rounds))
             rounds = mx
 
         return rounds
@@ -440,41 +500,34 @@ class BaseHandler(object):
     #=========================================================
 
 #=========================================================
-#plain - mysql_323, mysql_41, nthash, postgres_md5
+#static - mysql_323, mysql_41, nthash, postgres_md5
 #=========================================================
-#XXX: rename this? StaticHandler? NoSettingHandler? and give this name to WrapperHandler
-class PlainHandler(object):
-    """helper class optimized for implementing hash schemes which have NO settings whatsoever"""
-    #=========================================================
-    #password hash api - required attributes
-    #=========================================================
-    name = None #required
-    setting_kwds = ()
-    context_kwds = ()
+class StaticHandler(ExtHandler):
+    """helper class optimized for implementing hash schemes which have NO settings whatsoever.
 
+    the main thing this changes from ExtHandler:
+
+    * :attr:`setting_kwds` must be an empty tuple (set by class)
+    * :meth:`genconfig` takes no kwds, and always returns ``None``.
+    * :meth:`genhash` accepts ``config=None``.
+
+    otherwise, this requires the same methods be implemented
+    as does ExtHandler.
+    """
     #=========================================================
-    #helpers for norm checksum
+    #class attr
     #=========================================================
-    checksum_charset = None #if specified, norm_checksum() will validate this
-    checksum_chars = None #if specified, norm_checksum will require this length
+    setting_kwds = ()
 
     #=========================================================
     #init
     #=========================================================
-    def __init__(self, checksum=None, strict=False, **kwds):
-        self.checksum = self.norm_checksum(checksum, strict=strict)
-        super(PlainHandler, self).__init__(**kwds)
-
     @classmethod
     def validate_class(cls):
         "helper to validate that class has been configured properly"
-        if not cls.name:
-            raise AssertionError, "class must have .name attribute set"
-
-    #=========================================================
-    #helpers
-    #=========================================================
-    norm_checksum = BaseHandler.norm_checksum.im_func
+        if cls.setting_kwds:
+            raise AssertionError, "StaticHandler subclasses must not have any settings, perhaps you want ExtHandler?"
+        super(StaticHandler, cls).validate_class()
 
     #=========================================================
     #primary interface
@@ -484,116 +537,22 @@ class PlainHandler(object):
         return None
 
     @classmethod
-    def genhash(cls, secret, config, **context):
-        #NOTE: config is ignored
-        self = cls()
-        self.checksum = self.calc_checksum(secret, **context)
+    def genhash(cls, secret, config):
+        if config is None:
+            self = cls()
+        else:
+            #just to verify input is correctly formatted
+            self = cls.from_string(config)
+        self.checksum = self.calc_checksum(secret)
         return self.to_string()
 
-    calc_checksum = BaseHandler.calc_checksum.im_func
-
-    #=========================================================
-    #secondary interface
-    #=========================================================
-    @classmethod
-    def identify(cls, hash):
-        #NOTE: subclasses may wish to use faster / simpler identify,
-        # and raise value errors only when an invalid (but identifiable) string is parsed
-        if not hash:
-            return False
-        try:
-            cls.from_string(hash)
-            return True
-        except ValueError:
-            return False
-
-    @classmethod
-    def encrypt(cls, secret, **context):
-        return cls.genhash(secret, None, **context)
-
-    @classmethod
-    def verify(cls, secret, hash, **context):
-        #NOTE: classes may wish to override this
-        self = cls.from_string(hash)
-        return self.checksum == self.calc_checksum(secret, **context)
-
-    #=========================================================
-    #parser interface
-    #=========================================================
-    @classmethod
-    def from_string(cls, hash):
-        raise NotImplementedError, "implement in subclass"
-
-    def to_string(cls):
-        raise NotImplementedError, "implement in subclass"
-
     #=========================================================
     #eoc
     #=========================================================
 
 #=========================================================
-#wrapper
-#=========================================================
-class WrapperHandler(object):
-    "helper for implementing wrapper of crypt-like interface, only required genconfig & genhash"
-
-    #=====================================================
-    #required attributes
-    #=====================================================
-    name = None
-    setting_kwds = None
-    context_kwds = ()
-
-    #=====================================================
-    #formatting (usually subclassed)
-    #=====================================================
-    @classmethod
-    def identify(cls, hash):
-        #NOTE: this relys on genhash throwing error for invalid hashes.
-        # this approach is bad because genhash may take a long time on valid hashes,
-        # so subclasses *really* should override this.
-        try:
-            cls.genhash('stub', hash)
-            return True
-        except ValueError:
-            return False
-
-    #=====================================================
-    #primary interface (must be subclassed)
-    #=====================================================
-    @classmethod
-    def genconfig(cls, **settings):
-        if cls.setting_kwds:
-            raise NotImplementedError, "%s subclass must implement genconfig()" % (cls,)
-        else:
-            if settings:
-                raise TypeError, "%s genconfig takes no kwds" % (cls.name,)
-            return None
-
-    @classmethod
-    def genhash(cls, secret, config):
-        raise NotImplementedError, "%s subclass must implement genhash()" % (cls,)
-
-    #=====================================================
-    #secondary interface (rarely subclassed)
-    #=====================================================
-    @classmethod
-    def encrypt(cls, secret, **settings):
-        config = cls.genconfig(**settings)
-        return cls.genhash(secret, config)
-
-    @classmethod
-    def verify(cls, secret, hash):
-        if not hash:
-            raise ValueError, "no hash specified"
-        return hash == cls.genhash(secret, hash)
-
-    #=====================================================
-    #eoc
-    #=====================================================
-
-#=========================================================
-#
+#helpful mixin which provides lazy-loading of different backends
+#to be used for calc_checksum
 #=========================================================
 class BackendMixin(object):
 
@@ -645,10 +604,10 @@ class BackendMixin(object):
         assert self._backend, "set_backend() failed to load a default backend"
         return self.calc_checksum(secret)
 
-class BackendBaseHandler(BackendMixin, BaseHandler):
+class BackendExtHandler(BackendMixin, ExtHandler):
     pass
 
-class BackendPlainHandler(BackendMixin, PlainHandler):
+class BackendStaticHandler(BackendMixin, StaticHandler):
     pass
 
 #=========================================================

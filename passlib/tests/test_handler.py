@@ -9,8 +9,8 @@ import hashlib
 from logging import getLogger
 #site
 #pkg
-from passlib.utils import gen_salt
-from passlib.utils.handlers import CryptHandler
+from passlib.utils import rng, getrandstr
+from passlib.utils.handlers import ExtHandler, StaticHandler
 from passlib.tests.handler_utils import _HandlerTestCase
 #module
 log = getLogger(__name__)
@@ -20,56 +20,53 @@ log = getLogger(__name__)
 # to test the unittests themselves, as well as other
 # parts of passlib. they shouldn't be used as actual password schemes.
 #=========================================================
-class UnsaltedHash(CryptHandler):
+class UnsaltedHash(StaticHandler):
     "example algorithm which lacks a salt"
     name = "unsalted_example"
-    #stats: 160 bit checksum, no salt
 
     @classmethod
     def identify(cls, hash):
         return bool(hash and re.match("^[0-9a-f]{40}$", hash))
 
     @classmethod
-    def genhash(cls, secret, config):
+    def from_string(cls, hash):
+        if hash is None:
+            return cls()
+        if not cls.identify(hash):
+            raise ValueError, "not a unsalted-example hash"
+        return cls(checksum=hash, strict=True)
+
+    def to_string(self):
+        return self.checksum
+
+    def calc_checksum(self, secret):
         return hashlib.sha1("boblious" + secret).hexdigest()
 
-class SaltedHash(CryptHandler):
+class SaltedHash(ExtHandler):
     "example algorithm with a salt"
     name = "salted_example"
-    #stats: 160 bit checksum, 12 bit salt
-
     setting_kwds = ("salt",)
+
+    min_salt_chars = max_salt_chars = 2
+    checksum_chars = 40
+    salt_charset = checksum_charset = "0123456789abcdef"
 
     @classmethod
     def identify(cls, hash):
-        return bool(hash and re.match("^@salt[0-9a-zA-Z./]{2}[0-9a-f]{40}$", hash))
+        return bool(hash and re.match("^@salt[0-9a-f]{42}$", hash))
 
     @classmethod
-    def parse(cls, hash):
+    def from_string(cls, hash):
         if not cls.identify(hash):
             raise ValueError, "not a salted-example hash"
-        return dict(
-            salt=hash[5:7],
-            checksum=hash[7:],
-        )
+        return cls(salt=hash[5:7], checksum=hash[7:], strict=True)
 
-    @classmethod
-    def render(cls, salt, checksum):
-        assert len(salt) == 2
-        assert len(checksum) == 40
-        return "@salt%s%s" % (salt, checksum)
+    _stub_checksum = '0' * 40
+    def to_string(self):
+        return "@salt%s%s" % (self.salt, self.checksum or self._stub_checksum)
 
-    @classmethod
-    def genconfig(cls, salt=None):
-        if not salt:
-            salt = gen_salt(2)
-        return cls.render(salt[:2], '0' * 40)
-
-    @classmethod
-    def genhash(cls, secret, config):
-        salt = cls.parse(config)['salt']
-        checksum = hashlib.sha1(salt + secret + salt).hexdigest()
-        return cls.render(salt, checksum)
+    def calc_checksum(self, secret):
+        return hashlib.sha1(self.salt + secret + self.salt).hexdigest()
 
 #=========================================================
 #test sample algorithms - really a self-test of _HandlerTestCase
@@ -81,8 +78,12 @@ class SaltedHash(CryptHandler):
 class UnsaltedHashTest(_HandlerTestCase):
     handler = UnsaltedHash
 
+    known_correct = []
+
 class SaltedHashTest(_HandlerTestCase):
     handler = SaltedHash
+
+    known_correct = []
 
 #=========================================================
 #

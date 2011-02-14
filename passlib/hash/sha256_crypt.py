@@ -11,7 +11,7 @@ from warnings import warn
 #libs
 from passlib.base import register_crypt_handler
 from passlib.utils import h64, autodocument, os_crypt
-from passlib.utils.handlers import BackendBaseHandler
+from passlib.utils.handlers import BackendExtHandler
 #pkg
 #local
 __all__ = [
@@ -170,7 +170,7 @@ _256_offsets = (
 #=========================================================
 #handler
 #=========================================================
-class SHA256Crypt(BackendBaseHandler):
+class SHA256Crypt(BackendExtHandler):
 
     #=========================================================
     #algorithm information

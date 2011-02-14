@@ -27,7 +27,7 @@ from warnings import warn
 #libs
 from passlib.base import register_crypt_handler
 from passlib.utils import h64, autodocument
-from passlib.utils.handlers import BaseHandler
+from passlib.utils.handlers import ExtHandler
 #pkg
 #local
 __all__ = [
@@ -190,7 +190,7 @@ _chk_offsets = (
 #=========================================================
 #handler
 #=========================================================
-class SunMD5Crypt(BaseHandler):
+class SunMD5Crypt(ExtHandler):
     #=========================================================
     #class attrs
     #=========================================================

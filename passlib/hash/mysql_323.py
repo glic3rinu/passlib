@@ -20,7 +20,7 @@ from warnings import warn
 #pkg
 from passlib.base import register_crypt_handler
 from passlib.utils import autodocument
-from passlib.utils.handlers import WrapperHandler
+from passlib.utils.handlers import BaseHandler
 #local
 __all__ = [
     'MySQL_323',
@@ -29,7 +29,7 @@ __all__ = [
 #=========================================================
 #backend
 #=========================================================
-class MySQL_323(WrapperHandler):
+class MySQL_323(BaseHandler):
     #=========================================================
     #class attrs
     #=========================================================

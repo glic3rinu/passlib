@@ -14,23 +14,30 @@ import time
 from warnings import warn
 #site
 #pkg
-import passlib.utils.h64
 #local
 __all__ = [
     #decorators
     "classproperty",
-    "abstractmethod",
-    "abstractclassmethod",
+##    "memoized_class_property",
+##    "abstractmethod",
+##    "abstractclassmethod",
+
+    #misc
+    'os_crypt',
+
+    #tests
+    'is_crypt_handler',
+    'is_crypt_context',
 
     #byte manipulation
     "bytes_to_list",
     "list_to_bytes",
     "xor_bytes",
 
-    #misc helpers
-    'gen_salt',
-    'norm_salt',
-    'norm_rounds',
+    #random
+    'rng',
+    'getrandbytes',
+    'getrandstr',
 ]
 
 #=================================================================================
@@ -53,43 +60,46 @@ class classproperty(object):
 
     def __get__(self, obj, cls):
         return self.im_func(cls)
-        
-class memoized_class_property(object):
-    """function decorator which calls function as classmethod, and replaces itself with result for current and all future invocations"""
-    def __init__(self, func):
-        self.im_func = func
 
-    def __get__(self, obj, cls):
-        func = self.im_func
-        value = func(cls)
-        setattr(cls, func.__name__, value)
-        return value
+#works but not used
+##class memoized_class_property(object):
+##    """function decorator which calls function as classmethod, and replaces itself with result for current and all future invocations"""
+##    def __init__(self, func):
+##        self.im_func = func
+##
+##    def __get__(self, obj, cls):
+##        func = self.im_func
+##        value = func(cls)
+##        setattr(cls, func.__name__, value)
+##        return value
 
-def abstractmethod(func):
-    """Method decorator which indicates this is a placeholder method which
-    should be overridden by subclass.
+#works but not used...
+##def abstractmethod(func):
+##    """Method decorator which indicates this is a placeholder method which
+##    should be overridden by subclass.
+##
+##    If called directly, this method will raise an :exc:`NotImplementedError`.
+##    """
+##    msg = "object %(self)r method %(name)r is abstract, and must be subclassed"
+##    def wrapper(self, *args, **kwds):
+##        text = msg % dict(self=self, name=wrapper.__name__)
+##        raise NotImplementedError(text)
+##    update_wrapper(wrapper, func)
+##    return wrapper
 
-    If called directly, this method will raise an :exc:`NotImplementedError`.
-    """
-    msg = "object %(self)r method %(name)r is abstract, and must be subclassed"
-    def wrapper(self, *args, **kwds):
-        text = msg % dict(self=self, name=wrapper.__name__)
-        raise NotImplementedError(text)
-    update_wrapper(wrapper, func)
-    return wrapper
-
-def abstractclassmethod(func):
-    """Class Method decorator which indicates this is a placeholder method which
-    should be overridden by subclass, and must be a classmethod.
-
-    If called directly, this method will raise an :exc:`NotImplementedError`.
-    """
-    msg = "class %(cls)r method %(name)r is abstract, and must be subclassed"
-    def wrapper(cls, *args, **kwds):
-        text = msg % dict(cls=cls, name=wrapper.__name__)
-        raise NotImplementedError(text)
-    update_wrapper(wrapper, func)
-    return classmethod(wrapper)
+#works but not used...
+##def abstractclassmethod(func):
+##    """Class Method decorator which indicates this is a placeholder method which
+##    should be overridden by subclass, and must be a classmethod.
+##
+##    If called directly, this method will raise an :exc:`NotImplementedError`.
+##    """
+##    msg = "class %(cls)r method %(name)r is abstract, and must be subclassed"
+##    def wrapper(cls, *args, **kwds):
+##        text = msg % dict(cls=cls, name=wrapper.__name__)
+##        raise NotImplementedError(text)
+##    update_wrapper(wrapper, func)
+##    return classmethod(wrapper)
 
 Undef = object() #singleton used as default kwd value in some functions
 
@@ -371,81 +381,6 @@ def getrandstr(rng, charset, count):
 #=================================================================================
 #misc helpers
 #=================================================================================
-def norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name="this crypt"):
-    """helper routine for normalizing rounds
-
-    * falls back to :attr:`default_rounds`
-    * raises ValueError if no fallback
-    * clips to min_rounds / max_rounds
-    * issues warnings if rounds exists min/max
-
-    :returns: normalized rounds value
-    """
-    if rounds is None:
-        rounds = default_rounds
-        if rounds is None:
-            raise ValueError, "rounds must be specified explicitly"
-
-    if rounds > max_rounds:
-        warn("%s algorithm does not allow more than %d rounds: %d" % (name, max_rounds, rounds))
-        rounds = max_rounds
-
-    if rounds < min_rounds:
-        warn("%s algorithm does not allow less than %d rounds: %d" % (name, min_rounds, rounds))
-        rounds = min_rounds
-
-    return rounds
-
-def gen_salt(count, charset=h64.CHARS):
-    "generate salt string of *count* chars using specified *charset*"
-    global rng
-    return getrandstr(rng, charset, count)
-
-def norm_salt(salt, min_chars, max_chars=None, default_chars=None, charset=h64.CHARS, gen_charset=None, name="specified"):
-    """helper to normalize & validate user-provided salt string
-
-    required salt_charset & salt_chars attrs to be filled in,
-    along with optional min_salt_chars attr (defaults to salt_chars).
-
-    * generates salt if none provided
-    * clips salt to maximum length of salt_chars
-
-    :arg salt: user-provided salt
-    :arg min_chars: minimum number of chars in salt
-    :arg max_chars: maximum number of chars in salt (if omitted, same as min_chars)
-    :param charset: character set that salt MUST be subset of (defaults to :)
-    :param gen_charset: optional character set to restrict to when generating new salts (defaults to charset)
-    :param name: optional name of handler, for inserting into error messages
-
-    :raises ValueError:
-
-        * if salt contains chars that aren't in salt_charset.
-        * if salt contains less than min_salt_chars characters.
-
-    :returns:
-        resulting or generated salt
-    """
-    #generate one if needed
-    if salt is None:
-        return gen_salt(default_chars or max_chars or min_chars, gen_charset or charset)
-
-    #check character set
-    for c in salt:
-        if c not in charset:
-            raise ValueError, "invalid character in %s salt: %r"  % (name, c)
-
-    #check min size
-    if len(salt) < min_chars:
-        raise ValueError, "%s salt must be at least %d chars" % (name, min_chars)
-
-    if max_chars is None:
-        max_chars = min_chars
-    if len(salt) > max_chars:
-        #automatically clip things to specified number of chars
-        return salt[:max_chars]
-    else:
-        return salt
-
 class dict_proxy(object):
     def __init__(self, source):
         self.__source = source

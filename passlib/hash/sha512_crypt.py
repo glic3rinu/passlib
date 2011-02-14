@@ -16,7 +16,7 @@ from warnings import warn
 #libs
 from passlib.utils import h64, autodocument, classproperty, os_crypt
 from passlib.hash.sha256_crypt import raw_sha_crypt
-from passlib.utils.handlers import BackendBaseHandler
+from passlib.utils.handlers import BackendExtHandler
 from passlib.base import register_crypt_handler
 #pkg
 #local
@@ -65,7 +65,7 @@ _512_offsets = (
 #=========================================================
 #sha 512 crypt
 #=========================================================
-class Sha512Crypt(BackendBaseHandler):
+class Sha512Crypt(BackendExtHandler):
 
     #=========================================================
     #algorithm information

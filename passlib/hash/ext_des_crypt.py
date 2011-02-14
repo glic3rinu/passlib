@@ -9,7 +9,7 @@ from warnings import warn
 #site
 #libs
 from passlib.base import register_crypt_handler
-from passlib.utils.handlers import BaseHandler
+from passlib.utils.handlers import ExtHandler
 from passlib.utils import h64, autodocument
 from passlib.utils.des import mdes_encrypt_int_block
 from passlib.hash.des_crypt import _crypt_secret_to_key
@@ -55,7 +55,7 @@ def raw_ext_crypt(secret, rounds, salt):
 #=========================================================
 #handler
 #=========================================================
-class ExtDesCrypt(BaseHandler):
+class ExtDesCrypt(ExtHandler):
     #=========================================================
     #class attrs
     #=========================================================

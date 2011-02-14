@@ -13,8 +13,8 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, autodocument, h64
-from passlib.utils.handlers import BaseHandler
+from passlib.utils import autodocument, h64
+from passlib.utils.handlers import ExtHandler
 from passlib.utils.pbkdf2 import hmac_sha1
 from passlib.base import register_crypt_handler
 #pkg
@@ -24,7 +24,7 @@ __all__ = [
 #=========================================================
 #sha1-crypt
 #=========================================================
-class SHA1Crypt(BaseHandler):
+class SHA1Crypt(ExtHandler):
 
     #=========================================================
     #class attrs
