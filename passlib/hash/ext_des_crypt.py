@@ -10,17 +10,13 @@ from warnings import warn
 #libs
 from passlib.base import register_crypt_handler
 from passlib.utils.handlers import BaseHandler
-from passlib.utils import norm_rounds, norm_salt, h64, autodocument
+from passlib.utils import h64, autodocument
 from passlib.utils.des import mdes_encrypt_int_block
 from passlib.hash.des_crypt import _crypt_secret_to_key
 #pkg
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "ExtDesCrypt",
 ]
 
 #=========================================================
@@ -40,10 +36,6 @@ def raw_ext_crypt(secret, rounds, salt):
         #builtin linux crypt doesn't like this, so we don't either
         #XXX: would make more sense to raise ValueError, but want to be compatible w/ stdlib crypt
         raise ValueError, "secret must be string without null bytes"
-
-    #XXX: doesn't match stdlib, but just to useful to not add in
-    if isinstance(secret, unicode):
-        secret = secret.encode("utf-8")
 
     #convert secret string into an integer
     key_value = _crypt_secret_to_key(secret)
@@ -78,9 +70,10 @@ class ExtDesCrypt(BaseHandler):
     rounds_cost = "linear"
 
     checksum_chars = 11
+    checksum_charset = h64.CHARS
 
     # NOTE: OpenBSD login.conf reports 7250 as minimum allowed rounds,
-    # but not sure if that's strictly enforced, or silently clipped.
+    # but that seems to be an OS policy, not a algorithm limitation.
 
     #=========================================================
     #internal helpers
@@ -121,6 +114,8 @@ class ExtDesCrypt(BaseHandler):
     #TODO: check if os_crypt supports ext-des-crypt.
 
     def calc_checksum(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
         return raw_ext_crypt(secret, self.rounds, self.salt)
 
     #=========================================================
@@ -128,7 +123,7 @@ class ExtDesCrypt(BaseHandler):
     #=========================================================
 
 autodocument(ExtDesCrypt)
-register_crypt_handler(ExtDesCrypt, force=True)
+register_crypt_handler(ExtDesCrypt)
 #=========================================================
 #eof
 #=========================================================

@@ -1,4 +1,53 @@
-"""passlib.hash.des_crypt - traditional unix (DES) crypt"""
+"""passlib.hash.des_crypt - traditional unix (DES) crypt
+
+.. note::
+
+    passlib restricts salt characters to just the hash64 charset,
+    and salt string size to >= 2 chars; since implementations of des-crypt
+    vary in how they handle other characters / sizes...
+
+    linux
+
+        linux crypt() accepts salt characters outside the hash64 charset,
+        and maps them using the following formula (determined by examining crypt's output):
+            chr 0..64:      v = (c-(1-19)) & 63 = (c+18) & 63
+            chr 65..96:     v = (c-(65-12)) & 63 = (c+11) & 63
+            chr 97..127:    v = (c-(97-38)) & 63 = (c+5) & 63
+            chr 128..255:   same as c-128
+
+        invalid salt chars are mirrored back in the resulting hash.
+
+        if the salt is too small, it uses a NUL char for the remaining
+        character (which is treated the same as the char ``G``)
+        when decoding the 12 bit salt. however, it outputs
+        a hash string containing the single salt char twice,
+        resulting in a corrupted hash.
+
+    netbsd
+
+        netbsd crypt() uses a 128-byte lookup table,
+        which is only initialized for the hash64 values.
+        the remaining values < 128 are implicitly zeroed,
+        and values > 128 access past the array bounds
+        (but seem to return 0).
+
+        if the salt string is too small, it reads
+        the NULL char (and continues past the end for bsdi crypt,
+        though the buffer is usually large enough and NULLed).
+        salt strings are output as provided,
+        except for any NULs, which are converted to ``.``.
+
+    openbsd, freebsd
+
+        openbsd crypt() strictly defines the hash64 values as normal,
+        and all other char values as 0. salt chars are reported as provided.
+
+        if the salt or rounds string is too small,
+        it'll read past the end, resulting in unpredictable
+        values, though it'll terminate it's encoding
+        of the output at the first null.
+        this will generally result in a corrupted hash.
+"""
 
 #=========================================================
 #imports
@@ -16,31 +65,25 @@ from passlib.utils.des import mdes_encrypt_int_block
 #pkg
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "DesCrypt",
 ]
 
 #=========================================================
 #pure-python backend
 #=========================================================
 def _crypt_secret_to_key(secret):
-    "crypt helper which converts lower 7 bits of first 8 chars of secret -> 56-bit des key"
-    key_value = 0
-    for i, c in enumerate(secret[:8]):
-        key_value |= (ord(c)&0x7f) << (57-8*i)
-    return key_value
+    "crypt helper which converts lower 7 bits of first 8 chars of secret -> 56-bit des key, padded to 64 bits"
+    return sum(
+        (ord(c) & 0x7f) << (57-8*i)
+        for i, c in enumerate(secret[:8])
+    )
 
 def raw_crypt(secret, salt):
     "pure-python fallback if stdlib support not present"
     assert len(salt) == 2
 
-    #NOTE: technically might be able to use
-    #fewer salt chars, not sure what standard behavior is,
-    #so forbidding it for handler.
-
+    #NOTE: technically could accept non-standard salts & single char salt,
+    #but no official spec.
     try:
         salt_value = h64.decode_int12(salt)
     except ValueError:
@@ -56,28 +99,6 @@ def raw_crypt(secret, salt):
 
     #run h64 encode on result
     return h64.encode_dc_int64(result)
-
-#=========================================================
-#choose backend
-#=========================================================
-backend = "builtin"
-
-try:
-    #try stdlib module, which is only present under posix
-    from crypt import crypt
-    if crypt("test", "ab") == 'abgOeLfPimXQo':
-        backend = "os-crypt"
-    else:
-        #shouldn't be any unix os which has crypt but doesn't support this format.
-        warn("crypt() failed runtime test for DES-CRYPT support")
-        crypt = None
-except ImportError:
-    #XXX: could check for openssl passwd -des support in libssl
-
-    #TODO: need to reconcile our implementation's behavior
-    # with the stdlib's behavior so error types, messages, and limitations
-    # are the same. (eg: handling of None and unicode chars)
-    crypt = None
 
 #=========================================================
 #handler
@@ -130,35 +151,21 @@ class DesCrypt(BackendBaseHandler):
         return os_crypt and os_crypt("test", "ab") == 'abgOeLfPimXQo'
 
     def _calc_checksum_builtin(self, secret):
+        #forbidding nul chars because linux crypt (and most C implementations) won't accept it either.
         if '\x00' in secret:
             raise ValueError, "null char in secret"
+        #gotta do something - no official policy since des-crypt predates unicode
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         return raw_crypt(secret, self.salt)
 
     def _calc_checksum_os_crypt(self, secret):
-        #forbidding nul chars because linux crypt (and most C implementations) won't accept it either.
+        #os_crypt() would raise less useful error
         if '\x00' in secret:
             raise ValueError, "null char in secret"
-
-        #XXX: des-crypt predates unicode, not sure if there's an official policy for handing it.
-        #for now, just coercing to utf-8.
+        #gotta do something - no official policy since des-crypt predates unicode
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-
-        #XXX: given a single letter salt, linux crypt returns a hash with the original salt doubled,
-        #     but appears to calculate the hash based on the letter + "G" as the second byte.
-        #     this results in a hash that won't validate, which is DEFINITELY wrong.
-        #     need to find out it's underlying logic, and if it's part of spec,
-        #     or just weirdness that should actually be an error.
-        #     until then, passlib raises an error in genconfig()
-
-        #XXX: given salt chars outside of h64.CHARS range, linux crypt
-        #     does something unknown when decoding salt to 12 bit int,
-        #     successfully creates a hash, but reports the original salt.
-        #     need to find out it's underlying logic, and if it's part of spec,
-        #     or just weirdness that should actually be an error.
-        #     until then, passlib raises an error for bad salt chars.
         return os_crypt(secret, self.salt)[2:]
 
     #=========================================================
