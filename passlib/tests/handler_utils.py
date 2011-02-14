@@ -33,8 +33,8 @@ class _HandlerTestCase(TestCase):
     #specify handler object here
     handler = None
 
-    #NOTE: would like unicode support for all hashes. until then, this flag is set for those which aren't.
-    supports_unicode = False
+    #this option is available for hashes which can't handle unicode
+    supports_unicode = True
 
     #maximum number of chars which hash will include in checksum
     #override this only if hash doesn't use all chars (the default)

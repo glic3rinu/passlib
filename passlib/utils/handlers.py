@@ -194,7 +194,6 @@ class BaseHandler(object):
     default_rounds = None #if not specified, BaseHandler.norm_rounds() will require explicit rounds value every time
     rounds_cost = "linear" #common case
 
-
     #----------------------------------------------
     #misc BaseHandler configuration
     #----------------------------------------------
@@ -212,6 +211,7 @@ class BaseHandler(object):
     #init
     #=========================================================
     #XXX: rename strict kwd to _strict ?
+    #XXX: for from_string() purposes, a strict_salt kwd to override strict, might also be useful
     def __init__(self, checksum=None, salt=None, rounds=None, strict=False, **kwds):
         self.checksum = self.norm_checksum(checksum, strict=strict)
         self.salt = self.norm_salt(salt, strict=strict)
@@ -268,8 +268,31 @@ class BaseHandler(object):
                 raise AssertionError, "unknown rounds cost function"
 
     #=========================================================
-    #helpers
+    #init helpers
     #=========================================================
+
+    #---------------------------------------------------------
+    #internal tests for features
+    #---------------------------------------------------------
+    @classproperty
+    def _has_salt(cls):
+        "attr for checking if salts are supported, optimizes itself on first use"
+        if cls is BaseHandler:
+            raise RuntimeError, "not allowed for BaseHandler directly"
+        value = cls._has_salt = 'salt' in cls.setting_kwds
+        return value
+
+    @classproperty
+    def _has_rounds(cls):
+        "attr for checking if variable are supported, optimizes itself on first use"
+        if cls is BaseHandler:
+            raise RuntimeError, "not allowed for BaseHandler directly"
+        value = cls._has_rounds = 'rounds' in cls.setting_kwds
+        return value
+
+    #---------------------------------------------------------
+    #normalization/validation helpers
+    #---------------------------------------------------------
     @classmethod
     def norm_checksum(cls, checksum, strict=False):
         if checksum is None:
@@ -281,14 +304,6 @@ class BaseHandler(object):
         if cs and any(c not in cs for c in checksum):
             raise ValueError, "invalid characters in %s checksum" % (cls.name,)
         return checksum
-
-    @classproperty
-    def _has_salt(cls):
-        "attr for checking if salts are supported, optimizes itself on first use"
-        if cls is BaseHandler:
-            raise RuntimeError, "not allowed for BaseHandler directly"
-        value = cls._has_salt = 'salt' in cls.setting_kwds
-        return value
 
     @classmethod
     def norm_salt(cls, salt, strict=False):
@@ -316,14 +331,6 @@ class BaseHandler(object):
             salt = salt[:mx]
 
         return salt
-
-    @classproperty
-    def _has_rounds(cls):
-        "attr for checking if variable are supported, optimizes itself on first use"
-        if cls is BaseHandler:
-            raise RuntimeError, "not allowed for BaseHandler directly"
-        value = cls._has_rounds = 'rounds' in cls.setting_kwds
-        return value
 
     @classmethod
     def norm_rounds(cls, rounds, strict=False):
@@ -359,6 +366,42 @@ class BaseHandler(object):
         return rounds
 
     #=========================================================
+    #password hash api - formatting interface
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        #NOTE: subclasses may wish to use faster / simpler identify,
+        # and raise value errors only when an invalid (but identifiable) string is parsed
+        if not hash:
+            return False
+        try:
+            cls.from_string(hash)
+            return True
+        except ValueError:
+            return False
+
+    @classmethod
+    def from_string(cls, hash):
+        "return parsed instance from hash/configuration string; raising ValueError on invalid inputs"
+        raise NotImplementedError, "%s must implement from_string()" % (cls,)
+
+    def to_string(self):
+        "render instance to hash or configuration string (depending on if checksum attr is set)"
+        raise NotImplementedError, "%s must implement from_string()" % (type(self),)
+
+    ##def to_config_string(self):
+    ##    "helper for generating configuration string (ignoring hash)"
+    ##    chk = self.checksum
+    ##    if chk:
+    ##        try:
+    ##            self.checksum = None
+    ##            return self.to_string()
+    ##        finally:
+    ##            self.checksum = chk
+    ##    else:
+    ##        return self.to_string()
+
+    #=========================================================
     #password hash api - primary interface (default implementation)
     #=========================================================
     @classmethod
@@ -379,18 +422,6 @@ class BaseHandler(object):
     #password hash api - secondary interface (default implementation)
     #=========================================================
     @classmethod
-    def identify(cls, hash):
-        #NOTE: subclasses may wish to use faster / simpler identify,
-        # and raise value errors only when an invalid (but identifiable) string is parsed
-        if not hash:
-            return False
-        try:
-            cls.from_string(hash)
-            return True
-        except ValueError:
-            return False
-
-    @classmethod
     def encrypt(cls, secret, **settings):
         self = cls(**settings)
         self.checksum = self.calc_checksum(secret)
@@ -405,31 +436,7 @@ class BaseHandler(object):
         return self.checksum == self.calc_checksum(secret)
 
     #=========================================================
-    #password hash api - parsing interface
-    #=========================================================
-    @classmethod
-    def from_string(cls, hash):
-        "return parsed instance from hash/configuration string; raising ValueError on invalid inputs"
-        raise NotImplementedError, "%s must implement from_string()" % (cls,)
-
-    def to_string(self):
-        "render instance to hash or configuration string (depending on if checksum attr is set)"
-        raise NotImplementedError, "%s must implement from_string()" % (type(self),)
-
-    def to_config_string(self):
-        "helper for generating configuration string (ignoring hash)"
-        chk = self.checksum
-        if chk:
-            try:
-                self.checksum = None
-                return self.to_string()
-            finally:
-                self.checksum = chk
-        else:
-            return self.to_string()
-
-    #=========================================================
-    #
+    #eoc
     #=========================================================
 
 #=========================================================

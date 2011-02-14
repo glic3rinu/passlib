@@ -14,6 +14,24 @@ from passlib.tests.utils import enable_option
 log = getLogger(__name__)
 
 #=========================================================
+#NTHASH for unix
+#=========================================================
+from passlib.hash.nthash import NTHash
+
+class NTHashTest(_HandlerTestCase):
+    handler = NTHash
+
+    known_correct = (
+        ('passphrase', '$3$$7f8fe03093cc84b267b109625f6bbf4b'),
+        ('passphrase', '$NT$7f8fe03093cc84b267b109625f6bbf4b'),
+    )
+
+    known_identified_invalid = [
+        #bad char in otherwise correct hash
+        '$3$$7f8fe03093cc84b267b109625f6bbfxb',
+    ]
+
+#=========================================================
 #PHPass Portable Crypt
 #=========================================================
 from passlib.hash import phpass
@@ -33,24 +51,6 @@ class PHPassTest(_HandlerTestCase):
         ]
 
 #=========================================================
-#NTHASH for unix
-#=========================================================
-from passlib.hash import nthash
-
-class NTHashTest(_HandlerTestCase):
-    handler = nthash
-
-    known_correct = (
-        ('passphrase', '$3$$7f8fe03093cc84b267b109625f6bbf4b'),
-        ('passphrase', '$NT$7f8fe03093cc84b267b109625f6bbf4b'),
-    )
-
-    known_invalid = (
-        #bad char in otherwise correct hash
-        '$3$$7f8fe03093cc84b267b109625f6bbfxb',
-    )
-
-#=========================================================
 # netbsd sha1 crypt
 #=========================================================
 from passlib.hash import sha1_crypt
@@ -67,6 +67,24 @@ class SHA1CryptTest(_HandlerTestCase):
         #bad char in otherwise correct hash
         '$sha1$21773$u!7PTeux$I9oHnvwPZHMO0Nq6/WgyGV/tDJIH',
     ]
+
+#=========================================================
+#sun md5 crypt
+#=========================================================
+from passlib.hash.sun_md5_crypt import SunMD5Crypt
+
+class SunMD5CryptTest(_HandlerTestCase):
+    handler = SunMD5Crypt
+
+    known_correct = [
+        #sample hash found at http://compgroups.net/comp.unix.solaris/password-file-in-linux-and-solaris-8-9
+        ("passwd", "$md5$RPgLF6IJ$WTvAlUJ7MqH5xak2FMEwS/"),
+        ]
+
+    known_identified_invalid = [
+        #bad char in otherwise correct hash
+        "$md5$RPgL!6IJ$WTvAlUJ7MqH5xak2FMEwS/"
+        ]
 
 #=========================================================
 #EOF

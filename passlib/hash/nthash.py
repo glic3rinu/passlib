@@ -8,16 +8,14 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
+from passlib.base import register_crypt_handler
 from passlib.utils.md4 import md4
 from passlib.utils import autodocument
+from passlib.utils.handlers import BaseHandler
 #pkg
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "NTHash",
 ]
 
 #=========================================================
@@ -29,73 +27,87 @@ def raw_nthash(secret, hex=False):
     return hash.hexdigest() if hex else hash.digest()
 
 #=========================================================
-#algorithm information
+#handler
 #=========================================================
-name = "nthash"
-#stats: 128 bit checksum, no salt
+class NTHash(BaseHandler):
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "nthash"
+    setting_kwds = ("ident",)
 
-setting_kwds = ()
-context_kwds = ()
+    #=========================================================
+    #init
+    #=========================================================
+    _extra_init_settings = ("ident",)
 
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"""
-    ^
-    \$(?P<ident>3\$\$|NT\$)
-    (?P<chk>[a-f0-9]{32})
-    $
-    """, re.X)
+    @classmethod
+    def norm_ident(cls, value, strict=False):
+        if value is None:
+            if strict:
+                raise ValueError, "no ident specified"
+            return "3"
+        if value not in ("3", "NT"):
+            raise ValueError, "invalid ident"
+        return value
 
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid nthash"
-    ident, chk = m.group("ident", "chk")
-    out = dict(
-        checksum=chk,
-        )
-    ident=ident.strip("$")
-    if ident != "3":
-        out['ident'] = ident
-    return out
+    #=========================================================
+    #formatting
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and (hash.startswith("$3$") or hash.startswith("$NT$"))
 
-def render(checksum, ident=None):
-    if not ident or ident == "3":
-        return "$3$$" + checksum
-    elif ident == "NT":
-        return "$NT$" + checksum
-    else:
-        raise ValueError, "invalid ident"
+    _pat = re.compile(r"""
+        ^
+        \$(?P<ident>3\$\$|NT\$)
+        (?P<chk>[a-f0-9]{32})
+        $
+        """, re.X)
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(ident=None):
-    return render("0" * 32, ident)
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid nthash"
+        ident, chk = m.group("ident", "chk")
+        return cls(ident=ident.strip("$"), checksum=chk, strict=True)
 
-def genhash(secret, config):
-    info = parse(config)
-    if secret is None:
-        raise TypeError, "secret must be a string"
-    chk = raw_nthash(secret, hex=True)
-    return render(chk, info.get('ident'))
+    def to_string(self):
+        ident = self.ident
+        if ident == "3":
+            return "$3$$" + self.checksum
+        else:
+            assert ident == "NT"
+            return "$NT$" + self.checksum
 
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
+    #=========================================================
+    #primary interface
+    #=========================================================
+    _stub_checksum = "0" * 32
 
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
+    @classmethod
+    def genconfig(cls, ident=None):
+        return cls(ident=ident, checksum=self._stub_checksum).to_string()
 
-def identify(hash):
-    return bool(hash and _pat.match(hash))
+    def calc_checksum(self, secret):
+        if secret is None:
+            raise TypeError, "secret must be a string"
+        return raw_nthash(secret, hex=True)
 
-autodocument(globals())
+    #=========================================================
+    #eoc
+    #=========================================================
+
+autodocument(NTHash, settings_doc="""
+:param ident:
+    This handler supports two different :ref:`modular-crypt-format` identifiers.
+    It defaults to ``3``, but users may specify the alternate ``NT`` identifier
+    which is used in some contexts.
+""")
+register_crypt_handler(NTHash)
 #=========================================================
 #eof
 #=========================================================

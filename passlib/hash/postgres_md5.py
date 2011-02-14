@@ -10,64 +10,74 @@ from warnings import warn
 #site
 #libs
 #pkg
+from passlib.base import register_crypt_handler
 from passlib.utils import autodocument
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "PostgresMD5",
 ]
 
 #=========================================================
-#backend
+#handler
 #=========================================================
+class PostgresMD5(object):
+    #=========================================================
+    #algorithm information
+    #=========================================================
+    name = "postgres_md5"
+    setting_kwds = ()
+    context_kwds = ("user",)
 
-#=========================================================
-#algorithm information
-#=========================================================
-name = "postgres_md5"
-#stats: 512 bit checksum, username used as salt
+    #=========================================================
+    #formatting
+    #=========================================================
+    _pat = re.compile(r"^md5[0-9a-f]{32}$")
 
-setting_kwds = ()
-context_kwds = ("user",)
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"^md5[0-9a-f]{32}$")
+    #=========================================================
+    #primary interface
+    #=========================================================
+    @classmethod
+    def genconfig(cls):
+        return None
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig():
-    return None
+    @classmethod
+    def genhash(cls, secret, config, user):
+        if config and not cls.identify(config):
+            raise ValueError, "not a postgres-md5 hash"
+        return cls.encrypt(secret, user)
 
-def genhash(secret, config, user):
-    if config and not identify(config):
-        raise ValueError, "not a postgres-md5 hash"
-    if not user:
-        raise ValueError, "user keyword must be specified for this algorithm"
-    return "md5" + md5(secret + user).hexdigest().lower()
+    #=========================================================
+    #secondary interface
+    #=========================================================
+    @classmethod
+    def encrypt(cls, secret, user):
+        #FIXME: not sure what postgres' policy is for unicode
+        if not user:
+            raise ValueError, "user keyword must be specified for this algorithm"
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        if isinstance(user, unicode):
+            user = user.encode("utf-8")
+        return "md5" + md5(secret + user).hexdigest().lower()
 
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, user, **settings):
-    return genhash(secret, genconfig(**settings), user)
+    @classmethod
+    def verify(cls, secret, hash, user):
+        if not hash:
+            raise ValueError, "no hash specified"
+        return hash == cls.genhash(secret, hash, user)
 
-def verify(secret, hash, user):
-    if not hash:
-        raise ValueError, "no hash specified"
-    return hash.lower() == genhash(secret, hash, user)
+    #=========================================================
+    #eoc
+    #=========================================================
 
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals(), context_doc="""\
+autodocument(PostgresMD5, context_doc="""\
 :param user: string containing name of postgres user account this password is associated with.
 """)
+register_crypt_handler(PostgresMD5)
 #=========================================================
 #eof
 #=========================================================

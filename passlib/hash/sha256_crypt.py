@@ -9,15 +9,13 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import norm_rounds, norm_salt, h64, autodocument
+from passlib.base import register_crypt_handler
+from passlib.utils import h64, autodocument, os_crypt
+from passlib.utils.handlers import BackendBaseHandler
 #pkg
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "SHA256Crypt",
 ]
 
 #=========================================================
@@ -170,145 +168,130 @@ _256_offsets = (
 )
 
 #=========================================================
-#choose backend
+#handler
 #=========================================================
+class SHA256Crypt(BackendBaseHandler):
 
-#fallback to default backend (defined above)
-backend = "builtin"
+    #=========================================================
+    #algorithm information
+    #=========================================================
+    name = "sha256_crypt"
 
-#check if stdlib crypt is available, and if so, if OS supports $5$ and $6$
-#XXX: is this test expensive enough it should be delayed
-#until sha-crypt is requested?
+    setting_kwds = ("salt", "rounds", "implicit_rounds")
 
-try:
-    from crypt import crypt
-except ImportError:
-    crypt = None
-else:
-    if crypt("test", "$5$rounds=1000$test") == "$5$rounds=1000$test$QmQADEXMG8POI5WDsaeho0P36yK3Tcrgboabng6bkb/":
-        backend = "os-crypt"
-    else:
-        crypt = None
-
-#=========================================================
-#algorithm information
-#=========================================================
-name = "sha256_crypt"
-#stats: 256 bit checksum, 96 bit salt, 1000..10e8-1 rounds
-
-setting_kwds = ("salt", "rounds")
-context_kwds = ()
-
-default_rounds = 40000 #current passlib default
-min_rounds = 1000
-max_rounds = 999999999
-rounds_cost = "linear"
-
-min_salt_chars = 0
-max_salt_chars = 16
-
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"""
-    ^
-    \$5
-    (\$rounds=(?P<rounds>\d+))?
-    \$
-    (
-        (?P<salt1>[^:$]*)
-        |
-        (?P<salt2>[^:$]{0,16})
-        \$
-        (?P<chk>[A-Za-z0-9./]{43})?
-    )
-    $
-    """, re.X)
-
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid sha256-crypt hash"
-    rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
-    if rounds and rounds.startswith("0"):
-        raise ValueError, "invalid sha256-crypt hash: zero-padded rounds"
-    return dict(
-        implicit_rounds = not rounds,
-        rounds=int(rounds) if rounds else 5000,
-        salt=salt1 or salt2,
-        checksum=chk,
-    )
-
-def render(rounds, salt, checksum=None, implicit_rounds=True):
-    assert '$' not in salt
-    if rounds == 5000 and implicit_rounds:
-        return "$5$%s$%s" % (salt, checksum or '')
-    else:
-        return "$5$rounds=%d$%s$%s" % (rounds, salt, checksum or '')
-
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(salt=None, rounds=None, implicit_rounds=True):
-    """generate sha256-crypt configuration string
-
-    :param salt:
-        optional salt string to use.
-
-        if omitted, one will be automatically generated (recommended).
-
-        length must be 0 .. 16 characters inclusive.
-        characters must be in range ``A-Za-z0-9./``.
-
-    :param rounds:
-
-        optional number of rounds, must be between 1000 and 999999999 inclusive.
-
-    :param implicit_rounds:
-
-        this is an internal option which generally doesn't need to be touched.
-
-    :returns:
-        sha256-crypt configuration string.
-    """
+    min_salt_chars = 0
+    max_salt_chars = 16
     #TODO: allow salt charset 0-255 except for "\x00\n:$"
-    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
-    rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
-    return render(rounds, salt, None, implicit_rounds)
 
-def genhash(secret, config):
-    #parse and run through genconfig to validate configuration
-    info = parse(config)
-    info.pop("checksum")
-    config = genconfig(**info)
+    default_rounds = 40000 #current passlib default
+    min_rounds = 1000
+    max_rounds = 999999999
+    rounds_cost = "linear"
 
-    #run through chosen backend
-    if crypt:
-        #using system's crypt routine.
+    #=========================================================
+    #init
+    #=========================================================
+    def __init__(self, implicit_rounds=None, **kwds):
+        if implicit_rounds is None:
+            implicit_rounds = True
+        self.implicit_rounds = implicit_rounds
+        super(SHA512Crypt, self).__init__(**kwds)
+
+    #=========================================================
+    #parsing
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and hash.startswith("$5$")
+
+    #: regexp used to parse hashes
+    _pat = re.compile(r"""
+        ^
+        \$5
+        (\$rounds=(?P<rounds>\d+))?
+        \$
+        (
+            (?P<salt1>[^:$]*)
+            |
+            (?P<salt2>[^:$]{0,16})
+            \$
+            (?P<chk>[A-Za-z0-9./]{43})?
+        )
+        $
+        """, re.X)
+
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        #TODO: write non-regexp based parser,
+        # and rely on norm_salt etc to handle more of the validation.
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid sha256-crypt hash"
+        rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
+        if rounds and rounds.startswith("0"):
+            raise ValueError, "invalid sha256-crypt hash (zero-padded rounds)"
+        return cls(
+            implicit_rounds = not rounds,
+            rounds=int(rounds) if rounds else 5000,
+            salt=salt1 or salt2,
+            checksum=chk,
+            strict=bool(chk),
+        )
+
+    def to_string(self):
+        if self.rounds == 5000 and self.implicit_rounds:
+            return "$5$%s$%s" % (self.salt, self.checksum or '')
+        else:
+            return "$5$rounds=%d$%s$%s" % (self.rounds, self.salt, self.checksum or '')
+
+    #=========================================================
+    #backend
+    #=========================================================
+    backends = ("os_crypt", "builtin")
+
+    _has_backend_builtin = True
+
+    @classproperty
+    def _has_backend_os_crypt(cls):
+        return bool(
+            os_crypt and
+            os_crypt("test", "$5$rounds=1000$test") ==
+            "$5$rounds=1000$test$QmQADEXMG8POI5WDsaeho0P36yK3Tcrgboabng6bkb/"
+            )
+
+    def _calc_checksum_builtin(self, secret):
+        checksum, salt, rounds = raw_sha256_crypt(secret, self.salt, self.rounds)
+        assert salt == self.salt, "class doesn't agree w/ builtin backend"
+        assert rounds == self.rounds, "class doesn't agree w/ builtin backend"
+        return checksum
+
+    def _calc_checksum_os_crypt(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        return crypt(secret, config)
-    else:
-        #using builtin routine
-        info = parse(config)
-        checksum, salt, rounds = raw_sha256_crypt(secret, info['salt'], info['rounds'])
-        return render(rounds, salt, checksum, info['implicit_rounds'])
+        #NOTE: avoiding full parsing routine via from_string().checksum,
+        # and just extracting the bit we need.
+        result = os_crypt(secret, self.to_string())
+        assert result.startswith("$5$")
+        chk = result[-43:]
+        assert '$' not in chk
+        return chk
 
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
+    #=========================================================
+    #eoc
+    #=========================================================
 
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
+autodocument(SHA256Crypt, settings_doc="""
+:param implicit_rounds:
+    this is an internal option which generally doesn't need to be touched.
 
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+    this flag determines whether the hash should omit the rounds parameter
+    when encoding it to a string; this is only permitted by the spec for rounds=5000,
+    and the flag is ignored otherwise. the spec requires the two different
+    encodings be preserved as they are, instead of normalizing them.
+""")
+register_crypt_handler(SHA256Crypt)
 #=========================================================
 #eof
 #=========================================================

@@ -12,40 +12,19 @@ import re
 import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
-try:
-    from M2Crypto import EVP as _EVP
-except ImportError:
-    _EVP = None
 #libs
 from passlib.utils import norm_rounds, norm_salt, autodocument, h64
 from passlib.utils.handlers import BaseHandler
+from passlib.utils.pbkdf2 import hmac_sha1
 from passlib.base import register_crypt_handler
 #pkg
 #local
 __all__ = [
 ]
-
-#=========================================================
-#backend
-#=========================================================
-def hmac_sha1(key, msg):
-    return hmac(key, msg, sha1).digest()
-
-if _EVP:
-    try:
-        result = _EVP.hmac('x','y') #default *should* be sha1, which saves us a wrapper, but might as well check.
-    except ValueError:
-        pass
-    else:
-        if result == ',\x1cb\xe0H\xa5\x82M\xfb>\xd6\x98\xef\x8e\xf9oQ\x85\xa3i':
-            hmac_sha1 = _EVP.hmac
-
-#TODO: should test for crypt support (NetBSD only)
-
 #=========================================================
 #sha1-crypt
 #=========================================================
-class Sha1Crypt(BaseHandler):
+class SHA1Crypt(BaseHandler):
 
     #=========================================================
     #class attrs
@@ -129,8 +108,8 @@ class Sha1Crypt(BaseHandler):
     #eoc
     #=========================================================
 
-autodocument(Sha1Crypt)
-register_crypt_handler(Sha1Crypt)
+autodocument(SHA1Crypt)
+register_crypt_handler(SHA1Crypt)
 #=========================================================
 #eof
 #=========================================================

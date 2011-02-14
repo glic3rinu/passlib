@@ -9,25 +9,25 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.handler_utils import _HandlerTestCase
-import passlib.hash.postgres_md5 as mod
+from passlib.hash.postgres_md5 import PostgresMD5
 #module
 log = getLogger(__name__)
 
 #=========================================================
 #database hashes
 #=========================================================
-class PostgresMd5CryptTest(_HandlerTestCase):
-    handler = mod
-    known_correct = (
+class PostgresMD5CryptTest(_HandlerTestCase):
+    handler = PostgresMD5
+    known_correct = [
         # ((secret,user),hash)
         (('mypass', 'postgres'), 'md55fba2ea04fd36069d2574ea71c8efe9d'),
         (('mypass', 'root'), 'md540c31989b20437833f697e485811254b'),
         (("testpassword",'testuser'), 'md5d4fc5129cc2c25465a5370113ae9835f'),
-    )
-    known_invalid = (
+    ]
+    known_invalid = [
         #bad 'z' char in otherwise correct hash
         'md54zc31989b20437833f697e485811254b',
-    )
+    ]
 
     #NOTE: used to support secret=(password, user) format, but removed it for now.
     ##def test_tuple_mode(self):
