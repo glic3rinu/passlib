@@ -435,6 +435,7 @@ class BaseHandler(object):
 #=========================================================
 #plain - mysql_323, mysql_41, nthash, postgres_md5
 #=========================================================
+#XXX: rename this? StaticHandler? NoSettingHandler? and give this name to WrapperHandler
 class PlainHandler(object):
     """helper class optimized for implementing hash schemes which have NO settings whatsoever"""
     #=========================================================
@@ -537,24 +538,13 @@ class WrapperHandler(object):
     context_kwds = ()
 
     #=====================================================
-    #required methods
-    #=====================================================
-    @classmethod
-    def genconfig(cls, **settings):
-        raise NotImplementedError, "%s subclass must implement genconfig()" % (cls,)
-
-    @classmethod
-    def genhash(cls, secret, config):
-        raise NotImplementedError, "%s subclass must implement genhash()" % (cls,)
-
-    #=====================================================
-    #default methods (usually subclassed)
+    #formatting (usually subclassed)
     #=====================================================
     @classmethod
     def identify(cls, hash):
-        #NOTE: relying on genhash throwing error for invalid,
-        # but takes a long time for non-invalid.
-        # subclasses *really* should override this.
+        #NOTE: this relys on genhash throwing error for invalid hashes.
+        # this approach is bad because genhash may take a long time on valid hashes,
+        # so subclasses *really* should override this.
         try:
             cls.genhash('stub', hash)
             return True
@@ -562,7 +552,23 @@ class WrapperHandler(object):
             return False
 
     #=====================================================
-    #default methods (rarely subclassed)
+    #primary interface (must be subclassed)
+    #=====================================================
+    @classmethod
+    def genconfig(cls, **settings):
+        if cls.setting_kwds:
+            raise NotImplementedError, "%s subclass must implement genconfig()" % (cls,)
+        else:
+            if settings:
+                raise TypeError, "%s genconfig takes no kwds" % (cls.name,)
+            return None
+
+    @classmethod
+    def genhash(cls, secret, config):
+        raise NotImplementedError, "%s subclass must implement genhash()" % (cls,)
+
+    #=====================================================
+    #secondary interface (rarely subclassed)
     #=====================================================
     @classmethod
     def encrypt(cls, secret, **settings):
@@ -571,6 +577,8 @@ class WrapperHandler(object):
 
     @classmethod
     def verify(cls, secret, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
         return hash == cls.genhash(secret, hash)
 
     #=====================================================

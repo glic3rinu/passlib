@@ -27,8 +27,8 @@ except ImportError:
 #pkg
 from passlib.tests.utils import TestCase, enable_option
 from passlib.utils import _slow_bcrypt as slow_bcrypt
-from passlib.tests.handler_utils import _HandlerTestCase
-import passlib.hash.bcrypt as mod
+from passlib.tests.handler_utils import _HandlerTestCase, create_backend_case
+from passlib.hash.bcrypt import BCrypt
 
 #=========================================================
 #utils
@@ -61,15 +61,10 @@ class UtilTest(TestCase):
             ])
 
 #=========================================================
-#test slow_bcrypt backend
+#test frontend bcrypt algorithm
 #=========================================================
 
-#NOTE: disabled these because BCryptTest is probably sufficient.
-# if motivated, could move these test vectors into that test.
-##class _BCryptTestBase(TestCase):
-##    mod = None
-##
-##    #XXX: where did these test vectors come from? jBCrypt?
+#XXX: do we really need all these test vectors?
 ##    test_vectors = [
 ##        [ "",
 ##        "$2a$06$DCq7YPn5Rq63x1Lad4cll.",
@@ -136,96 +131,9 @@ class UtilTest(TestCase):
 ##        "$2a$12$WApznUOJfkEGSmYRfnkrPO",
 ##        "$2a$12$WApznUOJfkEGSmYRfnkrPOr466oFDCaj4b6HY3EXGvfxm43seyhgC" ],
 ##        ]
-##
-##    def test_00_hashpw(self):
-##        "test hashpw() generates expected result for a given plaintext & salt"
-##        hashpw = self.mod.hashpw
-##        for plain, salt, expected in self.test_vectors:
-##            hashed = hashpw(plain, salt)
-##            self.assertEquals(hashed, expected)
-##
-##    def test_01_hashpw_success(self):
-##        "test hashpw() verifies knowns correctly"
-##        hashpw = self.mod.hashpw
-##        for plain, _, expected in self.test_vectors:
-##            hash = hashpw(plain, expected)
-##            self.assertEquals(hash, expected)
-##
-##    def test_02_hashpw_failure(self):
-##        "test hashpw() negatively verifies incorrect knowns"
-##        hashpw = self.mod.hashpw
-##        for plain, _, expected in self.test_vectors:
-##            hash = hashpw(plain + 'number 15', expected)
-##            self.assertNotEquals(hash, expected)
-##
-##    def test_03_gensalt(self):
-##        "test new salts verifies correctly"
-##        hashpw = self.mod.hashpw
-##        gensalt = self.mod.gensalt
-##        seen = set()
-##        for plain, _, _ in self.test_vectors:
-##            if plain in seen:
-##                continue
-##            seen.add(plain)
-##
-##            #create salt
-##            salt = gensalt()
-##
-##            #hash it
-##            hashed1 = hashpw(plain, salt)
-##
-##            #run check again
-##            hashed2 = hashpw(plain, hashed1)
-##
-##            #hashes shouldn't have changed
-##            self.assertEquals(hashed1, hashed2)
-##
-##    def test_04_gensalt(self):
-##        "test gensalt options"
-##        hashpw = self.mod.hashpw
-##        gensalt = self.mod.gensalt
-##        seen = set()
-##        for plain, _, _ in self.test_vectors:
-##            if plain in seen:
-##                continue
-##            seen.add(plain)
-##
-##            #create salt
-##            salt = gensalt(4)
-##
-##            #hash it
-##            hashed1 = hashpw(plain, salt)
-##
-##            #run check again
-##            hashed2 = hashpw(plain, hashed1)
-##
-##            #hashes shouldn't have changed
-##            self.assertEquals(hashed1, hashed2)
-##
-##    #=========================================================
-##    #eoc
-##    #=========================================================
-##
-##if enable_option("slow") and enable_option("all-backends" if pybcrypt else "backends"):
-##    class SlowBcryptTest(_BCryptTestBase):
-##        "test slow bcrypt module"
-##        case_prefix = "builtin bcrypt() backend"
-##        mod = slow_bcrypt
-##
-##if pybcrypt and enable_option("backends"):
-##    #if pybcrypt is installed, run our unitest on them too,
-##    #just to ensure slow_bcrypt's interface is compatible.
-##    class PyBcryptTest(_BCryptTestBase):
-##        "make sure slow_bcrypt is compatible w/ pybcrypt"
-##        case_prefix = "pybcrypt bcrypt() backend"
-##
-##        mod = pybcrypt
 
-#=========================================================
-#test frontend bcrypt algorithm
-#=========================================================
 class BCryptTest(_HandlerTestCase):
-    handler = mod
+    handler = BCrypt
     secret_chars = 72
 
     known_correct = (
@@ -237,30 +145,22 @@ class BCryptTest(_HandlerTestCase):
         ('~!@#$%^&*()      ~!@#$%^&*()PNBFRD', '$2a$10$LgfYWkbzEvQ4JakH7rOvHe0y8pHKF9OaFgwUZ2q7W2FFZmZzJYlfS'),
         )
 
-    known_invalid = (
+    known_invalid = [
         #unsupported version
         "$2b$12$EXRkfkdmXn!gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q",
+    ]
+
+    known_identified_invalid = [
         #bad char in otherwise correct hash
         "$2a$12$EXRkfkdmXn!gzds2SSitu.MW9.gAVqa9eLS1//RYtYCmB1eLHg.9q",
         #rounds not zero-padded (pybcrypt rejects this, so so do we)
         '$2a$6$DCq7YPn5Rq63x1Lad4cll.TV4S6ytwfsfvkgY8jIucDrjc8deX1s.'
-        )
+        ]
 
-#NOTE: if pybcrypt backend is active, should examine if os-crypt backend is available, and test it as well
-
-if mod.backend != "builtin" and enable_option("all-backends") and enable_option("slow"):
-
-    #monkeypatch bcrypt mod so it uses builtin backend
-
-    class BuiltinBCryptTest(BCryptTest):
-        case_prefix = "bcrypt (builtin backend)"
-
-        def setUp(self):
-            self.tmp = mod.bcrypt
-            mod.bcrypt = slow_bcrypt.hashpw
-
-        def cleanUp(self):
-            mod.bcrypt = self.tmp
+#NOTE: pybcrypt backend will be chosen as primary if possible,
+#so just check for os crypt and builtin
+OsCrypt_BCryptTest = create_backend_case(BCryptTest, "os_crypt")
+Builtin_BCryptTest = create_backend_case(BCryptTest, "builtin") if enable_option("slow") else None
 
 #=========================================================
 #eof

@@ -67,8 +67,7 @@ from struct import pack
 from passlib.utils import rng, getrandbytes
 #local
 __all__ = [
-    'hashpw',
-    'gensalt',
+    'raw_bcrypt',
 ]
 #=========================================================
 #bcrypt/blowfish constants
@@ -525,14 +524,13 @@ def encode_hash(minor, rounds, salt, chk=None):
     "helper for formatting hash string"
     if not minor or minor == '\x00':
         minor = ''
-    salt = encode_base64(salt)
-    if chk:
-        return '$2%s$%02d$%s%s' % (minor, rounds, salt, encode_base64(chk))
-    else:
-        return '$2%s$%02d$%s' % (minor, rounds, salt)
+    return '$2%s$%02d$%s%s' % (minor, rounds, salt, chk or '')
 
 #=========================================================
-#hash class
+#base bcrypt helper
+#
+#interface designed only for use by passlib.hash.bcrypt.BCrypt
+#probably not suitable for other purposes
 #=========================================================
 
 RPLEN = range(0, BLOWFISH_P_LEN)
@@ -549,23 +547,42 @@ MASK_32 = 0xFfffFfff
 
 CHK_PACK = ">" + "I" * BF_CRYPT_CIPHERLEN
 
-def raw_bcrypt(password, salt, log_rounds):
+def raw_bcrypt(password, ident, salt, log_rounds):
     """perform central password hashing step in bcrypt scheme.
 
     :param password: the password to hash
-    :param salt: the binary salt to use
-    :param rounds: the log2 of the number of rounds
-    :returns: array containing hashed password
+    :param ident: identifier w/ minor version (eg 2, 2a)
+    :param salt: the binary salt to use (encoded in bcrypt-base64)
+    :param rounds: the log2 of the number of rounds (as int)
+    :returns: bcrypt-base64 encoded checksum
     """
-    # password byte[]
-    # salt byte[]
-    # log_rounds int
-    # returns byte[]
+    #
+    #parse inputs
+    #
 
+    #parse ident
+    if ident == '2':
+        minor = 0
+    elif ident == '2a':
+        minor = 1
+    else:
+        raise ValueError, "unknown ident: %r" % (ident,)
+
+    #decode & validate salt
+    salt = decode_base64(salt)
+    if len(salt) < BCRYPT_SALT_LEN:
+        raise ValueError, "Missing salt bytes"
+    elif len(salt) > BCRYPT_SALT_LEN:
+        salt = salt[:BCRYPT_SALT_LEN]
+
+    #prepare password
+    password = password.encode("utf-8")
+    if minor > 0:
+        password += '\x00'
+
+    #validate rounds
     if log_rounds < BCRYPT_MIN_ROUNDS or log_rounds > BCRYPT_MAX_ROUNDS:
         raise ValueError, "Bad number of rounds"
-    if len(salt) != BCRYPT_SALT_LEN:
-        raise ValueError, "Bad salt length: %r" % salt
 
     #
     #init blowfish key schedule
@@ -647,6 +664,8 @@ def raw_bcrypt(password, salt, log_rounds):
                 P[i], P[i+1] = l,r = encipher(l,r)
             for i in RSLEN_S2:
                 S[i], S[i+1] = l,r = encipher(l,r)
+        if rounds % 10 == 0:
+            print rounds
 
     #
     #encipher constant data
@@ -663,79 +682,8 @@ def raw_bcrypt(password, salt, log_rounds):
     #
     #encode cdata buffer to bytes
     #
-    return pack(CHK_PACK, *cdata)[:-1]
-
-#=========================================================
-#frontends
-#=========================================================
-
-def hashpw(password, salt):
-    """Hash a password using the OpenBSD bcrypt scheme.
-
-    :param password:
-        the password to hash
-    :param salt:
-        the salt to hash with (generated via gensalt)
-    :returns:
-        the hashed password
-    """
-    # "$2$rd$saltchk"
-    # "$2a$rd$saltchk"
-
-    #extract version number
-    if not salt.startswith("$2"):
-        raise ValueError, "Invalid salt version"
-    if salt[2] == '$':
-        minor = '\x00'
-        off = 3
-    else:
-        minor = salt[2]
-        if minor != 'a' or salt[3] != '$':
-            raise ValueError, "Invalid salt revision"
-        off = 4
-
-    #extract number of rounds
-    if salt[off+2] != '$':
-        raise ValueError, "Missing salt rounds"
-    rounds = int(salt[off:off+2])
-
-    #extract salt string
-    real_salt = salt[off+3:off+25] #25-3=22, 22*3/4=16.5, 16.5=.5 + BCRYPT_SALT_LEN
-    saltb = decode_base64(real_salt)
-    if len(saltb) < BCRYPT_SALT_LEN:
-        raise ValueError, "Missing salt bytes"
-    elif len(saltb) > BCRYPT_SALT_LEN:
-        saltb = saltb[:BCRYPT_SALT_LEN]
-
-    #prepare password
-    passwordb = password.encode("utf-8")
-    if minor >= 'a':
-        passwordb += '\x00'
-
-    #encrypt password
-    chk = raw_bcrypt(passwordb, saltb, rounds)
-
-    #return hash string
-    if minor < 'a':
-        minor = ''
-    return encode_hash(minor, rounds, saltb, chk)
-
-def gensalt(log_rounds=BCRYPT_DEFAULT_ROUNDS):
-    """Generate a salt for use with the BCrypt.hashpw() method.
-
-    :param log_rounds:
-        the log2 of the number of rounds of
-        hashing to apply - the work factor therefore increases as
-        2**log_rounds.
-    :returns:
-        the encoded random salt value
-    """
-    salt = getrandbytes(rng, BCRYPT_SALT_LEN)
-    if log_rounds < BCRYPT_MIN_ROUNDS:
-        log_rounds = BCRYPT_MIN_ROUNDS
-    elif log_rounds > BCRYPT_MAX_ROUNDS:
-        log_rounds = BCRYPT_MAX_ROUNDS
-    return encode_hash('a', log_rounds, salt)
+    raw = pack(CHK_PACK, *cdata)[:-1]
+    return encode_base64(raw)
 
 #=========================================================
 #eof

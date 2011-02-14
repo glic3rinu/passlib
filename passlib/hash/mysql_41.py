@@ -19,60 +19,64 @@ from warnings import warn
 #site
 #libs
 #pkg
+from passlib.base import register_crypt_handler
 from passlib.utils import autodocument
+from passlib.utils.handlers import WrapperHandler
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    "MySQL_41",
 ]
 
 #=========================================================
-#backend
+#handler
 #=========================================================
+class MySQL_41(WrapperHandler):
+    #=========================================================
+    #algorithm information
+    #=========================================================
+    name = "mysql_41"
+    setting_kwds = ()
 
-#=========================================================
-#algorithm information
-#=========================================================
-name = "mysql_41"
-#stats: 160 bit checksum, no salt
+    #=========================================================
+    #formatting
+    #=========================================================
+    _pat = re.compile(r"^\*[0-9A-F]{40}$", re.I)
 
-setting_kwds = ()
-context_kwds = ()
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
 
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"^\*[0-9A-F]{40}$", re.I)
+    #=========================================================
+    #backend
+    #=========================================================
+    #NOTE: using default genconfig() method
 
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig():
-    return None
+    @classmethod
+    def genhash(cls, secret, config):
+        if config and not cls.identify(config):
+            raise ValueError, "not a mysql-41 hash"
+        #FIXME: no idea if mysql has a policy about handling unicode passwords
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return '*' + sha1(sha1(secret).digest()).hexdigest().upper()
 
-def genhash(secret, config):
-    if config and not identify(config):
-        raise ValueError, "not a mysql-41 hash"
-    return '*' + sha1(sha1(secret).digest()).hexdigest().upper()
+    #=========================================================
+    #helpers
+    #=========================================================
+    #NOTE: using default encrypt() method
 
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
+    @classmethod
+    def verify(cls, secret, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        return hash.upper() == cls.genhash(secret, hash)
 
-def verify(secret, hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    return hash.upper() == genhash(secret, hash)
+    #=========================================================
+    #eoc
+    #=========================================================
 
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+autodocument(MySQL_41)
+register_crypt_handler(MySQL_41)
 #=========================================================
 #eof
 #=========================================================

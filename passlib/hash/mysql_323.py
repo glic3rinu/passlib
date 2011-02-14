@@ -20,34 +20,21 @@ from warnings import warn
 #pkg
 from passlib.base import register_crypt_handler
 from passlib.utils import autodocument
-from passlib.utils.handlers import PlainHandler
+from passlib.utils.handlers import WrapperHandler
 #local
 __all__ = [
-    "genhash",
-    "genconfig",
-    "encrypt",
-    "identify",
-    "verify",
+    'MySQL_323',
 ]
 
 #=========================================================
 #backend
 #=========================================================
-class MySQL_323(PlainHandler):
-
+class MySQL_323(WrapperHandler):
     #=========================================================
     #class attrs
     #=========================================================
     name = "mysql_323"
-
-    #=========================================================
-    #init
-    #=========================================================
-    @classmethod
-    def norm_checksum(cls, chk, strict=False):
-        if chk:
-            return chk.lower() #to make upper-case strings verify properly
-        return None
+    setting_kwds = ()
 
     #=========================================================
     #formatting
@@ -58,22 +45,20 @@ class MySQL_323(PlainHandler):
     def identify(cls, hash):
         return bool(hash and cls._pat.match(hash))
 
-    @classmethod
-    def from_string(cls, hash):
-        if not hash:
-            raise ValueError, "no hash specified"
-        m = cls._pat.match(hash)
-        if not m:
-            raise ValueError, "not a recognized mysql-323 hash"
-        return cls(checksum=hash)
-
-    def to_string(self):
-        return self.checksum
-
     #=========================================================
     #backend
     #=========================================================
-    def calc_checksum(self, secret):
+    #NOTE: using default genconfig
+
+    @classmethod
+    def genhash(cls, secret, config):
+        if config and not cls.identify(config):
+            raise ValueError, "not a mysql-41 hash"
+
+        #FIXME: no idea if mysql has a policy about handling unicode passwords
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+
         MASK_32 = 0xffffffff
         MASK_31 = 0x7fffffff
 
@@ -88,6 +73,17 @@ class MySQL_323(PlainHandler):
             nr2 = (nr2+((nr2 << 8) ^ nr1)) & MASK_32
             add = (add+tmp) & MASK_32
         return "%08x%08x" % (nr1 & MASK_31, nr2 & MASK_31)
+
+    #=========================================================
+    #helpers
+    #=========================================================
+    #NOTE: using default encrypt() method
+
+    @classmethod
+    def verify(cls, secret, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        return hash.lower() == cls.genhash(secret, hash)
 
     #=========================================================
     #eoc

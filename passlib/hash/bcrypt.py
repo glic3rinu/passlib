@@ -16,154 +16,144 @@ import re
 import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
+try:
+    from bcrypt import hashpw as pybcrypt_hashpw
+except ImportError:
+    pybcrypt_hashpw = None
 #libs
-from passlib.utils import norm_rounds, norm_salt, autodocument
+from passlib.base import register_crypt_handler
+from passlib.utils import autodocument, os_crypt
+from passlib.utils.handlers import BackendBaseHandler
+from passlib.utils._slow_bcrypt import raw_bcrypt as slow_raw_bcrypt
 #pkg
 #local
 __all__ = [
     "BCrypt",
-##    "bcrypt", "backend",
 ]
 
 #=========================================================
-#backend
+#handler
 #=========================================================
-#fall back to our much slower pure-python implementation
-from passlib.utils._slow_bcrypt import hashpw as bcrypt
-backend = "builtin"
+class BCrypt(BackendBaseHandler):
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "bcrypt"
+    setting_kwds = ("salt", "rounds", "ident")
 
-try:
-    #try importing py-bcrypt, it's much faster
-    from bcrypt import hashpw as bcrypt
-    backend = "pybcrypt"
-except ImportError:
-    #check for OS crypt support before falling back to pure python version
-    try:
-        from crypt import crypt
-    except ImportError:
-        pass
-    else:
-        if (
-            crypt("test", "$2a$04$......................") == '$2a$04$......................qiOQjkB8hxU8OzRhS.GhRMa4VUnkPty'
+    min_salt_chars = max_salt_chars = 22
+
+    default_rounds = 12 #current passlib default
+    min_rounds = 4 # bcrypt spec specified minimum
+    max_rounds = 31 # 32-bit integer limit (real_rounds=1<<rounds)
+    rounds_cost = "log2"
+
+    checksum_chars = 31
+
+    #=========================================================
+    #init
+    #=========================================================
+    _extra_init_settings = ("ident",)
+
+    @classmethod
+    def norm_ident(cls, ident, strict=False):
+        if not ident:
+            if strict:
+                raise ValueError, "no ident specified"
+            ident = "2a"
+        if ident not in ("2", "2a"):
+            raise ValueError, "invalid ident: %r" % (ident,)
+        return ident
+
+    #=========================================================
+    #formatting
+    #=========================================================
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and (hash.startswith("$2$") or hash.startswith("$2a$"))
+
+    _pat = re.compile(r"""
+        ^
+        \$(?P<ident>2a?)
+        \$(?P<rounds>\d{2})
+        \$(?P<salt>[A-Za-z0-9./]{22})
+        (?P<chk>[A-Za-z0-9./]{31})?
+        $
+        """, re.X)
+
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid bcrypt hash"
+        ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
+        return cls(
+            rounds=int(rounds),
+            salt=salt,
+            checksum=chk,
+            ident=ident,
+            strict=bool(chk),
+        )
+
+    def to_string(self):
+        return "$%s$%02d$%s%s" % (self.ident, self.rounds, self.salt, self.checksum or '')
+
+    #=========================================================
+    #primary interface
+    #=========================================================
+    backends = ("pybcrypt", "os_crypt", "builtin")
+
+    _has_backend_builtin = True
+
+    @classmethod
+    def _has_backend_pybcrypt(cls):
+        return pybcrypt_hashpw is not None
+
+    @classmethod
+    def _has_backend_os_crypt(cls):
+        return (
+            os_crypt
             and
-            crypt("test", "$2$04$......................") == '$2$04$......................1O4gOrCYaqBG3o/4LnT2ykQUt1wbyju'
-        ):
-            def bcrypt(secret, config):
-                if isinstance(secret, unicode):
-                    secret = secret.encode("utf-8")
-                hash = crypt(secret, config)
-                if not hash.startswith("$2a$") and not hash.startswith("$2$"):
-                    #means config was wrong
-                    raise ValueError, "not a bcrypt hash"
-                return hash
-            backend = "os-crypt"
+            os_crypt("test", "$2a$04$......................") ==
+                '$2a$04$......................qiOQjkB8hxU8OzRhS.GhRMa4VUnkPty'
+            and
+            os_crypt("test", "$2$04$......................") ==
+                '$2$04$......................1O4gOrCYaqBG3o/4LnT2ykQUt1wbyju'
+        )
 
-#XXX: should issue warning when _slow_bcrypt is first used.
+    @classmethod
+    def set_backend(cls, name=None):
+        result = super(BCrypt, cls).set_backend(name)
+        #issue warning if builtin is ever chosen by default
+        # (but if they explicitly ask for it, let it happen)
+        if name != "builtin" and result == "builtin":
+            warn("PassLib's builtin bcrypt is too slow for production use; PLEASE INSTALL pybcrypt")
+        return result
 
-#=========================================================
-#algorithm information
-#=========================================================
-name = "bcrypt"
-#stats: 192 bit checksum, 128 bit salt, 2**(4..31) rounds, max 72 chars of secret
+    def _calc_checksum_builtin(self, secret):
+        return slow_raw_bcrypt(secret, self.ident, self.salt, self.rounds)
 
-setting_kwds = ("salt", "rounds")
-context_kwds = ()
+    def _calc_checksum_os_crypt(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return os_crypt(secret, self.to_string())[-31:]
 
-min_salt_chars = max_salt_chars = 22
+    def _calc_checksum_pybcrypt(self, secret):
+        return pybcrypt_hashpw(secret, self.to_string())[-31:]
 
-default_rounds = 12 #current passlib default
-min_rounds = 4 # bcrypt spec specified minimum
-max_rounds = 31 # 32-bit integer limit (real_rounds=1<<rounds)
+    #=========================================================
+    #eoc
+    #=========================================================
 
-rounds_cost = "log2"
-
-#=========================================================
-#internal helpers
-#=========================================================
-_pat = re.compile(r"""
-    ^
-    \$(?P<ident>2a?)
-    \$(?P<rounds>\d{2})
-    \$(?P<salt>[A-Za-z0-9./]{22})
-    (?P<chk>[A-Za-z0-9./]{31})?
-    $
-    """, re.X)
-
-def parse(hash):
-    if not hash:
-        raise ValueError, "no hash specified"
-    m = _pat.match(hash)
-    if not m:
-        raise ValueError, "invalid bcrypt hash"
-    ident, rounds, salt, chk = m.group("ident", "rounds", "salt", "chk")
-    out = dict(
-        rounds=int(rounds),
-        salt=salt,
-        checksum=chk,
-    )
-    if ident == '2':
-        out['omit_null_suffix'] = True
-    return out
-
-def render(rounds, salt, checksum=None, omit_null_suffix=False):
-    if omit_null_suffix:
-        out = "$2$%02d$%s" % (rounds, salt)
-    else:
-        out = "$2a$%02d$%s" % (rounds, salt)
-    if checksum is not None:
-        out += "$" + checksum
-    return out
-
-#=========================================================
-#primary interface
-#=========================================================
-def genconfig(salt=None, rounds=None, omit_null_suffix=False):
-    ##"""generate bcrypt configuration string
-    ##
-    ##:param salt:
-    ##    optional salt string to use.
-    ##
-    ##    if omitted, one will be automatically generated (recommended).
-    ##
-    ##    length must be 22 characters.
-    ##    characters must be in range ``A-Za-z0-9./``.
-    ##
-    ##:param rounds:
-    ##
-    ##    optional number of rounds, must be between 4 and 31 inclusive.
-    ##
-    ##    unlike most algorithms, bcrypt's rounds value is logarithmic,
-    ##    each increase of +1 will double the actual number of rounds used.
-    ##
-    ##:returns:
-    ##    bcrypt configuration string.
-    ##"""
-    salt = norm_salt(salt, min_salt_chars, max_salt_chars, name=name)
-    rounds = norm_rounds(rounds, default_rounds, min_rounds, max_rounds, name=name)
-    return render(rounds, salt, None, omit_null_suffix)
-
-def genhash(secret, config):
-    #parse and run through genconfig to validate configuration
-    info = parse(config)
-    info.pop("checksum")
-    config = genconfig(**info)
-
-    #run through chosen backend
-    return bcrypt(secret, config)
-
-#=========================================================
-#secondary interface
-#=========================================================
-def encrypt(secret, **settings):
-    return genhash(secret, genconfig(**settings))
-
-def verify(secret, hash):
-    return hash == genhash(secret, hash)
-
-def identify(hash):
-    return bool(hash and _pat.match(hash))
-
-autodocument(globals())
+autodocument(BCrypt, settings_doc="""
+:param ident:
+    selects specific version of BCrypt hash that will be used.
+    Typically you want to leave this alone, and let it default to ``2a``,
+    but it can be set to ``2`` to use the older version of BCrypt.
+""")
+register_crypt_handler(BCrypt)
 #=========================================================
 #eof
 #=========================================================

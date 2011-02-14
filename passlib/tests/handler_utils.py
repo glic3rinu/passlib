@@ -323,8 +323,9 @@ class _HandlerTestCase(TestCase):
 #=========================================================
 def enable_backend_case(handler, name):
     "helper to check if a separate test is needed for the specified backend"
-    assert issubclass(handler, BackendMixin)
-    return enable_option("all-backends") and handler.get_backend() != name
+    assert issubclass(handler, BackendMixin), "handler must derived from BackendMixin"
+    assert name in handler.backends, "unknown backend: %r" % (name,)
+    return enable_option("all-backends") and handler.get_backend() != name and handler.has_backend(name)
 
 def create_backend_case(base_test, name):
     "create a test case (subclassing); if test doesn't need to be enabled, returns None"
@@ -332,9 +333,6 @@ def create_backend_case(base_test, name):
 
     if not enable_backend_case(handler, name):
         return None
-
-    assert issubclass(handler, BackendMixin) #sanity check
-    assert name in handler.backends #sanity check
 
     assert getattr(base_test, "setUp", None) is None #just haven't implemented this
     assert getattr(base_test, "cleanUp", None) is None #ditto

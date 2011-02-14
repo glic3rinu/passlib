@@ -9,8 +9,8 @@ from logging import getLogger
 #site
 #pkg
 from passlib.tests.handler_utils import _HandlerTestCase
-import passlib.hash.mysql_323 as mod3
-import passlib.hash.mysql_41 as mod4
+from passlib.hash.mysql_323 import MySQL_323
+from passlib.hash.mysql_41 import MySQL_41
 #module
 log = getLogger(__name__)
 
@@ -18,7 +18,7 @@ log = getLogger(__name__)
 #database hashes
 #=========================================================
 class MySQL_323Test(_HandlerTestCase):
-    handler = mod3.MySQL_323
+    handler = MySQL_323
 
     #remove single space from secrets, since mysql-323 ignores all whitespace (?!)
     standard_secrets = [ x for x in _HandlerTestCase.standard_secrets if x != ' ' ]
@@ -38,14 +38,14 @@ class MySQL_323Test(_HandlerTestCase):
         self.assertEqual(h, h2)
 
 class Mysql41CryptTest(_HandlerTestCase):
-    handler = mod4
+    handler = MySQL_41
     known_correct = (
         ('mypass', '*6C8989366EAF75BB670AD8EA7A7FC1176A95CEF4'),
     )
-    known_invalid = (
+    known_invalid = [
         #bad char in otherwise correct hash
         '*6Z8989366EAF75BB670AD8EA7A7FC1176A95CEF4',
-    )
+    ]
 
 #=========================================================
 #EOF
