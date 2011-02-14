@@ -37,7 +37,7 @@ class MySQL_323Test(_HandlerTestCase):
         h2 = self.do_encrypt("my pass")
         self.assertEqual(h, h2)
 
-class Mysql41CryptTest(_HandlerTestCase):
+class MySQL_41Test(_HandlerTestCase):
     handler = MySQL_41
     known_correct = (
         ('mypass', '*6C8989366EAF75BB670AD8EA7A7FC1176A95CEF4'),

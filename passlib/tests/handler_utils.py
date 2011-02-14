@@ -8,7 +8,7 @@ import re
 from nose.plugins.skip import SkipTest
 #pkg
 from passlib.tests.utils import TestCase, enable_option
-from passlib.utils.handlers import ExtHandler, BackendMixin
+from passlib.utils.handlers import BaseHandler, BackendMixin
 #module
 __all__ = [
     "_HandlerTestCase",
@@ -122,9 +122,9 @@ class _HandlerTestCase(TestCase):
         self.assert_(re.match("^[a-z0-9_]+$", name), "name must be alphanum + underscore: %r" % (name,))
 
     def test_01_base_handler(self):
-        "run ExtHandler validation tests"
+        "check configuration of BaseHandler-derived classes"
         h = self.handler
-        if not isinstance(h, type) or not issubclass(h, ExtHandler):
+        if not isinstance(h, type) or not issubclass(h, BaseHandler):
             raise SkipTest
         h.validate_class() #should raise AssertionError if something's wrong.
 
