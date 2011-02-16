@@ -1,0 +1,284 @@
+"""passlib.hash.des_crypt - traditional unix (DES) crypt
+
+.. note::
+
+    passlib restricts salt characters to just the hash64 charset,
+    and salt string size to >= 2 chars; since implementations of des-crypt
+    vary in how they handle other characters / sizes...
+
+    linux
+
+        linux crypt() accepts salt characters outside the hash64 charset,
+        and maps them using the following formula (determined by examining crypt's output):
+            chr 0..64:      v = (c-(1-19)) & 63 = (c+18) & 63
+            chr 65..96:     v = (c-(65-12)) & 63 = (c+11) & 63
+            chr 97..127:    v = (c-(97-38)) & 63 = (c+5) & 63
+            chr 128..255:   same as c-128
+
+        invalid salt chars are mirrored back in the resulting hash.
+
+        if the salt is too small, it uses a NUL char for the remaining
+        character (which is treated the same as the char ``G``)
+        when decoding the 12 bit salt. however, it outputs
+        a hash string containing the single salt char twice,
+        resulting in a corrupted hash.
+
+    netbsd
+
+        netbsd crypt() uses a 128-byte lookup table,
+        which is only initialized for the hash64 values.
+        the remaining values < 128 are implicitly zeroed,
+        and values > 128 access past the array bounds
+        (but seem to return 0).
+
+        if the salt string is too small, it reads
+        the NULL char (and continues past the end for bsdi crypt,
+        though the buffer is usually large enough and NULLed).
+        salt strings are output as provided,
+        except for any NULs, which are converted to ``.``.
+
+    openbsd, freebsd
+
+        openbsd crypt() strictly defines the hash64 values as normal,
+        and all other char values as 0. salt chars are reported as provided.
+
+        if the salt or rounds string is too small,
+        it'll read past the end, resulting in unpredictable
+        values, though it'll terminate it's encoding
+        of the output at the first null.
+        this will generally result in a corrupted hash.
+"""
+
+#=========================================================
+#imports
+#=========================================================
+#core
+import re
+import logging; log = logging.getLogger(__name__)
+from warnings import warn
+#site
+#libs
+from passlib.base import register_crypt_handler
+from passlib.utils import h64, autodocument, classproperty, os_crypt
+from passlib.utils.handlers import BackendExtHandler, ExtHandler
+from passlib.utils.des import mdes_encrypt_int_block
+#pkg
+#local
+__all__ = [
+    "DesCrypt",
+]
+
+#=========================================================
+#pure-python backend
+#=========================================================
+def _crypt_secret_to_key(secret):
+    "crypt helper which converts lower 7 bits of first 8 chars of secret -> 56-bit des key, padded to 64 bits"
+    return sum(
+        (ord(c) & 0x7f) << (57-8*i)
+        for i, c in enumerate(secret[:8])
+    )
+
+def raw_crypt(secret, salt):
+    "pure-python fallback if stdlib support not present"
+    assert len(salt) == 2
+
+    #NOTE: technically could accept non-standard salts & single char salt,
+    #but no official spec.
+    try:
+        salt_value = h64.decode_int12(salt)
+    except ValueError:
+        raise ValueError, "invalid chars in salt"
+    #FIXME: ^ this will throws error if bad salt chars are used
+    # whereas linux crypt does something (inexplicable) with it
+
+    #convert secret string into an integer
+    key_value = _crypt_secret_to_key(secret)
+
+    #run data through des using input of 0
+    result = mdes_encrypt_int_block(key_value, 0, salt_value, 25)
+
+    #run h64 encode on result
+    return h64.encode_dc_int64(result)
+
+def raw_ext_crypt(secret, rounds, salt):
+    "ext_crypt() helper which returns checksum only"
+
+    #decode salt
+    try:
+        salt_value = h64.decode_int24(salt)
+    except ValueError:
+        raise ValueError, "invalid salt"
+
+    #validate secret
+    if '\x00' in secret:
+        #builtin linux crypt doesn't like this, so we don't either
+        #XXX: would make more sense to raise ValueError, but want to be compatible w/ stdlib crypt
+        raise ValueError, "secret must be string without null bytes"
+
+    #convert secret string into an integer
+    key_value = _crypt_secret_to_key(secret)
+    idx = 8
+    end = len(secret)
+    while idx < end:
+        next = idx+8
+        key_value = mdes_encrypt_int_block(key_value, key_value) ^ \
+                                        _crypt_secret_to_key(secret[idx:next])
+        idx = next
+
+    #run data through des using input of 0
+    result = mdes_encrypt_int_block(key_value, 0, salt_value, rounds)
+
+    #run h64 encode on result
+    return h64.encode_dc_int64(result)
+
+#=========================================================
+#handler
+#=========================================================
+class DesCrypt(BackendExtHandler):
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "des_crypt"
+    setting_kwds = ("salt",)
+    min_salt_chars = max_salt_chars = 2
+
+    #=========================================================
+    #formatting
+    #=========================================================
+    #FORMAT: 2 chars of H64-encoded salt + 11 chars of H64-encoded checksum
+
+    _pat = re.compile(r"""
+        ^
+        (?P<salt>[./a-z0-9]{2})
+        (?P<chk>[./a-z0-9]{11})?
+        $""", re.X|re.I)
+
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
+
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid des-crypt hash"
+        salt, chk = m.group("salt", "chk")
+        return cls(salt=salt, checksum=chk, strict=bool(chk))
+
+    def to_string(self):
+        return "%s%s" % (self.salt, self.checksum or '')
+
+    #=========================================================
+    #backend
+    #=========================================================
+    backends = ("os_crypt", "builtin")
+
+    _has_backend_builtin = True
+
+    @classproperty
+    def _has_backend_os_crypt(cls):
+        return os_crypt and os_crypt("test", "ab") == 'abgOeLfPimXQo'
+
+    def _calc_checksum_builtin(self, secret):
+        #forbidding nul chars because linux crypt (and most C implementations) won't accept it either.
+        if '\x00' in secret:
+            raise ValueError, "null char in secret"
+        #gotta do something - no official policy since des-crypt predates unicode
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return raw_crypt(secret, self.salt)
+
+    def _calc_checksum_os_crypt(self, secret):
+        #os_crypt() would raise less useful error
+        if '\x00' in secret:
+            raise ValueError, "null char in secret"
+        #gotta do something - no official policy since des-crypt predates unicode
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return os_crypt(secret, self.salt)[2:]
+
+    #=========================================================
+    #eoc
+    #=========================================================
+
+autodocument(DesCrypt)
+register_crypt_handler(DesCrypt)
+
+#=========================================================
+#handler
+#=========================================================
+#XXX: rename this to BSDiCrypt?
+class ExtDesCrypt(ExtHandler):
+    #=========================================================
+    #class attrs
+    #=========================================================
+    name = "ext_des_crypt"
+    setting_kwds = ("salt", "rounds")
+
+    min_salt_chars = max_salt_chars = 4
+
+    default_rounds = 1000
+    min_rounds = 0
+    max_rounds = 16777215 # (1<<24)-1
+    rounds_cost = "linear"
+
+    checksum_chars = 11
+    checksum_charset = h64.CHARS
+
+    # NOTE: OpenBSD login.conf reports 7250 as minimum allowed rounds,
+    # but that seems to be an OS policy, not a algorithm limitation.
+
+    #=========================================================
+    #internal helpers
+    #=========================================================
+    _pat = re.compile(r"""
+        ^
+        _
+        (?P<rounds>[./a-z0-9]{4})
+        (?P<salt>[./a-z0-9]{4})
+        (?P<chk>[./a-z0-9]{11})?
+        $""", re.X|re.I)
+
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash and cls._pat.match(hash))
+
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid ext-des-crypt hash"
+        rounds, salt, chk = m.group("rounds", "salt", "chk")
+        return cls(
+            rounds=h64.decode_int24(rounds),
+            salt=salt,
+            checksum=chk,
+            strict=bool(chk),
+        )
+
+    def to_string(self):
+        return "_%s%s%s" % (h64.encode_int24(self.rounds), self.salt, self.checksum or '')
+
+    #=========================================================
+    #backend
+    #=========================================================
+    #TODO: check if os_crypt supports ext-des-crypt.
+
+    def calc_checksum(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return raw_ext_crypt(secret, self.rounds, self.salt)
+
+    #=========================================================
+    #eoc
+    #=========================================================
+
+autodocument(ExtDesCrypt)
+register_crypt_handler(ExtDesCrypt)
+#=========================================================
+#eof
+#=========================================================

@@ -1,0 +1,2 @@
+relre:docs/_build
+glob:*.pyc
