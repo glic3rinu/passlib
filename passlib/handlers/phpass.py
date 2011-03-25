@@ -9,7 +9,7 @@ phpass context - blowfish, ext_des_crypt, phpass
 #imports
 #=========================================================
 #core
-from hashlib import md5
+from hashlib import md5, sha512
 import re
 import logging; log = logging.getLogger(__name__)
 from warnings import warn
@@ -93,10 +93,10 @@ class phpass(ExtendedHandler):
         return bool(hash) and (hash.startswith("$P$") or hash.startswith("$H$"))
 
     #$P$9IQRaTwmfeRo7ud9Fh4E2PdI0S3r.L0
-    # $P$
-    # 9
-    # IQRaTwmf
-    # eRo7ud9Fh4E2PdI0S3r.L0
+    # $P$                       <- ident
+    # 9                         <- rounds
+    # IQRaTwmf                  <- salt
+    # eRo7ud9Fh4E2PdI0S3r.L0    <- checksum
     _pat = re.compile(r"""
         ^
         \$
@@ -145,6 +145,138 @@ class phpass(ExtendedHandler):
     #=========================================================
     #eoc
     #=========================================================
+
+#=========================================================
+#drupal 7 descendant of phpass...
+#=========================================================
+
+#other hashes drupal7 tables can have: drupal7 (below), phpass (P & H),
+# and (possibly md5 - hex or other?) - upgraded flag for drupal7 seems to imply something of that type.
+# it looks like we also need U$P$ support as well.
+
+class drupal7_upgraded_phpass(phpass):
+    "variant of PHPass found in Drupal7, known as an 'upgraded' phpass hash, since the hash is actually of an existing MD5 digest of the password"
+    name = "drupal7_upgraded_phpass"
+
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and (hash.startswith("U$P$") or hash.startswith("U$H$"))
+
+    _pat = re.compile(r"""
+        ^
+        U\$
+        (?P<ident>[PH])
+        \$
+        (?P<rounds>[A-Za-z0-9./])
+        (?P<salt>[A-Za-z0-9./]{8})
+        (?P<chk>[A-Za-z0-9./]{22})?
+        $
+        """, re.X)
+
+    def to_string(self):
+        return "U" + super(drupal7_upgraded_phpass,self).to_string()
+
+    def calc_checksum(self, secret):
+        #FIXME: can't find definitive policy on how phpass handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        secret = md5(secret).hexdigest()
+        return super(drupal7_upgraded_phpass,self).calc_checksum(secret)
+
+class drupal7_sha512_phpass(ExtendedHandler):
+    "Descendant of PHPass Portable Hash used by Drupal 7. Main different is replacement of MD5 with SHA512, and truncation of hash to 55 chars"
+    name = "drupal7_sha512_phpass"
+    setting_kwds = ("salt", "rounds")
+
+    min_salt_chars = max_salt_chars = 8
+
+    min_rounds = 7
+    max_rounds = 30
+    default_rounds = 14
+    rounds_cost = "log2"
+
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and hash.startswith("$S$")
+
+    # $S$ {rounds:single h64 char} {salt:6 h64 chars}
+    _pat = re.compile(r"""
+        ^
+        \$S\$
+        (?P<rounds>[A-Za-z0-9./])
+        (?P<salt>[A-Za-z0-9./]{8})
+        (?P<chk>[A-Za-z0-9./]{43})?
+        $
+        """, re.X)
+
+    @classmethod
+    def from_string(cls, hash):
+        if not hash:
+            raise ValueError, "no hash specified"
+        m = cls._pat.match(hash)
+        if not m:
+            raise ValueError, "invalid phpass portable hash"
+        rounds, salt, chk = m.group("rounds", "salt", "chk")
+        return cls(
+            rounds=h64.decode_6bit(rounds),
+            salt=salt,
+            checksum=chk,
+            strict=bool(chk),
+        )
+
+    def to_string(self):
+        return "$S$%s%s%s" % (h64.encode_6bit(self.rounds), self.salt, self.checksum or '')
+
+    #=========================================================
+    #backend
+    #=========================================================
+    def calc_checksum(self, secret):
+        #FIXME: can't find definitive policy on how drupal7 handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        real_rounds = 1<<self.rounds
+        result = sha512(self.salt + secret).digest()
+        r = 0
+        while r < real_rounds:
+            result = sha512(result + secret).digest()
+            r += 1
+        #drupal limits total size to 55 chars, so given 12 char prefix,
+        #sha512 is truncated. this leaves only 256 bits worth of checksum.
+        #md5 will be left alone, resulting in valid PHPass hashes.
+        return h64.encode_bytes(result)[:55-12]
+
+    #=========================================================
+    #eoc
+    #=========================================================
+
+class drupal7_upgraded_sha512_phpass(drupal7_sha512_phpass):
+    "variant of Drupal7-SHA512-PHPass found in Drupal7, known as an 'upgraded' hash, since the hash is actually of an existing MD5 digest of the password"
+    name = "drupal7_upgraded_sha512_phpass"
+
+    setting_kwds = ("salt")
+
+    @classmethod
+    def identify(cls, hash):
+        return bool(hash) and hash.startswith("U$S$")
+
+    _pat = re.compile(r"""
+        ^
+        U\$S\$
+        (?P<rounds>[A-Za-z0-9./])
+        (?P<salt>[A-Za-z0-9./]{8})
+        (?P<chk>[A-Za-z0-9./]{22})?
+        $
+        """, re.X)
+
+    def to_string(self):
+        return "U" + super(drupal7_upgraded_sha512_phpass,self).to_string()
+
+    def calc_checksum(self, secret):
+        #FIXME: can't find definitive policy on how phpass handles non-ascii.
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        secret = md5(secret).hexdigest()
+        return super(drupal7_upgraded_sha512_phpass,self).calc_checksum(secret)
 
 #=========================================================
 #eof
