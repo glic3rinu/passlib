@@ -447,8 +447,13 @@ class CryptContextTest(TestCase):
     def test_02_no_handlers(self):
         "test no handlers"
 
-        self.assertRaises(ValueError, CryptContext, [])
+        #check constructor...
+        cc = CryptContext()
+        self.assertRaises(KeyError, cc.identify, 'hash', required=True)
+        self.assertRaises(KeyError, cc.encrypt, 'secret')
+        self.assertRaises(KeyError, cc.verify, 'secret', 'hash')
 
+        #check updating policy after the fact...
         cc = CryptContext(['md5_crypt'])
         p = CryptPolicy(schemes=[])
         cc.policy = p
@@ -691,12 +696,40 @@ class CryptContextTest(TestCase):
         d = time.time()-s
         self.assertTrue(d>=.09,d)
         self.assertTrue(d<.5)
-        
+
         #this may take longer, so we just check min
         s = time.time()
         cc.verify("password", '_2b..iHVSUNMkJT.GcFU')
         d = time.time()-s
         self.assertTrue(d>=.09, "mvt=.1, delta=%r" % (d,))
+
+    def test_25_verify_and_update(self):
+        "test verify_and_update()"
+        cc = CryptContext(**self.sample_policy_1)
+
+        #create some hashes
+        h1 = cc.encrypt("password", scheme="des_crypt")
+        h2 = cc.encrypt("password", scheme="sha256_crypt")
+
+        #check bad password, deprecated hash
+        ok, new_hash = cc.verify_and_update("wrongpass", h1)
+        self.assertFalse(ok)
+        self.assertIs(new_hash, None)
+
+        #check bad password, good hash
+        ok, new_hash = cc.verify_and_update("wrongpass", h2)
+        self.assertFalse(ok)
+        self.assertIs(new_hash, None)
+
+        #check right password, deprecated hash
+        ok, new_hash = cc.verify_and_update("password", h1)
+        self.assertTrue(ok)
+        self.assertTrue(cc.identify(new_hash), "sha256_crypt")
+
+        #check right password, good hash
+        ok, new_hash = cc.verify_and_update("password", h2)
+        self.assertTrue(ok)
+        self.assertIs(new_hash, None)
 
     #=========================================================
     #eoc

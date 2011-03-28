@@ -10,6 +10,7 @@ import re
 from warnings import warn
 #site
 #libs
+from passlib.utils import ALL_BYTE_VALUES
 from passlib.utils.handlers import ExtendedHandler, SimpleHandler
 #pkg
 #local
@@ -39,11 +40,11 @@ class _Base64DigestHelper(SimpleHandler):
     @classmethod
     def genhash(cls, secret, hash):
         if secret is None:
-            raise TypeError, "no secret provided"
+            raise TypeError("no secret provided")
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         if hash is not None and not cls.identify(hash):
-            raise ValueError, "not a %s hash" % (cls.name,)
+            raise ValueError("not a %s hash" % (cls.name,))
         return cls._ident + cls._hash(secret).digest().encode("base64").strip()
 
 class _SaltedBase64DigestHelper(ExtendedHandler):
@@ -55,7 +56,7 @@ class _SaltedBase64DigestHelper(ExtendedHandler):
     #_pat
     #_default_chk
     min_salt_chars = max_salt_chars = 4
-    salt_charset = ''.join(chr(x) for x in xrange(256))
+    salt_charset = ALL_BYTE_VALUES
 
     @classmethod
     def identify(cls, hash):
@@ -64,10 +65,10 @@ class _SaltedBase64DigestHelper(ExtendedHandler):
     @classmethod
     def from_string(cls, hash):
         if not hash:
-            raise ValueError, "no hash specified"
+            raise ValueError("no hash specified")
         m = cls._pat.match(hash)
         if not m:
-            raise ValueError, "not a %s hash" % (cls.name,)
+            raise ValueError("not a %s hash" % (cls.name,))
         tmp = m.group("tmp").decode("base64")
         chk, salt = tmp[:-4], tmp[-4:]
         return cls(checksum=chk, salt=salt, strict=True)
@@ -77,7 +78,7 @@ class _SaltedBase64DigestHelper(ExtendedHandler):
 
     def calc_checksum(self, secret):
         if secret is None:
-            raise TypeError, "no secret provided"
+            raise TypeError("no secret provided")
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         return self._hash(secret + self.salt).digest()
@@ -167,9 +168,9 @@ class ldap_plaintext(SimpleHandler):
     @classmethod
     def genhash(cls, secret, hash):
         if hash is not None and not cls.identify(hash):
-            raise ValueError, "not a valid ldap_cleartext hash"
+            raise ValueError("not a valid ldap_cleartext hash")
         if secret is None:
-            raise TypeError, "secret must be string"
+            raise TypeError("secret must be string")
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         return secret
@@ -177,7 +178,7 @@ class ldap_plaintext(SimpleHandler):
     @classmethod
     def verify(cls, secret, hash):
         if hash is None:
-            raise ValueError, "no hash specified"
+            raise ValueError("no hash specified")
         return hash == cls.genhash(secret, hash)
 
 #TODO: support {CRYPT} somehow (adapt per host?)

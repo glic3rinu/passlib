@@ -46,15 +46,15 @@ class unix_fallback(SimpleHandler):
     @classmethod
     def genhash(cls, secret, hash):
         if secret is None:
-            raise TypeError, "secret must be string"
+            raise TypeError("secret must be string")
         if hash is None:
-            raise ValueError, "no hash provided"
+            raise ValueError("no hash provided")
         return hash
 
     @classmethod
     def verify(cls, secret, hash):
         if hash is None:
-            raise ValueError, "no hash provided"
+            raise ValueError("no hash provided")
         return not hash
 
 class plaintext(SimpleHandler):
@@ -73,7 +73,7 @@ class plaintext(SimpleHandler):
     @classmethod
     def genhash(cls, secret, hash):
         if secret is None:
-            raise TypeError, "secret must be string"
+            raise TypeError("secret must be string")
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         return secret
@@ -81,7 +81,7 @@ class plaintext(SimpleHandler):
     @classmethod
     def verify(cls, secret, hash):
         if hash is None:
-            raise ValueError, "no hash specified"
+            raise ValueError("no hash specified")
         return hash == cls.genhash(secret, hash)
 
 #=========================================================

@@ -56,7 +56,7 @@ class postgres_md5(object):
     @classmethod
     def genhash(cls, secret, config, user):
         if config and not cls.identify(config):
-            raise ValueError, "not a postgres-md5 hash"
+            raise ValueError("not a postgres-md5 hash")
         return cls.encrypt(secret, user)
 
     #=========================================================
@@ -66,7 +66,7 @@ class postgres_md5(object):
     def encrypt(cls, secret, user):
         #FIXME: not sure what postgres' policy is for unicode
         if not user:
-            raise ValueError, "user keyword must be specified for this algorithm"
+            raise ValueError("user keyword must be specified for this algorithm")
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         if isinstance(user, unicode):
@@ -76,7 +76,7 @@ class postgres_md5(object):
     @classmethod
     def verify(cls, secret, hash, user):
         if not hash:
-            raise ValueError, "no hash specified"
+            raise ValueError("no hash specified")
         return hash == cls.genhash(secret, hash, user)
 
     #=========================================================

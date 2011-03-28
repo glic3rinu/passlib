@@ -3,6 +3,7 @@
 #imports
 #=================================================================================
 #core
+from base64 import b64encode, b64decode
 from cStringIO import StringIO
 from functools import update_wrapper
 from hashlib import sha256
@@ -127,6 +128,10 @@ class UndefType(object):
 
 Undef = UndefType() #singleton used as default kwd value in some functions
 
+#special byte string containing all possible byte values, used in a few places.
+#XXX: treated as singleton by some of the code for efficiency.
+ALL_BYTE_VALUES = ''.join(chr(x) for x in xrange(256))
+
 #==========================================================
 #protocol helpers
 #==========================================================
@@ -250,18 +255,18 @@ def list_to_bytes(value, bytes=None, order="big"):
     """
     #make sure all elements have valid values
     if any( elem < 0 or elem > 255 for elem in value):
-        raise ValueError, "value must be list of integers in range(0,256): %r" % (value,)
+        raise ValueError("value must be list of integers in range(0,256): %r" % (value,))
 
     #validate bytes / upper
     if bytes is None:
         bytes = len(value)
         if bytes == 0:
-            raise ValueError, "empty list not allowed"
+            raise ValueError("empty list not allowed")
     else:
         if bytes < 1:
-            raise ValueError, "bytes must be None or >= 1: %r" % (bytes,)
+            raise ValueError("bytes must be None or >= 1: %r" % (bytes,))
         if len(value) > bytes:
-            raise ValueError, "list too large for number of bytes: bytes=%r len=%r" % (bytes, len(value))
+            raise ValueError("list too large for number of bytes: bytes=%r len=%r" % (bytes, len(value)))
 
     #encode list in big endian mode
     out = ''.join( chr(elem) for elem in value )
@@ -310,6 +315,40 @@ _join = "".join
 def xor_bytes(left, right):
     "perform bitwise-xor of two byte-strings"
     return _join(chr(ord(l) ^ ord(r)) for l, r in zip(left, right))
+
+#=================================================================================
+#alt base64 encoding
+#=================================================================================
+
+def adapted_b64_encode(data):
+    """encode using variant of base64
+
+    the output of this function is identical to b64_encode,
+    except that it uses ``.`` instead of ``+``,
+    and omits trailing padding ``=`` and whitepsace.
+
+    it is primarily used for by passlib's custom pbkdf2 hashes.
+    """
+    return b64encode(data, "./").strip("=\n")
+
+def adapted_b64_decode(data, sixthree="."):
+    """decode using variant of base64
+
+    the input of this function is identical to b64_decode,
+    except that it uses ``.`` instead of ``+``,
+    and should not include trailing padding ``=`` or whitespace.
+
+    it is primarily used for by passlib's custom pbkdf2 hashes.
+    """
+    off = len(data) % 4
+    if off == 0:
+        return b64decode(data, "./")
+    elif off == 1:
+        raise ValueError("invalid bas64 input")
+    elif off == 2:
+        return b64decode(data + "==", "./")
+    else:
+        return b64decode(data + "=", "./")
 
 #=================================================================================
 #randomness
@@ -390,10 +429,10 @@ def getrandstr(rng, charset, count):
     """return character string containg *count* number of chars, whose elements are drawn from specified charset, using specified rng"""
     #check alphabet & count
     if count < 0:
-        raise ValueError, "count must be >= 0"
+        raise ValueError("count must be >= 0")
     letters = len(charset)
     if letters == 0:
-        raise ValueError, "alphabet must not be empty"
+        raise ValueError("alphabet must not be empty")
     if letters == 1:
         return charset * count
 
