@@ -16,6 +16,10 @@ import time
 from warnings import warn
 #site
 #pkg
+try:
+    from passlib.utils import _speedup
+except ImportError:
+    _speedup = None
 #local
 __all__ = [
     #decorators

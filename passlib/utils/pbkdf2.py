@@ -19,7 +19,7 @@ try:
 except ImportError:
     _EVP = None
 #pkg
-from passlib.utils import xor_bytes
+from passlib.utils import xor_bytes, _speedup
 #local
 __all__ = [
     "hmac_sha1",
@@ -108,7 +108,7 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
 
         this defaults to ``hmac-sha1``, the only prf listed in the PBKDF2 specification.
 
-    If M2Crypto is present, and supports the specified prf, 
+    If M2Crypto is present, and supports the specified prf,
     :func:`M2Crypto.EVP.hmac` will be used to accelerate this function.
 
     :returns:
@@ -133,12 +133,19 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
     if rounds < 1:
         raise ValueError("rounds must be at least 1")
 
+    #special case for our speedup handler
+    if prf.startswith("hmac-") and _speedup:
+        try:
+            return _speedup.pbkdf2_hmac(secret, salt, rounds, keylen, prf[5:])
+        except _speedup.UnknownDigestError:
+            pass
+
     #special case for m2crypto + hmac-sha1
     if prf == "hmac-sha1" and _EVP:
         #NOTE: doing check here, because M2crypto won't take longs (which this is, under 32bit)
         if keylen > MAX_HMAC_SHA1_KEYLEN:
             raise ValueError("key length too long")
-        
+
         #NOTE: M2crypto reliably segfaults for me if given keylengths
         # larger than 40 (crashes at 41 on one system, 61 on another).
         # so just avoiding it for longer calls.

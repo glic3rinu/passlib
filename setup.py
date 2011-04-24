@@ -7,15 +7,49 @@ os.chdir(os.path.abspath(os.path.join(__file__,"..")))
 #=========================================================
 #imports
 #=========================================================
-from setuptools import setup, find_packages
+from distutils.command.build_ext import build_ext
+from distutils.errors import CCompilerError, DistutilsExecError, DistutilsPlatformError
+from setuptools import setup, find_packages, Extension, Feature
 from passlib import __version__ as version
+import sys
 #=========================================================
-#setup
+#patch distutils so build extension errors aren't fatal
 #=========================================================
-setup(
+build_errors = [CCompilerError, DistutilsExecError, DistutilsPlatformError]
+
+class BuildFailed(Exception):
+    "custom error raised when optional extension fails to build"
+
+class build_optional_ext(build_ext):
+
+    def run(self):
+        try:
+            build_ext.run(self)
+        except DistutilsPlatformError, err:
+            raise BuildFailed()
+
+    def build_extension(self, ext):
+        try:
+            build_ext.build_extension(self, ext)
+        except build_errors, err:
+            raise BuildFailed()
+
+#=========================================================
+#setup config
+#=========================================================
+speedup = Feature(
+    "optional C speedup module for passlib",
+    standard=True,
+    ext_modules = [
+        Extension("passlib.utils._speedup", ["src/speedup.c"]),
+    ],
+)
+
+config = dict(
     #package info
     packages = find_packages(),
     package_data = { "passlib": ["*.cfg"] },
+    features = { "speedup": speedup },
 
     # metadata
     name = "passlib",
@@ -52,7 +86,28 @@ to providing full-strength password hashing for multi-user application.
     zip_safe=True,
 
     test_suite = 'nose.collector',
+
+    cmdclass={'build_ext': build_optional_ext}
 )
+#=========================================================
+#build
+#=========================================================
+try:
+    setup(**config)
+except BuildFailed:
+    HEADER = "*" * 80
+    MSG = "WARNING: The C speedup library could not be compiled"
+    print HEADER
+    print MSG
+    print "Retrying to build without C speedups enabled"
+    print HEADER
+    del config['features']['speedup']
+    setup(**config)
+    print HEADER
+    print MSG
+    print "Pure-Python build suceeded"
+    print HEADER
+
 #=========================================================
 #EOF
 #=========================================================

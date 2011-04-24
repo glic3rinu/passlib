@@ -5,3 +5,4 @@ glob:.coverage
 glob:cover
 glob:build
 glob:dist
+relre:passlib/.*\.(so|dll)
