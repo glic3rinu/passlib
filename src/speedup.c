@@ -2,6 +2,8 @@
  **************************************************************************
  * passlib "speedup" C python extension - provides C routines of
  * various key derivation primitives
+ *
+ * this code assumes C99 uint32 and uint64 will both be available.
  **************************************************************************
  **************************************************************************/
 
@@ -10,13 +12,61 @@
  **************************************************************************/
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <stdint.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
 static PyObject *UnknownDigestError;
 
 /**************************************************************************
+ * note: the following tries to figure out which PyArgs_ParseTuple & PyUnicode_FromFormat
+ *  unit will grab 32 & 64 bit ints, and set macros accordingly
+ **************************************************************************/
+
+    /* try to find PyArg_ParseTuple char corresponding to int32_t */
+#if SIZEOF_LONG == 4
+#   define PA_INT32 "l"
+#   define PA_UINT32 "k"
+#   define PF_INT32 "ld"
+#   define PF_UINT32 "lu"
+
+#elif SIZEOF_INT == 4
+#   define PA_INT32 "i"
+#   define PA_UINT32 "I"
+#   define PF_INT32 "d"
+#   define PF_UINT32 "u"
+
+#else
+#   error "passlib can't find a 32-bit integer for PyArgs"
+#endif /* int32 search */
+
+/* try to find PyArg_ParseTuple char corresponding to int64_t */
+#if SIZEOF_LONG == 8
+#   define PA_INT64 "l"
+#   define PA_UINT64 "k"
+#   define PF_INT64 "ld"
+#   define PF_UINT64 "lu"
+
+#elif SIZEOF_LONG_LONG == 8
+#   define PA_INT64 "L"
+#   define PA_UINT64 "K"
+#   define PF_INT32 "lld"
+#   define PF_UINT32 "llu"
+
+#else
+#   error "passlib can't find a 64-bit integer for PyArgs"
+#endif /* int64 search */
+
+/**************************************************************************
  * pbkdf2
+ *
+ * NOTE: rfc2898 places no restrictions on salt size, rounds, or keylen
+ * (outside of the fact that keylen <= (2**32-1)*digest_size)
+ *
+ * for passlib's use, rounds & keylen will not exceed 2**31-1 any time soon,
+ * this internal backend uses int32_t for rounds & keylen,
+ * simplifying parsing of the values, as well as ensuring the keylen limit is never reached.
+ * if the need arises, this could be revisited.
  **************************************************************************/
 
 #define PBKDF2_HMAC_DOCSTRING "pbkdf2_hmac(pwd, msg, rounds, keylen, digest)"
@@ -24,24 +74,44 @@ static PyObject *UnknownDigestError;
 static char *pbkdf2_hmac_kwds[] = {"password", "salt", "rounds", "keylen", "digest", NULL};
 
 static PyObject *
-pbkdf2_hmac(PyObject *self, PyObject *args, PyObject *kwds)
+pbkdf2_hmac_py(PyObject *self, PyObject *args, PyObject *kwds)
 {
     const char *digest_name;
-    uint8_t *pwdbuf, *saltbuf, *keybuf, *inbuf, *workbuf, *outbuf;
-    Py_ssize_t pwdlen, saltlen, keylen, rklen;
-    unsigned long rounds, blocks, block, round;
-    const EVP_MD *digest_ref;
-    HMAC_CTX hmac_ctx;
-    unsigned int digest_size, i;
-    PyObject *result = NULL;
+    uint8_t *pwdbuf, /* RO ptr to password */
+            *saltbuf,/* RO ptr to salt string */
+            *keybuf, /* final key - cleared after call */
+            *workbuf,/* tmp buffer used for round ops - cleared after call */
+            *outbuf; /* cursor to in-progress block of keybuf */
+    Py_ssize_t pwdlen, /* length of pwdbuf */
+            saltlen; /* length of saltbuf */
+    int32_t rounds,  /* number of rounds requested */
+            blocks,  /* number of blocks required */
+            block,   /* current block */
+            round,   /* current round */
+            keylen,  /* length of requested key */
+            rklen;   /* length of keybuf - keylen rounded up to
+                        multiple of digest_size */
+    const EVP_MD *digest_ref; /* ref to ssl message digest */
+    HMAC_CTX hmac_ctx; /* ssl hmac context */
+    int digest_size, /* size of digest chunk */
+            i;       /* general purpose iterator */
+    PyObject *result = NULL; /* pointer to final result */
 
     /* parse python args*/
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s#s#kns", pbkdf2_hmac_kwds,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,
+                                     "s#s#" PA_INT32 PA_INT32 "s",
+                                     pbkdf2_hmac_kwds,
                                      &pwdbuf, &pwdlen, &saltbuf, &saltlen,
                                      &rounds, &keylen, &digest_name))
         return NULL;
-
-/*    printf("parms: %d %d %d %d %s\n", pwdlen, saltlen, rounds, keylen, digest_name); */
+    if(rounds < 1){
+        PyErr_Format(PyExc_ValueError, "rounds must be >= 1: %" PF_INT32, rounds);
+        return NULL;
+    }
+    if(keylen < 0){
+        PyErr_Format(PyExc_ValueError, "keylen must be >= 0: %" PF_INT32, keylen);
+        return NULL;
+    }
 
     /* locate digest in openssl*/
     digest_ref = EVP_get_digestbyname(digest_name);
@@ -49,10 +119,6 @@ pbkdf2_hmac(PyObject *self, PyObject *args, PyObject *kwds)
         PyErr_Format(UnknownDigestError, "unknown digest: %s", digest_name);
         return NULL;
     }
-
-    /* initialize hmac */
-    HMAC_CTX_init(&hmac_ctx);
-    HMAC_Init_ex(&hmac_ctx, (void *)pwdbuf, pwdlen, digest_ref, NULL);
 
     /* figure out block, keybuf size, etc */
     digest_size = EVP_MD_size(digest_ref);
@@ -64,38 +130,39 @@ pbkdf2_hmac(PyObject *self, PyObject *args, PyObject *kwds)
     }else{
         rklen = keylen;
     }
+        /* NOTE: since keylen is int32_t, we can trust blocks < 2**32-1,
+          the rfc specified max for blocks */
+
+/*    printf("r=%" PF_INT32 " k=%" PF_INT32 " d=%d b=%" PF_INT32 " rk=%" PF_INT32 "\n", rounds, keylen, digest_size, blocks, rklen); */
 
     /* alloc working buffer & output buffer */
-    inbuf = PyMem_Malloc(saltlen+4);
-    if(!inbuf)
-        return PyErr_NoMemory();
-
     workbuf = PyMem_Malloc(digest_size);
-    if(!workbuf){
-        PyMem_Free(inbuf);
+    if(!workbuf)
         return PyErr_NoMemory();
-    }
 
     keybuf = PyMem_Malloc(rklen);
     if(!keybuf){
-        PyMem_Free(inbuf);
         PyMem_Free(workbuf);
         return PyErr_NoMemory();
     }
 
-    /* begin pbkdf2 main loop */
     Py_BEGIN_ALLOW_THREADS;
-    memcpy(inbuf, saltbuf, saltlen);
+
+    /* initialize hmac */
+    HMAC_CTX_init(&hmac_ctx);
+    HMAC_Init_ex(&hmac_ctx, (void *)pwdbuf, pwdlen, digest_ref, NULL);
+
+    /* begin pbkdf2 main loop */
     outbuf = keybuf; /* points to part of keybuf we're building next block in */
     for(block=1; block<=blocks; ++block){
         /* do hmac(password, salt + block) -> workbuf & outbuf */
-        inbuf[saltlen] = (uint8_t)(block>>24);
-        inbuf[saltlen+1] = (uint8_t)(block>>16);
-        inbuf[saltlen+2] = (uint8_t)(block>>8);
-        inbuf[saltlen+3] = (uint8_t)(block);
-
         HMAC_Init_ex(&hmac_ctx, NULL, 0, NULL, NULL);
-        HMAC_Update(&hmac_ctx, inbuf, saltlen+4);
+        HMAC_Update(&hmac_ctx, saltbuf, saltlen);
+        workbuf[0] = (uint8_t)(block>>24);
+        workbuf[1] = (uint8_t)(block>>16);
+        workbuf[2] = (uint8_t)(block>>8);
+        workbuf[3] = (uint8_t)(block);
+        HMAC_Update(&hmac_ctx, workbuf, 4);
         HMAC_Final(&hmac_ctx, workbuf, NULL);
         memcpy(outbuf, workbuf, digest_size);
 
@@ -114,17 +181,17 @@ pbkdf2_hmac(PyObject *self, PyObject *args, PyObject *kwds)
         /* advance outbuf to next block in keybuf */
         outbuf += digest_size;
     }
+
     Py_END_ALLOW_THREADS;
 
     /* render python return value */
     result = Py_BuildValue("s#", keybuf, keylen);
+        /* NOTE: if sets error, we run cleanup anyways */
 
     /* cleanup buffers, return result */
     HMAC_CTX_cleanup(&hmac_ctx);
-    memset(inbuf, 0, saltlen+4);
     memset(workbuf, 0, digest_size);
     memset(keybuf, 0, rklen);
-    PyMem_Free(inbuf);
     PyMem_Free(workbuf);
     PyMem_Free(keybuf);
     return result;
@@ -135,7 +202,8 @@ pbkdf2_hmac(PyObject *self, PyObject *args, PyObject *kwds)
  **************************************************************************/
 
 static PyMethodDef SpeedupMethods[] = {
-    {"pbkdf2_hmac", (PyCFunction) pbkdf2_hmac, METH_VARARGS|METH_KEYWORDS, PBKDF2_HMAC_DOCSTRING },
+    {"pbkdf2_hmac", (PyCFunction) pbkdf2_hmac_py,
+            METH_VARARGS|METH_KEYWORDS, PBKDF2_HMAC_DOCSTRING },
     {NULL, NULL, 0, NULL}
 };
 

@@ -127,16 +127,18 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
     elif not isinstance(salt, str):
         raise TypeError("salt must be str or unicode")
 
-    #preprare rounds
+    #prepare rounds
     if not isinstance(rounds, (int, long)):
         raise TypeError("rounds must be an integer")
     if rounds < 1:
         raise ValueError("rounds must be at least 1")
 
     #special case for our speedup handler
-    if prf.startswith("hmac-") and _speedup:
+    if isinstance(prf, str) and prf.startswith("hmac-") and _speedup:
         try:
             return _speedup.pbkdf2_hmac(secret, salt, rounds, keylen, prf[5:])
+        except OverflowError:
+            raise ValueError("one of rounds, keylen too large")
         except _speedup.UnknownDigestError:
             pass
 
