@@ -41,7 +41,11 @@ speedup = Feature(
     "optional C speedup module for passlib",
     standard=True,
     ext_modules = [
-        Extension("passlib.utils._speedup", ["src/speedup.c"]),
+        Extension("passlib.utils._speedup",
+                  sources=["src/speedup.c", "src/des.c"],
+                  depends=["src/des.h"],
+                  libraries=["ssl"],
+                  ),
     ],
 )
 

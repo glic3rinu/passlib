@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include "des.h"
 
 static PyObject *UnknownDigestError;
 
@@ -69,7 +70,7 @@ static PyObject *UnknownDigestError;
  * if the need arises, this could be revisited.
  **************************************************************************/
 
-#define PBKDF2_HMAC_DOCSTRING "pbkdf2_hmac(pwd, msg, rounds, keylen, digest)"
+#define PBKDF2_HMAC_DOCSTRING "pbkdf2_hmac(password, salt, rounds, keylen, digest)"
 
 static char *pbkdf2_hmac_kwds[] = {"password", "salt", "rounds", "keylen", "digest", NULL};
 
@@ -198,12 +199,77 @@ pbkdf2_hmac_py(PyObject *self, PyObject *args, PyObject *kwds)
 }
 
 /**************************************************************************
+ * des
+ **************************************************************************/
+
+#define DES_CIPHER_BLOCK_DOCSTRING "des_cipher_block(key, input, salt, rounds)"
+
+static char *des_cipher_block_kwds[] = {"key", "input", "salt", "rounds", NULL};
+
+static PyObject *
+des_cipher_block_py(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject *result;
+    uint8_t outbuf[8];
+    uint8_t *keybuf, *inputbuf;
+    Py_ssize_t keylen, inputlen;
+    long salt, rounds;
+    int rc;
+
+    /* parse python args*/
+    if (!PyArg_ParseTupleAndKeywords(args, kwds,
+                                     "s#s#ll",
+                                     des_cipher_block_kwds,
+                                     &keybuf, &keylen, &inputbuf, &inputlen,
+                                     &salt, &rounds))
+        return NULL;
+    /* NOTE: this ignores all but first 8 bytes of key & input */
+    if(keylen < 8){
+        PyErr_Format(PyExc_ValueError, "key must be at least 8 bytes: %zd", keylen);
+        return NULL;
+    }
+    if(inputlen < 8){
+        PyErr_Format(PyExc_ValueError, "input must be least 8 bytes: %zd", inputlen);
+        return NULL;
+    }
+    if(rounds < 1){
+        PyErr_Format(PyExc_ValueError, "rounds must be >= 1: %ld", rounds);
+        return NULL;
+    }
+
+/*    printf("des_cipher_block_py: key=%lu input=%lu salt=%ld rounds=%ld\n",
+           (uint64_t) *keybuf, (uint64_t) *inputbuf, salt, rounds); */
+
+    /* init des tables */
+    des_init_tables();
+
+    /* create context, set the key, encode block */
+    Py_BEGIN_ALLOW_THREADS;
+    rc = des_cipher_block(keybuf, inputbuf, outbuf, salt, rounds);
+    Py_END_ALLOW_THREADS;
+
+    /* cleanup & return */
+    if(rc){
+        /* NOTE: only time this is known to happen is w/ invalid rounds,
+           which have already been checked, so something unknown is wrong */
+        PyErr_SetString(PyExc_RuntimeError, "unexpected error in des_cipher");
+        result = NULL;
+    }else{
+        result = Py_BuildValue("s#", outbuf, 8);
+    }
+    memset(outbuf, 0, 8);
+    return result;
+}
+
+/**************************************************************************
  * module init
  **************************************************************************/
 
 static PyMethodDef SpeedupMethods[] = {
     {"pbkdf2_hmac", (PyCFunction) pbkdf2_hmac_py,
             METH_VARARGS|METH_KEYWORDS, PBKDF2_HMAC_DOCSTRING },
+    {"des_cipher_block", (PyCFunction) des_cipher_block_py,
+            METH_VARARGS|METH_KEYWORDS, DES_CIPHER_BLOCK_DOCSTRING },
     {NULL, NULL, 0, NULL}
 };
 

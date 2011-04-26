@@ -43,7 +43,7 @@ which has some nice notes on how this all works -
 #imports
 #=========================================================
 #pkg
-from passlib.utils import bytes_to_int, int_to_bytes
+from passlib.utils import bytes_to_int, int_to_bytes, _speedup
 #local
 __all__ = [
     "expand_des_key",
@@ -610,10 +610,13 @@ def des_encrypt_block(key, input):
     if len(key) == 7:
         key = expand_des_key(key)
     assert len(key) == 8
-    input = bytes_to_int(input)
-    key = bytes_to_int(key)
-    out = mdes_encrypt_int_block(key, input, 0, 1)
-    return int_to_bytes(out, 8)
+    if _speedup:
+        return _speedup.des_cipher_block(key, input, 0, 1)
+    else:
+        input = bytes_to_int(input)
+        key = bytes_to_int(key)
+        out = mdes_encrypt_int_block(key, input, 0, 1)
+        return int_to_bytes(out, 8)
 
 def mdes_encrypt_int_block(key, input, salt=0, rounds=1):
     """do modified multi-round DES encryption of single DES block.
@@ -636,6 +639,12 @@ def mdes_encrypt_int_block(key, input, salt=0, rounds=1):
     :returns:
         resulting block as 8 byte integer
     """
+    if _speedup:
+        key = int_to_bytes(key, 8)
+        input = int_to_bytes(input, 8)
+        output = _speedup.des_cipher_block(key, input, salt, rounds)
+        return bytes_to_int(output)
+
     global SPE, PCXROT, IE3264, CF6464
 
     #bounds check
