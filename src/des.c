@@ -1,4 +1,16 @@
 /*
+ * passlib/src/des.c - des c encryption routines
+ *
+ * this file is a direct copy of FreeBSD's des-crypt.c,
+ * taken from http://svn.freebsd.org/base/stable/8/secure/lib/libcrypt/crypt-des.c
+ * the following changes were made from the original:
+ *     - mild refactoring of frontend functions
+ *     - changed to use C99 types
+ *     - disabled all support for decryption
+ *     - removed dep on htonl/ntohl to make win32 compat easier
+ *
+ * ============================================================================
+ *
  * FreeSec: libcrypt for NetBSD
  *
  * Copyright (c) 1994 David Burren
@@ -52,49 +64,54 @@
  *
  * ARCHITECTURE ASSUMPTIONS:
  *	It is assumed that the 8-byte arrays passed by reference can be
- *	addressed as arrays of u_int32_t's (ie. the CPU is not picky about
+ *	addressed as arrays of uint32_t's (ie. the CPU is not picky about
  *	alignment).
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
-#include <sys/types.h>
-#include <sys/param.h>
-#include <arpa/inet.h>
-#include <pwd.h>
+/**************************************************************************
+ * includes
+ **************************************************************************/
 #include <string.h>
-#include "crypt.h"
+#include "des.h"
 
-/* We can't always assume gcc */
-#if	defined(__GNUC__) && !defined(lint)
-#define INLINE inline
-#else
-#define INLINE
-#endif
+/**************************************************************************
+ * private types
+ **************************************************************************/
 
+/* holds parsed key & salt info */
+typedef struct
+{
+    uint32_t	saltbits;
+    uint32_t	en_keysl[16], en_keysr[16];
+/*    uint32_t	de_keysl[16], de_keysr[16]; */
 
-static u_char	IP[64] = {
+} des_ctx_t;
+
+/**************************************************************************
+ * static des tables
+ **************************************************************************/
+
+static uint8_t	IP[64] = {
 	58, 50, 42, 34, 26, 18, 10,  2, 60, 52, 44, 36, 28, 20, 12,  4,
 	62, 54, 46, 38, 30, 22, 14,  6, 64, 56, 48, 40, 32, 24, 16,  8,
 	57, 49, 41, 33, 25, 17,  9,  1, 59, 51, 43, 35, 27, 19, 11,  3,
 	61, 53, 45, 37, 29, 21, 13,  5, 63, 55, 47, 39, 31, 23, 15,  7
 };
 
-static u_char	inv_key_perm[64];
-static u_char	key_perm[56] = {
+static uint8_t	inv_key_perm[64];
+static uint8_t	key_perm[56] = {
 	57, 49, 41, 33, 25, 17,  9,  1, 58, 50, 42, 34, 26, 18,
 	10,  2, 59, 51, 43, 35, 27, 19, 11,  3, 60, 52, 44, 36,
 	63, 55, 47, 39, 31, 23, 15,  7, 62, 54, 46, 38, 30, 22,
 	14,  6, 61, 53, 45, 37, 29, 21, 13,  5, 28, 20, 12,  4
 };
 
-static u_char	key_shifts[16] = {
+static uint8_t	key_shifts[16] = {
 	1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1
 };
 
-static u_char	inv_comp_perm[56];
-static u_char	comp_perm[48] = {
+static uint8_t	inv_comp_perm[56];
+static uint8_t	comp_perm[48] = {
 	14, 17, 11, 24,  1,  5,  3, 28, 15,  6, 21, 10,
 	23, 19, 12,  4, 26,  8, 16,  7, 27, 20, 13,  2,
 	41, 52, 31, 37, 47, 55, 30, 40, 51, 45, 33, 48,
@@ -105,8 +122,8 @@ static u_char	comp_perm[48] = {
  *	No E box is used, as it's replaced by some ANDs, shifts, and ORs.
  */
 
-static u_char	u_sbox[8][64];
-static u_char	sbox[8][64] = {
+static uint8_t	u_sbox[8][64];
+static uint8_t	sbox[8][64] = {
 	{
 		14,  4, 13,  1,  2, 15, 11,  8,  3, 10,  6, 12,  5,  9,  0,  7,
 		 0, 15,  7,  4, 14,  2, 13,  1, 10,  6, 12, 11,  9,  5,  3,  8,
@@ -157,13 +174,13 @@ static u_char	sbox[8][64] = {
 	}
 };
 
-static u_char	un_pbox[32];
-static u_char	pbox[32] = {
+static uint8_t	un_pbox[32];
+static uint8_t	pbox[32] = {
 	16,  7, 20, 21, 29, 12, 28, 17,  1, 15, 23, 26,  5, 18, 31, 10,
 	 2,  8, 24, 14, 32, 27,  3,  9, 19, 13, 30,  6, 22, 11,  4, 25
 };
 
-static u_int32_t	bits32[32] =
+static uint32_t	bits32[32] =
 {
 	0x80000000, 0x40000000, 0x20000000, 0x10000000,
 	0x08000000, 0x04000000, 0x02000000, 0x01000000,
@@ -175,55 +192,36 @@ static u_int32_t	bits32[32] =
 	0x00000008, 0x00000004, 0x00000002, 0x00000001
 };
 
-static u_char	bits8[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+static uint8_t	bits8[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
-static u_int32_t	saltbits;
-static u_int32_t	old_salt;
-static u_int32_t	*bits28, *bits24;
-static u_char		init_perm[64], final_perm[64];
-static u_int32_t	en_keysl[16], en_keysr[16];
-static u_int32_t	de_keysl[16], de_keysr[16];
+/**************************************************************************
+ * derived des tables - filled in by des_init_tables()
+ **************************************************************************/
+
 static int		des_initialised = 0;
-static u_char		m_sbox[4][4096];
-static u_int32_t	psbox[4][256];
-static u_int32_t	ip_maskl[8][256], ip_maskr[8][256];
-static u_int32_t	fp_maskl[8][256], fp_maskr[8][256];
-static u_int32_t	key_perm_maskl[8][128], key_perm_maskr[8][128];
-static u_int32_t	comp_maskl[8][128], comp_maskr[8][128];
-static u_int32_t	old_rawkey0, old_rawkey1;
+static uint32_t	*bits28, *bits24;
+static uint8_t	init_perm[64], final_perm[64];
+static uint8_t	m_sbox[4][4096];
+static uint32_t	psbox[4][256];
+static uint32_t	ip_maskl[8][256], ip_maskr[8][256];
+static uint32_t	fp_maskl[8][256], fp_maskr[8][256];
+static uint32_t	key_perm_maskl[8][128], key_perm_maskr[8][128];
+static uint32_t	comp_maskl[8][128], comp_maskr[8][128];
 
-static u_char	ascii64[] =
-	 "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-/*	  0000000000111111111122222222223333333333444444444455555555556666 */
-/*	  0123456789012345678901234567890123456789012345678901234567890123 */
+/**************************************************************************
+ * functions
+ **************************************************************************/
 
-static INLINE int
-ascii_to_bin(char ch)
-{
-	if (ch > 'z')
-		return(0);
-	if (ch >= 'a')
-		return(ch - 'a' + 38);
-	if (ch > 'Z')
-		return(0);
-	if (ch >= 'A')
-		return(ch - 'A' + 12);
-	if (ch > '9')
-		return(0);
-	if (ch >= '.')
-		return(ch - '.');
-	return(0);
-}
-
-static void
-des_init(void)
+/* initialize derived static tables if not already done */
+void
+des_init_tables(void)
 {
 	int	i, j, b, k, inbit, obit;
-	u_int32_t	*p, *il, *ir, *fl, *fr;
+	uint32_t	*p, *il, *ir, *fl, *fr;
 
-	old_rawkey0 = old_rawkey1 = 0L;
-	saltbits = 0L;
-	old_salt = 0L;
+	if (des_initialised)
+        return;
+
 	bits24 = (bits28 = bits32 + 4) + 4;
 
 	/*
@@ -243,7 +241,7 @@ des_init(void)
 		for (i = 0; i < 64; i++)
 			for (j = 0; j < 64; j++)
 				m_sbox[b][(i << 6) | j] =
-					(u_char)((u_sbox[(b << 1)][i] << 4) |
+					(uint8_t)((u_sbox[(b << 1)][i] << 4) |
 					u_sbox[(b << 1) + 1][j]);
 
 	/*
@@ -251,7 +249,7 @@ des_init(void)
 	 * initialise the inverted key permutation.
 	 */
 	for (i = 0; i < 64; i++) {
-		init_perm[final_perm[i] = IP[i] - 1] = (u_char)i;
+		init_perm[final_perm[i] = IP[i] - 1] = (uint8_t)i;
 		inv_key_perm[i] = 255;
 	}
 
@@ -260,7 +258,7 @@ des_init(void)
 	 * compression permutation.
 	 */
 	for (i = 0; i < 56; i++) {
-		inv_key_perm[key_perm[i] - 1] = (u_char)i;
+		inv_key_perm[key_perm[i] - 1] = (uint8_t)i;
 		inv_comp_perm[i] = 255;
 	}
 
@@ -268,7 +266,7 @@ des_init(void)
 	 * Invert the key compression permutation.
 	 */
 	for (i = 0; i < 48; i++) {
-		inv_comp_perm[comp_perm[i] - 1] = (u_char)i;
+		inv_comp_perm[comp_perm[i] - 1] = (uint8_t)i;
 	}
 
 	/*
@@ -330,7 +328,7 @@ des_init(void)
 	 * handling the output of the S-box arrays setup above.
 	 */
 	for (i = 0; i < 32; i++)
-		un_pbox[pbox[i] - 1] = (u_char)i;
+		un_pbox[pbox[i] - 1] = (uint8_t)i;
 
 	for (b = 0; b < 4; b++)
 		for (i = 0; i < 256; i++) {
@@ -344,52 +342,67 @@ des_init(void)
 	des_initialised = 1;
 }
 
-static void
-setup_salt(u_int32_t salt)
+/* unpack des block (uint8_t[8]) into 2 native-endian 32-bit ints */
+static inline void
+unpack_block(uint32_t *left, uint32_t *right, const uint8_t *block)
 {
-	u_int32_t	obit, saltbit;
-	int		i;
+    /* TODO: could optimize this when under big endian systems */
+    *left = (
+        (block[0]<<24)|
+        (block[1]<<16)|
+        (block[2]<<8)|
+        (block[3])
+    );
+    *right = (
+        (block[4]<<24)|
+        (block[5]<<16)|
+        (block[6]<<8)|
+        (block[7])
+    );
+}
 
-	if (salt == old_salt)
-		return;
-	old_salt = salt;
+/* pack 2 native-endian 32-bit ints into des block (uint8_t[8]) */
+static inline void
+pack_block(uint8_t *block, uint32_t left, uint32_t right)
+{
+    /* TODO: could optimize this when under big endian systems */
+    block[0] = (left>>24);
+    block[1] = ((left>>16)&0xff);
+    block[2] = ((left>>8)&0xff);
+    block[3] = (left&0xff);
 
-	saltbits = 0L;
-	saltbit = 1;
-	obit = 0x800000;
+    block[4] = (right>>24);
+    block[5] = ((right>>16)&0xff);
+    block[6] = ((right>>8)&0xff);
+    block[7] = (right&0xff);
+}
+
+/* set salt portion of des_ctx_t */
+static void
+des_set_salt(des_ctx_t *ctx, uint32_t salt)
+{
+	uint32_t obit=0x800000, saltbit=1, saltbits=0;
+	int	i;
 	for (i = 0; i < 24; i++) {
 		if (salt & saltbit)
 			saltbits |= obit;
 		saltbit <<= 1;
 		obit >>= 1;
 	}
+	ctx->saltbits = saltbits;
 }
 
+/* derive key schedule, store in des_ctx_t */
 static int
-des_setkey(const char *key)
+des_set_key(des_ctx_t *ctx, const uint8_t *key)
 {
-	u_int32_t	k0, k1, rawkey0, rawkey1;
+    /* NOTE: key must be 8 bytes long */
+	uint32_t	k0, k1, rawkey0, rawkey1;
 	int		shifts, round;
 
-	if (!des_initialised)
-		des_init();
+    des_init_tables();
 
-	rawkey0 = ntohl(*(const u_int32_t *) key);
-	rawkey1 = ntohl(*(const u_int32_t *) (key + 4));
-
-	if ((rawkey0 | rawkey1)
-	    && rawkey0 == old_rawkey0
-	    && rawkey1 == old_rawkey1) {
-		/*
-		 * Already setup for this key.
-		 * This optimisation fails on a zero key (which is weak and
-		 * has bad parity anyway) in order to simplify the starting
-		 * conditions.
-		 */
-		return(0);
-	}
-	old_rawkey0 = rawkey0;
-	old_rawkey1 = rawkey1;
+    unpack_block(&rawkey0, &rawkey1, key);
 
 	/*
 	 *	Do key permutation and split into two 28-bit subkeys.
@@ -415,15 +428,15 @@ des_setkey(const char *key)
 	 */
 	shifts = 0;
 	for (round = 0; round < 16; round++) {
-		u_int32_t	t0, t1;
+		uint32_t	t0, t1;
 
 		shifts += key_shifts[round];
 
 		t0 = (k0 << shifts) | (k0 >> (28 - shifts));
 		t1 = (k1 << shifts) | (k1 >> (28 - shifts));
 
-		de_keysl[15 - round] =
-		en_keysl[round] = comp_maskl[0][(t0 >> 21) & 0x7f]
+/*		ctx->de_keysl[15 - round] = */
+		ctx->en_keysl[round] = comp_maskl[0][(t0 >> 21) & 0x7f]
 				| comp_maskl[1][(t0 >> 14) & 0x7f]
 				| comp_maskl[2][(t0 >> 7) & 0x7f]
 				| comp_maskl[3][t0 & 0x7f]
@@ -432,8 +445,8 @@ des_setkey(const char *key)
 				| comp_maskl[6][(t1 >> 7) & 0x7f]
 				| comp_maskl[7][t1 & 0x7f];
 
-		de_keysr[15 - round] =
-		en_keysr[round] = comp_maskr[0][(t0 >> 21) & 0x7f]
+/*		ctx->de_keysr[15 - round] = */
+		ctx->en_keysr[round] = comp_maskr[0][(t0 >> 21) & 0x7f]
 				| comp_maskr[1][(t0 >> 14) & 0x7f]
 				| comp_maskr[2][(t0 >> 7) & 0x7f]
 				| comp_maskr[3][t0 & 0x7f]
@@ -445,14 +458,16 @@ des_setkey(const char *key)
 	return(0);
 }
 
+/* des encrypt single block using prepared context - returns 1 on err, 0 on sucess */
 static int
-do_des(	u_int32_t l_in, u_int32_t r_in, u_int32_t *l_out, u_int32_t *r_out, int count)
+do_des(des_ctx_t *ctx, const uint8_t *input, uint8_t *output, long count)
 {
 	/*
 	 *	l_in, r_in, l_out, and r_out are in pseudo-"big-endian" format.
 	 */
-	u_int32_t	l, r, *kl, *kr, *kl1, *kr1;
-	u_int32_t	f, r48l, r48r;
+    uint32_t    lt, rt;
+	uint32_t	l, r, *kl, *kr, *kl1, *kr1;
+	uint32_t	f, r48l, r48r;
 	int		round;
 
 	if (count == 0) {
@@ -461,36 +476,40 @@ do_des(	u_int32_t l_in, u_int32_t r_in, u_int32_t *l_out, u_int32_t *r_out, int 
 		/*
 		 * Encrypting
 		 */
-		kl1 = en_keysl;
-		kr1 = en_keysr;
+		kl1 = ctx->en_keysl;
+		kr1 = ctx->en_keysr;
 	} else {
+        return(1);
 		/*
 		 * Decrypting
 		 */
-		count = -count;
-		kl1 = de_keysl;
-		kr1 = de_keysr;
+/*		count = -count;
+		kl1 = ctx->de_keysl;
+		kr1 = ctx->de_keysr; */
 	}
+
+    /* load input into lt & rt */
+    unpack_block(&lt, &rt, input);
 
 	/*
 	 *	Do initial permutation (IP).
 	 */
-	l = ip_maskl[0][l_in >> 24]
-	  | ip_maskl[1][(l_in >> 16) & 0xff]
-	  | ip_maskl[2][(l_in >> 8) & 0xff]
-	  | ip_maskl[3][l_in & 0xff]
-	  | ip_maskl[4][r_in >> 24]
-	  | ip_maskl[5][(r_in >> 16) & 0xff]
-	  | ip_maskl[6][(r_in >> 8) & 0xff]
-	  | ip_maskl[7][r_in & 0xff];
-	r = ip_maskr[0][l_in >> 24]
-	  | ip_maskr[1][(l_in >> 16) & 0xff]
-	  | ip_maskr[2][(l_in >> 8) & 0xff]
-	  | ip_maskr[3][l_in & 0xff]
-	  | ip_maskr[4][r_in >> 24]
-	  | ip_maskr[5][(r_in >> 16) & 0xff]
-	  | ip_maskr[6][(r_in >> 8) & 0xff]
-	  | ip_maskr[7][r_in & 0xff];
+	l = ip_maskl[0][lt >> 24]
+	  | ip_maskl[1][(lt >> 16) & 0xff]
+	  | ip_maskl[2][(lt >> 8) & 0xff]
+	  | ip_maskl[3][lt & 0xff]
+	  | ip_maskl[4][rt >> 24]
+	  | ip_maskl[5][(rt >> 16) & 0xff]
+	  | ip_maskl[6][(rt >> 8) & 0xff]
+	  | ip_maskl[7][rt & 0xff];
+	r = ip_maskr[0][lt >> 24]
+	  | ip_maskr[1][(lt >> 16) & 0xff]
+	  | ip_maskr[2][(lt >> 8) & 0xff]
+	  | ip_maskr[3][lt & 0xff]
+	  | ip_maskr[4][rt >> 24]
+	  | ip_maskr[5][(rt >> 16) & 0xff]
+	  | ip_maskr[6][(rt >> 8) & 0xff]
+	  | ip_maskr[7][rt & 0xff];
 
 	while (count--) {
 		/*
@@ -518,7 +537,7 @@ do_des(	u_int32_t l_in, u_int32_t r_in, u_int32_t *l_out, u_int32_t *r_out, int 
 			 * Do salting for crypt() and friends, and
 			 * XOR with the permuted key.
 			 */
-			f = (r48l ^ r48r) & saltbits;
+			f = (r48l ^ r48r) & ctx->saltbits;
 			r48l ^= f ^ *kl++;
 			r48r ^= f ^ *kr++;
 			/*
@@ -542,7 +561,7 @@ do_des(	u_int32_t l_in, u_int32_t r_in, u_int32_t *l_out, u_int32_t *r_out, int 
 	/*
 	 * Do final permutation (inverse of IP).
 	 */
-	*l_out	= fp_maskl[0][l >> 24]
+	lt	= fp_maskl[0][l >> 24]
 		| fp_maskl[1][(l >> 16) & 0xff]
 		| fp_maskl[2][(l >> 8) & 0xff]
 		| fp_maskl[3][l & 0xff]
@@ -550,7 +569,7 @@ do_des(	u_int32_t l_in, u_int32_t r_in, u_int32_t *l_out, u_int32_t *r_out, int 
 		| fp_maskl[5][(r >> 16) & 0xff]
 		| fp_maskl[6][(r >> 8) & 0xff]
 		| fp_maskl[7][r & 0xff];
-	*r_out	= fp_maskr[0][l >> 24]
+	rt	= fp_maskr[0][l >> 24]
 		| fp_maskr[1][(l >> 16) & 0xff]
 		| fp_maskr[2][(l >> 8) & 0xff]
 		| fp_maskr[3][l & 0xff]
@@ -558,147 +577,21 @@ do_des(	u_int32_t l_in, u_int32_t r_in, u_int32_t *l_out, u_int32_t *r_out, int 
 		| fp_maskr[5][(r >> 16) & 0xff]
 		| fp_maskr[6][(r >> 8) & 0xff]
 		| fp_maskr[7][r & 0xff];
+    pack_block(output, lt, rt);
 	return(0);
 }
 
-static int
-des_cipher(const char *in, char *out, u_long salt, int count)
+/* public frontend - encrypt a single block using specified params */
+int
+des_cipher_block(const uint8_t *key, const uint8_t *input, uint8_t *output, long salt, long count)
 {
-	u_int32_t	l_out, r_out, rawl, rawr;
-	int		retval;
-	union {
-		u_int32_t	*ui32;
-		const char	*c;
-	} trans;
-
+    des_ctx_t ctx;
+    int rc;
 	if (!des_initialised)
-		des_init();
-
-	setup_salt(salt);
-
-	trans.c = in;
-	rawl = ntohl(*trans.ui32++);
-	rawr = ntohl(*trans.ui32);
-
-	retval = do_des(rawl, rawr, &l_out, &r_out, count);
-
-	trans.c = out;
-	*trans.ui32++ = htonl(l_out);
-	*trans.ui32 = htonl(r_out);
-	return(retval);
-}
-
-char *
-crypt_des(const char *key, const char *setting)
-{
-	int		i;
-	u_int32_t	count, salt, l, r0, r1, keybuf[2];
-	u_char		*p, *q;
-	static char	output[21];
-
-	if (!des_initialised)
-		des_init();
-
-	/*
-	 * Copy the key, shifting each character up by one bit
-	 * and padding with zeros.
-	 */
-	q = (u_char *)keybuf;
-	while (q - (u_char *)keybuf - 8) {
-		*q++ = *key << 1;
-		if (*(q - 1))
-			key++;
-	}
-	if (des_setkey((char *)keybuf))
-		return(NULL);
-
-	if (*setting == _PASSWORD_EFMT1) {
-		/*
-		 * "new"-style:
-		 *	setting - underscore, 4 bytes of count, 4 bytes of salt
-		 *	key - unlimited characters
-		 */
-		for (i = 1, count = 0L; i < 5; i++)
-			count |= ascii_to_bin(setting[i]) << ((i - 1) * 6);
-
-		for (i = 5, salt = 0L; i < 9; i++)
-			salt |= ascii_to_bin(setting[i]) << ((i - 5) * 6);
-
-		while (*key) {
-			/*
-			 * Encrypt the key with itself.
-			 */
-			if (des_cipher((char *)keybuf, (char *)keybuf, 0L, 1))
-				return(NULL);
-			/*
-			 * And XOR with the next 8 characters of the key.
-			 */
-			q = (u_char *)keybuf;
-			while (q - (u_char *)keybuf - 8 && *key)
-				*q++ ^= *key++ << 1;
-
-			if (des_setkey((char *)keybuf))
-				return(NULL);
-		}
-		strncpy(output, setting, 9);
-
-		/*
-		 * Double check that we weren't given a short setting.
-		 * If we were, the above code will probably have created
-		 * wierd values for count and salt, but we don't really care.
-		 * Just make sure the output string doesn't have an extra
-		 * NUL in it.
-		 */
-		output[9] = '\0';
-		p = (u_char *)output + strlen(output);
-	} else {
-		/*
-		 * "old"-style:
-		 *	setting - 2 bytes of salt
-		 *	key - up to 8 characters
-		 */
-		count = 25;
-
-		salt = (ascii_to_bin(setting[1]) << 6)
-		     |  ascii_to_bin(setting[0]);
-
-		output[0] = setting[0];
-		/*
-		 * If the encrypted password that the salt was extracted from
-		 * is only 1 character long, the salt will be corrupted.  We
-		 * need to ensure that the output string doesn't have an extra
-		 * NUL in it!
-		 */
-		output[1] = setting[1] ? setting[1] : output[0];
-
-		p = (u_char *)output + 2;
-	}
-	setup_salt(salt);
-	/*
-	 * Do it.
-	 */
-	if (do_des(0L, 0L, &r0, &r1, (int)count))
-		return(NULL);
-	/*
-	 * Now encode the result...
-	 */
-	l = (r0 >> 8);
-	*p++ = ascii64[(l >> 18) & 0x3f];
-	*p++ = ascii64[(l >> 12) & 0x3f];
-	*p++ = ascii64[(l >> 6) & 0x3f];
-	*p++ = ascii64[l & 0x3f];
-
-	l = (r0 << 16) | ((r1 >> 16) & 0xffff);
-	*p++ = ascii64[(l >> 18) & 0x3f];
-	*p++ = ascii64[(l >> 12) & 0x3f];
-	*p++ = ascii64[(l >> 6) & 0x3f];
-	*p++ = ascii64[l & 0x3f];
-
-	l = r1 << 2;
-	*p++ = ascii64[(l >> 12) & 0x3f];
-	*p++ = ascii64[(l >> 6) & 0x3f];
-	*p++ = ascii64[l & 0x3f];
-	*p = 0;
-
-	return(output);
+		des_init_tables();
+    des_set_key(&ctx, key);
+	des_set_salt(&ctx, salt);
+    rc = do_des(&ctx, input, output, count);
+    memset(&ctx, 0, sizeof(ctx));
+    return rc;
 }
