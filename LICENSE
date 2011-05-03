@@ -46,7 +46,7 @@ PassLib contains some code derived from the following sources:
 
 MD5-Crypt
 ---------
-The source file ``passlib/handlers/md5_crypt.py`` contains code derived from the original
+The source files ``passlib/handlers/md5_crypt.py``
 `FreeBSD md5-crypt implementation <http://www.freebsd.org/cgi/cvsweb.cgi/~checkout~/src/lib/libcrypt/crypt.c?rev=1.2>`_,
 which is available under the following license::
 
