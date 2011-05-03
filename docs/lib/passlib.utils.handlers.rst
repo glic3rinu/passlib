@@ -127,7 +127,7 @@ Examples
 
 .. todo::
 
-    Show some examples of how to use GenericHandler and it's mixins
+    Show some walk-through examples of how to use GenericHandler and it's mixins
 
 The StaticHandler class
 =======================
@@ -141,6 +141,10 @@ The StaticHandler class
     pair: custom hash handler; testing
 
 .. _testing-hash-handlers:
+
+Other Constructors
+==================
+.. autoclass:: PrefixWrapper
 
 Testing Hash Handlers
 =====================

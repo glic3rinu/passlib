@@ -92,8 +92,22 @@ _handler_locations = {
     "ldap_plaintext":   ("passlib.handlers.ldap_digests","ldap_plaintext"),
     "ldap_md5":         ("passlib.handlers.ldap_digests","ldap_md5"),
     "ldap_sha1":        ("passlib.handlers.ldap_digests","ldap_sha1"),
+    "ldap_hex_md5":     ("passlib.handlers.roundup",     "ldap_hex_md5"),
+    "ldap_hex_sha1":    ("passlib.handlers.roundup",     "ldap_hex_sha1"),
     "ldap_salted_md5":  ("passlib.handlers.ldap_digests","ldap_salted_md5"),
     "ldap_salted_sha1": ("passlib.handlers.ldap_digests","ldap_salted_sha1"),
+    "ldap_des_crypt":   ("passlib.handlers.ldap_digests","ldap_des_crypt"),
+    "ldap_bsdi_crypt":  ("passlib.handlers.ldap_digests","ldap_bsdi_crypt"),
+    "ldap_md5_crypt":   ("passlib.handlers.ldap_digests","ldap_md5_crypt"),
+    "ldap_bcrypt":      ("passlib.handlers.ldap_digests","ldap_bcrypt"),
+    "ldap_sha1_crypt":  ("passlib.handlers.ldap_digests","ldap_sha1_crypt"),
+    "ldap_sha256_crypt":("passlib.handlers.ldap_digests","ldap_sha256_crypt"),
+    "ldap_sha512_crypt":("passlib.handlers.ldap_digests","ldap_sha512_crypt"),
+    "ldap_pbkdf2_sha1": ("passlib.handlers.pbkdf2",      "ldap_pbkdf2_sha1"),
+    "ldap_pbkdf2_sha256":
+                        ("passlib.handlers.pbkdf2",      "ldap_pbkdf2_sha256"),
+    "ldap_pbkdf2_sha512":
+                        ("passlib.handlers.pbkdf2",      "ldap_pbkdf2_sha512"),
     "md5_crypt":        ("passlib.handlers.md5_crypt",   "md5_crypt"),
     "mysql323":         ("passlib.handlers.mysql",       "mysql323"),
     "mysql41":          ("passlib.handlers.mysql",       "mysql41"),
@@ -106,6 +120,7 @@ _handler_locations = {
     "phpass":           ("passlib.handlers.phpass",      "phpass"),
     "plaintext":        ("passlib.handlers.misc",        "plaintext"),
     "postgres_md5":     ("passlib.handlers.postgres",    "postgres_md5"),
+    "roundup_plaintext":("passlib.handlers.roundup",     "roundup_plaintext"),
     "sha1_crypt":       ("passlib.handlers.sha1_crypt",  "sha1_crypt"),
     "sha256_crypt":     ("passlib.handlers.sha2_crypt",  "sha256_crypt"),
     "sha512_crypt":     ("passlib.handlers.sha2_crypt",  "sha512_crypt"),
@@ -294,7 +309,7 @@ def has_crypt_handler(name, loaded_only=False):
     global _handlers, _handler_locations
     return (name in _handlers) or (not loaded_only and name in _handler_locations)
 
-def _unload_handler_name(name):
+def _unload_handler_name(name, locations=True):
     """unloads a handler from the registry.
 
     .. warning::
@@ -306,14 +321,16 @@ def _unload_handler_name(name):
     if path to lazy load handler is found, its' removed.
 
     missing names are a noop.
+
+    :arg name: name of handler to unload
+    :param locations: if False, won't purge registered handler locations (default True)
     """
     global _handlers, _handler_locations
 
     if name in _handlers:
         del _handlers[name]
 
-    #NOTE: this messes w/ internals of registry, shouldn't be used publically.
-    if name in _handler_locations:
+    if locations and name in _handler_locations:
         del _handler_locations[name]
 
 #=========================================================

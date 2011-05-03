@@ -35,9 +35,9 @@ class Pbkdf2DigestHandler(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gen
     setting_kwds = ("salt", "salt_size", "rounds")
 
     #--HasSalt--
-    default_salt_chars = 16
-    min_salt_chars = 0
-    max_salt_chars = 1024
+    default_salt_size = 16
+    min_salt_size = 0
+    max_salt_size = 1024
 
     #--HasRounds--
     default_rounds = 6400
@@ -48,7 +48,7 @@ class Pbkdf2DigestHandler(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gen
     #--this class--
     _prf = None #subclass specified prf identifier
 
-    #NOTE: max_salt_chars and max_rounds are arbitrarily chosen to provide sanity check.
+    #NOTE: max_salt_size and max_rounds are arbitrarily chosen to provide sanity check.
     #      the underlying pbkdf2 specifies no bounds for either.
 
     #NOTE: defaults chosen to be at least as large as pbkdf2 rfc recommends...
@@ -86,21 +86,22 @@ class Pbkdf2DigestHandler(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gen
     def calc_checksum(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        return pbkdf2(secret, self.salt, self.rounds, self.checksum_chars, self._prf)
+        return pbkdf2(secret, self.salt, self.rounds, self.checksum_size, self._prf)
 
-def create_pbkdf2_hash(hash_name, digest_size):
+def create_pbkdf2_hash(hash_name, digest_size, ident=None):
     "create new Pbkdf2DigestHandler subclass for a specific hash"
     name = 'pbkdf2_' + hash_name
-    ident = "$pbkdf2-%s$" % (hash_name,)
+    if ident is None:
+        ident = "$pbkdf2-%s$" % (hash_name,)
     prf = "hmac-%s" % (hash_name,)
     base = Pbkdf2DigestHandler
     return type(name, (base,), dict(
         name=name,
         ident=ident,
         _prf = prf,
-        checksum_chars=digest_size,
-        encoded_checksum_chars=(digest_size*4+2)//3,
-        __doc__="""This class implements passlib's pbkdf2-%(prf)s hash, and follows the :ref:`password-hash-api`.
+        checksum_size=digest_size,
+        encoded_checksum_size=(digest_size*4+2)//3,
+        __doc__="""This class implements a generic ``PBKDF2-%(prf)s``-based password hash, and follows the :ref:`password-hash-api`.
 
     It supports a variable-length salt, and a variable number of rounds.
 
@@ -118,15 +119,19 @@ def create_pbkdf2_hash(hash_name, digest_size):
     :param rounds:
         Optional number of rounds to use.
         Defaults to %(dr)d, but must be within ``range(1,1<<32)``.
-    """ % dict(prf=prf, dsc=base.default_salt_chars, dr=base.default_rounds)
+    """ % dict(prf=prf.upper(), dsc=base.default_salt_size, dr=base.default_rounds)
     ))
 
 #---------------------------------------------------------
 #derived handlers
 #---------------------------------------------------------
-pbkdf2_sha1 = create_pbkdf2_hash("sha1", 20)
+pbkdf2_sha1 = create_pbkdf2_hash("sha1", 20, ident="$pbkdf2$")
 pbkdf2_sha256 = create_pbkdf2_hash("sha256", 32)
 pbkdf2_sha512 = create_pbkdf2_hash("sha512", 64)
+
+ldap_pbkdf2_sha1 = uh.PrefixWrapper("ldap_pbkdf2_sha1", pbkdf2_sha1, "{PBKDF2}", "$pbkdf2$")
+ldap_pbkdf2_sha256 = uh.PrefixWrapper("ldap_pbkdf2_sha256", pbkdf2_sha256, "{PBKDF2-SHA256}", "$pbkdf2-sha256$")
+ldap_pbkdf2_sha512 = uh.PrefixWrapper("ldap_pbkdf2_sha512", pbkdf2_sha512, "{PBKDF2-SHA512}", "$pbkdf2-sha512$")
 
 #=========================================================
 #dlitz's pbkdf2 hash
@@ -160,13 +165,14 @@ class dlitz_pbkdf2_sha1(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     setting_kwds = ("salt", "salt_size", "rounds")
     ident = "$p5k2$"
 
-    #NOTE: max_salt_chars and max_rounds are arbitrarily chosen to provide sanity check.
+    #NOTE: max_salt_size and max_rounds are arbitrarily chosen to provide sanity check.
     #   underlying algorithm (and reference implementation) allow effectively unbounded values for both of these.
 
     #--HasSalt--
-    default_salt_chars = 16
-    min_salt_chars = 0
-    max_salt_chars = 1024
+    default_salt_size = 16
+    min_salt_size = 0
+    max_salt_size = 1024
+    salt_chars = uh.H64_CHARS
 
     #--HasROunds--
     default_rounds = 10000
@@ -242,12 +248,12 @@ class atlassian_pbkdf2_sha1(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler)
     name = "atlassian_pbkdf2_sha1"
     setting_kwds =("salt",)
     ident = "{PKCS5S2}"
-    checksum_chars = 32
+    checksum_size = 32
 
     _stub_checksum = "\x00" * 32
 
     #--HasRawSalt--
-    min_salt_chars = max_salt_chars = 16
+    min_salt_size = max_salt_size = 16
 
     @classmethod
     def from_string(cls, hash):
@@ -301,13 +307,13 @@ class grub_pbkdf2_sha512(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gene
 
     ident = "grub.pbkdf2.sha512."
 
-    #NOTE: max_salt_chars and max_rounds are arbitrarily chosen to provide sanity check.
+    #NOTE: max_salt_size and max_rounds are arbitrarily chosen to provide sanity check.
     #      the underlying pbkdf2 specifies no bounds for either,
     #      and it's not clear what grub specifies.
 
-    default_salt_chars = 64
-    min_salt_chars = 0
-    max_salt_chars = 1024
+    default_salt_size = 64
+    min_salt_size = 0
+    max_salt_size = 1024
 
     default_rounds = 10000
     min_rounds = 1

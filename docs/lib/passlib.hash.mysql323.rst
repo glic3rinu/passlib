@@ -1,3 +1,5 @@
+.. index:: mysql; OLD_PASSWORD()
+
 ========================================================================
 :class:`passlib.hash.mysql323` - MySQL 3.2.3 password hash
 ========================================================================
@@ -16,6 +18,10 @@ hash algorithm was introduced (see :class:`~passlib.hash.mysql41`).
     This algorithm is extremely weak, and should not be used
     for any purposes besides manipulating existing Mysql 3.2.3-4.0
     password hashes.
+
+.. seealso::
+
+    :mod:`!passlib.apps` for a list of predefined :ref:`mysql contexts <mysql-contexts>`.
 
 Usage
 =====

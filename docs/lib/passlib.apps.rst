@@ -7,8 +7,8 @@
 
 This lists a number of :class:`!CryptContext` instances that are predefined
 by PassLib for easily handling the multiple formats used by various applications.
-(For details about how to *use* a :class:`!CryptContext` instance,
-see the documentation for the :class:`CryptContext` class itself).
+(For details about how to use a :class:`!CryptContext` instance,
+see :doc:`passlib.context-usage`).
 
 .. _quickstart-custom-applications:
 
@@ -43,13 +43,17 @@ Custom Applications
     have grown beyond it, it is recommended to create your own CryptContext
     instance; the configuration used to create this object can be a good starting point.
 
+.. _ldap-contexts:
+
 LDAP
 ====
+Passlib provides two contexts related to ldap hashes:
+
 .. data:: ldap_context
 
     This object provides a pre-configured :class:`!CryptContext` instance
     for handling LDAPv2 password hashes. It recognizes all
-    the formats in the :doc:`ldap_digests listing <passlib.hash.ldap_digests>`.
+    the :ref:`standard ldap hashes <standard-ldap-hashes>`.
 
     It defaults to using the ``{SSHA}`` password hash.
     For times when there should be another default, using code such as the following::
@@ -61,9 +65,14 @@ LDAP
         >>> ldap_context.encrypt("password")
         '{SMD5}T9f89F591P3fFh1jz/YtW4aWD5s='
 
-    .. warning::
+.. data:: ldap_nocrypt_context
 
-        PassLib does not currently support the ``{CRYPT}`` password hash method.
+    This object recognizes all the standard ldap schemes that :data:`!ldap_context`
+    does, *except* for the ``{CRYPT}``-based schemes.
+
+.. index:: mysql; crypt context
+
+.. _mysql-contexts:
 
 MySQL
 =====
@@ -86,7 +95,7 @@ for handling MySQL user passwords:
 
     This should be used only with MySQL version 3.2.3 - 4.0.
 
-.. index:: drupal, wordpress, phpbb, phpass
+.. index:: drupal; crypt context, wordpress; crypt context, phpbb3; crypt context, phpass; crypt context
 
 PHPass
 ======
@@ -106,6 +115,8 @@ It is found in a wide range of PHP applications, including Drupal and Wordpress.
 .. data:: phpbb3_context
 
     This object supports phpbb3 password hashes, which use a variant of :class:`~passlib.hash.phpass`.
+
+.. index:: postgres; crypt context
 
 PostgreSQL
 ==========
@@ -127,3 +138,32 @@ PostgreSQL
         True
         >>> postgres_context.verify("wrongpass", 'md578ed0f0ab2be0386645c1b74282917e7', user="dbadmin")
         False
+
+.. index:: roundup; crypt context
+
+Roundup
+=======
+The `Roundup Issue Tracker <http://www.roundup-tracker.org>` has long
+supported a series of different methods for encoding passwords.
+
+.. data:: roundup10_context
+
+    This object should recognize all password hashes used by Roundup:
+    :class:`ldap_hex_sha1` (the default), :class:`ldap_hex_md5`, :class:`ldap_des_crypt`,
+    and :class:`roundup_plaintext`.
+
+.. data:: roundup15_context
+
+    As of 2011-04-28, the next release of Roundup will add support
+    for :class:`ldap_pbkdf2_sha1`. This context supports all the :data:`roundup10_context`
+    hashes, but adds this hash as well (as uses it as the default).
+
+    .. note::
+
+        This version of Roundup has not been released yet,
+        databases using Roundup 1.4.16 and earlier should use the :data:`roundup10_context` instead.
+
+.. data:: roundup_context
+
+    this is an alias for the latest version-specific roundup context supported
+    by passlib, currently the :data:`!roundup15_context`.

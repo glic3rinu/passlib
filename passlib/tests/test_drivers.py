@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 import warnings
 #site
 #pkg
-from passlib.tests.utils import HandlerCase, create_backend_case, enable_option
+from passlib.tests.utils import TestCase, HandlerCase, create_backend_case, enable_option
 #module
 
 #=========================================================
@@ -250,7 +250,63 @@ class LdapPlaintextTest(HandlerCase):
 
     known_other_hashes = [ ("ldap_md5", "{MD5}/F4DjTilcDIIVEHn/nAQsA==")]
 
-# helloworld -> '{CRYPT}dQ58WW.1980Ig'
+#NOTE: since the ldap_{crypt} handlers are all wrappers,
+# don't need separate test. have just one for end-to-end testing purposes.
+
+class LdapMd5CryptTest(HandlerCase):
+    handler = ldap_digests.ldap_md5_crypt
+
+    known_correct_hashes = (
+        ('', '{CRYPT}$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
+        (' ', '{CRYPT}$1$m/5ee7ol$bZn0kIBFipq39e.KDXX8I0'),
+        ('test', '{CRYPT}$1$ec6XvcoW$ghEtNK2U1MC5l.Dwgi3020'),
+        ('Compl3X AlphaNu3meric', '{CRYPT}$1$nX1e7EeI$ljQn72ZUgt6Wxd9hfvHdV0'),
+        ('4lpHa N|_|M3r1K W/ Cur5Es: #$%(*)(*%#', '{CRYPT}$1$jQS7o98J$V6iTcr71CGgwW2laf17pi1'),
+        ('test', '{CRYPT}$1$SuMrG47N$ymvzYjr7QcEQjaK5m1PGx1'),
+        )
+
+    known_malformed_hashes = [
+        #bad char in otherwise correct hash
+        '{CRYPT}$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o!',
+        ]
+
+BuiltinLdapMd5CryptTest = create_backend_case(LdapMd5CryptTest, "builtin")
+
+#=========================================================
+#ldap_pbkdf2_{digest}
+#=========================================================
+from passlib.handlers import pbkdf2 as pk2
+
+#NOTE: since these are all wrappers for the pbkdf2_{digest} hasehs,
+# they don't extensive separate testing.
+
+class LdapPbkdf2Test(TestCase):
+
+    def test_wrappers(self):
+        "test ldap pbkdf2 wrappers"
+
+        self.assertTrue(
+            pk2.ldap_pbkdf2_sha1.verify(
+                "password",
+                '{PBKDF2}1212$OB.dtnSEXZK8U5cgxU/GYQ$y5LKPOplRmok7CZp/aqVDVg8zGI',
+            )
+        )
+
+        self.assertTrue(
+            pk2.ldap_pbkdf2_sha256.verify(
+                "password",
+                '{PBKDF2-SHA256}1212$4vjV83LKPjQzk31VI4E0Vw$hsYF68OiOUPdDZ1Fg'
+                '.fJPeq1h/gXXY7acBp9/6c.tmQ'
+            )
+        )
+
+        self.assertTrue(
+            pk2.ldap_pbkdf2_sha512.verify(
+                "password",
+                '{PBKDF2-SHA512}1212$RHY0Fr3IDMSVO/RSZyb5ow$eNLfBK.eVozomMr.1gYa1'
+                '7k9B7KIK25NOEshvhrSX.esqY3s.FvWZViXz4KoLlQI.BzY/YTNJOiKc5gBYFYGww'
+            )
+        )
 
 #=========================================================
 #md5 crypt
@@ -438,9 +494,9 @@ class AtlassianPbkdf2Sha1Test(HandlerCase):
 class Pbkdf2Sha1Test(HandlerCase):
     handler = pk2.pbkdf2_sha1
     known_correct_hashes = (
-        ("password", '$pbkdf2-sha1$1212$OB.dtnSEXZK8U5cgxU/GYQ$y5LKPOplRmok7CZp/aqVDVg8zGI'),
+        ("password", '$pbkdf2$1212$OB.dtnSEXZK8U5cgxU/GYQ$y5LKPOplRmok7CZp/aqVDVg8zGI'),
         (u'\u0399\u03c9\u03b1\u03bd\u03bd\u03b7\u03c2',
-            '$pbkdf2-sha1$1212$THDqatpidANpadlLeTeOEg$HV3oi1k5C5LQCgG1BMOL.BX4YZc'),
+            '$pbkdf2$1212$THDqatpidANpadlLeTeOEg$HV3oi1k5C5LQCgG1BMOL.BX4YZc'),
     )
 
 class Pbkdf2Sha256Test(HandlerCase):
@@ -637,6 +693,47 @@ class SHA1CryptTest(HandlerCase):
     ]
 
 #=========================================================
+#roundup
+#=========================================================
+
+#NOTE: all roundup hashes use PrefixWrapper,
+# so there's nothing natively to test.
+# so we just have a few quick cases...
+from passlib.handlers import roundup
+
+class RoundupTest(TestCase):
+
+    def _test_pair(self, h, secret, hash):
+        self.assertTrue(h.verify(secret, hash))
+        self.assertFalse(h.verify('x'+secret, hash))
+
+    def test_pairs(self):
+        self._test_pair(
+            roundup.ldap_hex_sha1,
+            "sekrit",
+            '{SHA}8d42e738c7adee551324955458b5e2c0b49ee655')
+
+        self._test_pair(
+            roundup.ldap_hex_md5,
+            "sekrit",
+            '{MD5}ccbc53f4464604e714f69dd11138d8b5')
+
+        self._test_pair(
+            ldap_digests.ldap_des_crypt,
+            "sekrit",
+            '{CRYPT}nFia0rj2TT59A')
+
+        self._test_pair(
+            roundup.roundup_plaintext,
+            "sekrit",
+            '{plaintext}sekrit')
+
+        self._test_pair(
+            pk2.ldap_pbkdf2_sha1,
+            "sekrit",
+            '{PBKDF2}5000$7BvbBq.EZzz/O0HuwX3iP.nAG3s$g3oPnFFaga2BJaX5PoPRljl4XIE')
+
+#=========================================================
 #sha256-crypt
 #=========================================================
 from passlib.handlers.sha2_crypt import sha256_crypt, raw_sha_crypt
@@ -775,18 +872,82 @@ class SunMD5CryptTest(HandlerCase):
     handler = sun_md5_crypt
 
     known_correct_hashes = [
-        #sample hash found at http://compgroups.net/comp.unix.solaris/password-file-in-linux-and-solaris-8-9
+        #TODO: this scheme needs some real test vectors,
+        # especially due to the "bare salt" issue.
+
+        #--------------------------------------
+        #sample hashes culled from web messages
+        #--------------------------------------
+
+        #http://forums.halcyoninc.com/showthread.php?t=258
+        ("Gpcs3_adm", "$md5$zrdhpMlZ$$wBvMOEqbSjU.hu5T2VEP01"),
+
+        #http://www.c0t0d0s0.org/archives/4453-Less-known-Solaris-features-On-passwords-Part-2-Using-stronger-password-hashing.html
+        ("aa12345678", "$md5$vyy8.OVF$$FY4TWzuauRl4.VQNobqMY."),
+
+        #http://www.cuddletech.com/blog/pivot/entry.php?id=778
+        ("this", "$md5$3UqYqndY$$6P.aaWOoucxxq.l00SS9k0"),
+
+        #http://compgroups.net/comp.unix.solaris/password-file-in-linux-and-solaris-8-9
         ("passwd", "$md5$RPgLF6IJ$WTvAlUJ7MqH5xak2FMEwS/"),
+
+        #-------------------------------
+        #potential sample hashes - all have issues
+        #-------------------------------
+
+        #source: http://solaris-training.com/301_HTML/docs/deepdiv.pdf page 27
+        #FIXME: password unknown
+        #"$md5,rounds=8000$kS9FT1JC$$mnUrRO618lLah5iazwJ9m1"
+
+        #source: http://www.visualexams.com/310-303.htm
+        #XXX: this has 9 salt chars unlike all other hashes. is that valid?
+        #FIXME: password unknown
+        #"$md5,rounds=2006$2amXesSj5$$kCF48vfPsHDjlKNXeEw7V."
+
         ]
+
+    known_correct_configs = [
+        #(config, secret, hash)
+
+        #---------------------------
+        #test salt string handling
+        #
+        #these tests attempt to verify that passlib is handling
+        #the "bare salt" issue (see sun md5 crypt docs)
+        #in a sane manner
+        #---------------------------
+
+        #config with "$" suffix, hash strings with "$$" suffix,
+        # should all be treated the same, with one "$" added to salt digest.
+        ("$md5$3UqYqndY$",
+            "this", "$md5$3UqYqndY$$6P.aaWOoucxxq.l00SS9k0"),
+        ("$md5$3UqYqndY$$x",
+            "this", "$md5$3UqYqndY$$6P.aaWOoucxxq.l00SS9k0"),
+
+        #config with no suffix, hash strings with "$" suffix,
+        # should all be treated the same, and no suffix added to salt digest.
+        #NOTE: this is just a guess re: config w/ no suffix,
+        #      but otherwise there's no sane way to encode bare_salt=False
+        #      within config string.
+        ("$md5$RPgLF6IJ",
+            "passwd", "$md5$RPgLF6IJ$WTvAlUJ7MqH5xak2FMEwS/"),
+        ("$md5$RPgLF6IJ$x",
+            "passwd", "$md5$RPgLF6IJ$WTvAlUJ7MqH5xak2FMEwS/"),
+    ]
 
     known_malformed_hashes = [
         #bad char in otherwise correct hash
-        "$md5$RPgL!6IJ$WTvAlUJ7MqH5xak2FMEwS/"
-        ]
+        "$md5$RPgL!6IJ$WTvAlUJ7MqH5xak2FMEwS/",
 
-    def test_raw(self):
-        #check raw func handles salt clipping right
-        self.assertEqual(raw_sun_md5_crypt("s",1,"s"*10),'oV9bYatWWWc8S7qSpMKU2.')
+        #2+ "$" at end of salt in config
+        #NOTE: not sure what correct behavior is, so forbidding format for now.
+        "$md5$3UqYqndY$$",
+
+        #3+ "$" at end of salt in hash
+        #NOTE: not sure what correct behavior is, so forbidding format for now.
+        "$md5$RPgLa6IJ$$$WTvAlUJ7MqH5xak2FMEwS/",
+
+        ]
 
 #=========================================================
 #unix fallback

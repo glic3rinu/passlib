@@ -68,7 +68,7 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
     #--GenericHandler--
     name = "bcrypt"
     setting_kwds = ("salt", "rounds", "ident")
-    checksum_chars = 31
+    checksum_size = 31
 
     #--HasManyIdents--
     default_ident = "$2a$"
@@ -76,7 +76,8 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
     ident_aliases = {"2":"$2$", "2a": "$2a$"}
 
     #--HasSalt--
-    min_salt_chars = max_salt_chars = 22
+    min_salt_size = max_salt_size = 22
+    salt_chars = uh.H64_CHARS
 
     #--HasRounds--
     default_rounds = 12 #current passlib default

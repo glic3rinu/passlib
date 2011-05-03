@@ -10,8 +10,12 @@ from logging import getLogger
 import warnings
 #site
 #pkg
+from passlib.hash import ldap_md5
+from passlib.registry import _unload_handler_name as unload_handler_name, \
+    register_crypt_handler, get_crypt_handler
 from passlib.utils import rng, getrandstr, handlers as uh
-from passlib.tests.utils import HandlerCase, TestCase, catch_warnings
+from passlib.tests.utils import HandlerCase, TestCase, catch_warnings, \
+    dummy_handler_in_registry
 #module
 log = getLogger(__name__)
 
@@ -90,22 +94,22 @@ class SkeletonTest(TestCase):
         "test GenericHandler.norm_checksum()"
         class d1(uh.GenericHandler):
             name = 'd1'
-            checksum_chars = 4
-            checksum_charset = 'x'
+            checksum_size = 4
+            checksum_chars = 'x'
         self.assertRaises(ValueError, d1.norm_checksum, 'xxx')
         self.assertEqual(d1.norm_checksum('xxxx'), 'xxxx')
         self.assertRaises(ValueError, d1.norm_checksum, 'xxxxx')
         self.assertRaises(ValueError, d1.norm_checksum, 'xxyx')
 
-    def test_12_norm_salt(self):
+    def test_20_norm_salt(self):
         "test GenericHandler+HasSalt: .norm_salt(), .generate_salt()"
         class d1(uh.HasSalt, uh.GenericHandler):
             name = 'd1'
             setting_kwds = ('salt',)
-            min_salt_chars = 1
-            max_salt_chars = 3
-            default_salt_chars = 2
-            salt_charset = 'a'
+            min_salt_size = 1
+            max_salt_size = 3
+            default_salt_size = 2
+            salt_chars = 'a'
 
         #check salt=None
         self.assertEqual(d1.norm_salt(None), 'aa')
@@ -125,7 +129,31 @@ class SkeletonTest(TestCase):
         self.assertEquals(len(d1.norm_salt(None,salt_size=5)), 3)
         self.assertRaises(ValueError, d1.norm_salt, None, salt_size=5, strict=True)
 
-    def test_13_norm_rounds(self):
+    def test_21_norm_salt(self):
+        "test GenericHandler+HasSalt: .norm_salt(), .generate_salt() - with no max_salt_size"
+        class d1(uh.HasSalt, uh.GenericHandler):
+            name = 'd1'
+            setting_kwds = ('salt',)
+            min_salt_size = 1
+            max_salt_size = None
+            default_salt_size = 2
+            salt_chars = 'a'
+
+        #check salt=None
+        self.assertEqual(d1.norm_salt(None), 'aa')
+        self.assertRaises(ValueError, d1.norm_salt, None, strict=True)
+
+        #check small & large salts
+        self.assertRaises(ValueError, d1.norm_salt, '')
+        self.assertEqual(d1.norm_salt('aaaa', strict=True), 'aaaa')
+
+        #check generate salt (indirectly)
+        self.assertEquals(len(d1.norm_salt(None)), 2)
+        self.assertEquals(len(d1.norm_salt(None,salt_size=1)), 1)
+        self.assertEquals(len(d1.norm_salt(None,salt_size=3)), 3)
+        self.assertEquals(len(d1.norm_salt(None,salt_size=5)), 5)
+
+    def test_30_norm_rounds(self):
         "test GenericHandler+HasRounds: .norm_rounds()"
         class d1(uh.HasRounds, uh.GenericHandler):
             name = 'd1'
@@ -150,7 +178,7 @@ class SkeletonTest(TestCase):
         d1.default_rounds = None
         self.assertRaises(ValueError, d1.norm_rounds, None)
 
-    def test_14_backends(self):
+    def test_40_backends(self):
         "test GenericHandler+HasManyBackends"
         class d1(uh.HasManyBackends, uh.GenericHandler):
             name = 'd1'
@@ -194,7 +222,7 @@ class SkeletonTest(TestCase):
         d1.set_backend('a')
         self.assertEquals(obj.calc_checksum('s'), 'a')
 
-    def test_15_bh_norm_ident(self):
+    def test_50_bh_norm_ident(self):
         "test GenericHandler+HasManyIdents: .norm_ident() & .identify()"
         class d1(uh.HasManyIdents, uh.GenericHandler):
             name = 'd1'
@@ -233,6 +261,84 @@ class SkeletonTest(TestCase):
     #=========================================================
 
 #=========================================================
+#PrefixWrapper
+#=========================================================
+class PrefixWrapperTest(TestCase):
+    "test PrefixWrapper class"
+
+    def test_00_lazy_loading(self):
+        "test PrefixWrapper lazy loading of handler"
+        d1 = uh.PrefixWrapper("d1", "ldap_md5", "{XXX}", "{MD5}", lazy=True)
+
+        #check base state
+        self.assertEqual(d1._wrapped_name, "ldap_md5")
+        self.assertIs(d1._wrapped_handler, None)
+
+        #check loading works
+        self.assertIs(d1.wrapped, ldap_md5)
+        self.assertIs(d1._wrapped_handler, ldap_md5)
+
+        #replace w/ wrong handler, make sure doesn't reload w/ dummy
+        with dummy_handler_in_registry("ldap_md5") as dummy:
+            self.assertIs(d1.wrapped, ldap_md5)
+
+    def test_01_active_loading(self):
+        "test PrefixWrapper active loading of handler"
+        d1 = uh.PrefixWrapper("d1", "ldap_md5", "{XXX}", "{MD5}")
+
+        #check base state
+        self.assertEqual(d1._wrapped_name, "ldap_md5")
+        self.assertIs(d1._wrapped_handler, ldap_md5)
+        self.assertIs(d1.wrapped, ldap_md5)
+
+        #replace w/ wrong handler, make sure doesn't reload w/ dummy
+        with dummy_handler_in_registry("ldap_md5") as dummy:
+            self.assertIs(d1.wrapped, ldap_md5)
+
+    def test_02_explicit(self):
+        "test PrefixWrapper with explicitly specified handler"
+
+        d1 = uh.PrefixWrapper("d1", ldap_md5, "{XXX}", "{MD5}")
+
+        #check base state
+        self.assertEqual(d1._wrapped_name, None)
+        self.assertIs(d1._wrapped_handler, ldap_md5)
+        self.assertIs(d1.wrapped, ldap_md5)
+
+        #replace w/ wrong handler, make sure doesn't reload w/ dummy
+        with dummy_handler_in_registry("ldap_md5") as dummy:
+            self.assertIs(d1.wrapped, ldap_md5)
+
+    def test_10_wrapped_attributes(self):
+        d1 = uh.PrefixWrapper("d1", "ldap_md5", "{XXX}", "{MD5}")
+        self.assertEqual(d1.name, "d1")
+        self.assertIs(d1.setting_kwds, ldap_md5.setting_kwds)
+
+    def test_11_wrapped_methods(self):
+        d1 = uh.PrefixWrapper("d1", "ldap_md5", "{XXX}", "{MD5}")
+        dph = "{XXX}X03MO1qnZdYdgyfeuILPmQ=="
+        lph = "{MD5}X03MO1qnZdYdgyfeuILPmQ=="
+
+        #genconfig
+        self.assertIs(d1.genconfig(), None)
+
+        #genhash
+        self.assertEqual(d1.genhash("password", None), dph)
+        self.assertEqual(d1.genhash("password", dph), dph)
+        self.assertRaises(ValueError, d1.genhash, "password", lph)
+
+        #encrypt
+        self.assertEqual(d1.encrypt("password"), dph)
+
+        #identify
+        self.assertTrue(d1.identify(dph))
+        self.assertFalse(d1.identify(lph))
+
+        #verify
+        self.assertRaises(ValueError, d1.verify, "password", lph)
+        self.assertTrue(d1.verify("password", dph))
+
+#=========================================================
 #sample algorithms - these serve as known quantities
 # to test the unittests themselves, as well as other
 # parts of passlib. they shouldn't be used as actual password schemes.
@@ -259,10 +365,10 @@ class SaltedHash(uh.HasSalt, uh.GenericHandler):
     name = "salted_test_hash"
     setting_kwds = ("salt",)
 
-    min_salt_chars = 2
-    max_salt_chars = 4
-    checksum_chars = 40
-    salt_charset = checksum_charset = uh.LC_HEX_CHARS
+    min_salt_size = 2
+    max_salt_size = 4
+    checksum_size = 40
+    salt_chars = checksum_chars = uh.LC_HEX_CHARS
 
     @classmethod
     def identify(cls, hash):
