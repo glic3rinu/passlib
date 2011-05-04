@@ -37,13 +37,17 @@ class build_optional_ext(build_ext):
 #=========================================================
 #setup config
 #=========================================================
+names = [ "speedup", "des", "h64", "md5crypt" ]
+sources = [ 'src/%s.c' % n for n in names ]
+depends = [ 'src/%s.h' % n for n in names ]
+
 speedup = Feature(
     "optional C speedup module for passlib",
     standard=True,
     ext_modules = [
         Extension("passlib.utils._speedup",
-                  sources=["src/speedup.c", "src/des.c"],
-                  depends=["src/des.h"],
+                  sources=sources,
+                  depends=depends,
                   libraries=["ssl"],
                   ),
     ],

@@ -1,112 +1,87 @@
 /*
- * ----------------------------------------------------------------------------
+ * passlib/src/md5crypt.c - md5-crypt & apr-md5-crypt encryption routines
+ *
+ * this file is a direct copy of FreeBSD's md5crypt.c,
+ * taken from http://www.freebsd.org/cgi/cvsweb.cgi/~checkout~/src/lib/libcrypt/crypt.c?rev=1.2
+ * the following changes were made from the original:
+ *     - mild refactoring of frontend functions
+ *     - changed to use C99 types
+ *
+ * ============================================================================
+ *
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <phk@login.dknet.dk> wrote this file.  As long as you retain this notice you
  * can do whatever you want with this stuff. If we meet some day, and you think
  * this stuff is worth it, you can buy me a beer in return.   Poul-Henning Kamp
- * ----------------------------------------------------------------------------
- *
- * $Id$
  *
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char rcsid[] = "$Header$";
-#endif /* LIBC_SCCS and not lint */
+#include <string.h>
+#include <stdint.h>
+#include <openssl/md5.h>
+#include "h64.h"
+#include "md5crypt.h"
 
-#include <unistd.h>
-#include <stdio.h>
-#include <md5.h>
+#define to64 h64_encode_from_long
 
-static unsigned char itoa64[] =		/* 0 ... 63 => ascii - 64 */
-	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-static void
-to64(s, v, n)
-	char *s;
-	unsigned long v;
-	int n;
+int md5_crypt(char *outbuf,
+              char *passwd,
+              char *salt,
+              char *magic)
 {
-	while (--n >= 0) {
-		*s++ = itoa64[v&0x3f];
-		v >>= 6;
-	}
-}
-
-/*
- * UNIX password
- *
- * Use MD5 for what it is best at...
- */
-
-char *
-crypt(pw, salt)
-	register const char *pw;
-	register const char *salt;
-{
-	static char	*magic = "$1$";	/*
-						 * This string is magic for
-						 * this algorithm.  Having
-						 * it this way, we can get
-						 * get better later on
-						 */
-	static char     passwd[120], *p;
-	static const char *sp,*ep;
-	unsigned char	final[16];
-	int sl,pl,i,j;
-	MD5_CTX	ctx,ctx1;
+    /* NOTE: 'magic' should be '$1$' for md5 crypt,
+     * and '$apr1$' for apache md5 crypt
+     *
+     * NOTE: outbuf must have at least 23 bytes alloc'd
+     * it will be filled with the encoded checksum ONLY
+     *
+     * returns 1 on error, 0 on success
+     */
+	MD5_CTX	ctx;
+    uint8_t tmpbuf[MD5_DIGEST_LENGTH];
+    char *p;
+	int i;
 	unsigned long l;
+    int pwdlen = strlen(passwd);
+    int saltlen = strlen(salt);
 
-	/* Refine the Salt first */
-	sp = salt;
+	/* Prepare tmp digest MD5(pw,salt,pw) */
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, passwd, pwdlen);
+	MD5_Update(&ctx, salt, saltlen);
+	MD5_Update(&ctx, passwd, pwdlen);
+	MD5_Final(tmpbuf, &ctx);
 
-	/* If it starts with the magic string, then skip that */
-	if(!strncmp(sp,magic,strlen(magic)))
-		sp += strlen(magic);
-
-	/* It stops at the first '$', max 8 chars */
-	for(ep=sp;*ep && *ep != '$' && ep < (sp+8);ep++)
-		continue;
-
-	/* get the length of the true salt */
-	sl = ep - sp;
-
-	MD5Init(&ctx);
+	/* start real digest */
+	MD5_Init(&ctx);
 
 	/* The password first, since that is what is most unknown */
-	MD5Update(&ctx,pw,strlen(pw));
+	MD5_Update(&ctx, passwd, pwdlen);
 
 	/* Then our magic string */
-	MD5Update(&ctx,magic,strlen(magic));
+	MD5_Update(&ctx, magic, strlen(magic));
 
 	/* Then the raw salt */
-	MD5Update(&ctx,sp,sl);
+	MD5_Update(&ctx, salt, saltlen);
 
-	/* Then just as many characters of the MD5(pw,salt,pw) */
-	MD5Init(&ctx1);
-	MD5Update(&ctx1,pw,strlen(pw));
-	MD5Update(&ctx1,sp,sl);
-	MD5Update(&ctx1,pw,strlen(pw));
-	MD5Final(final,&ctx1);
-	for(pl = strlen(pw); pl > 0; pl -= 16)
-		MD5Update(&ctx,final,pl>16 ? 16 : pl);
-
-	/* Don't leave anything around in vm they could use. */
-	memset(final,0,sizeof final);
+	/* then tmp digest above, repeated to match pwd size */
+	for(i = pwdlen; i > 0; i -= MD5_DIGEST_LENGTH)
+		MD5_Update(&ctx, tmpbuf, i>MD5_DIGEST_LENGTH ? MD5_DIGEST_LENGTH : i);
 
 	/* Then something really weird... */
-	for (j=0,i = strlen(pw); i ; i >>= 1)
+		/* NOTE: original code has a more complex alg
+		   which was probably meant to be stronger,
+		   but had some typos, so it's effectively this...
+		*/
+	tmpbuf[0] = '\0';
+	for (i = pwdlen; i ; i >>= 1)
 		if(i&1)
-		    MD5Update(&ctx, final+j, 1);
+		    MD5_Update(&ctx, tmpbuf, 1);
 		else
-		    MD5Update(&ctx, pw+j, 1);
+		    MD5_Update(&ctx, passwd, 1);
 
 	/* Now make the output string */
-	strcpy(passwd,magic);
-	strncat(passwd,sp,sl);
-	strcat(passwd,"$");
-
-	MD5Final(final,&ctx);
+	MD5_Final(tmpbuf,&ctx);
 
 	/*
 	 * and now, just to make sure things don't run too fast
@@ -114,37 +89,37 @@ crypt(pw, salt)
 	 * need 30 seconds to build a 1000 entry dictionary...
 	 */
 	for(i=0;i<1000;i++) {
-		MD5Init(&ctx1);
+		MD5_Init(&ctx);
 		if(i & 1)
-			MD5Update(&ctx1,pw,strlen(pw));
+			MD5_Update(&ctx,passwd,pwdlen);
 		else
-			MD5Update(&ctx1,final,16);
+			MD5_Update(&ctx,tmpbuf, MD5_DIGEST_LENGTH);
 
 		if(i % 3)
-			MD5Update(&ctx1,sp,sl);
+			MD5_Update(&ctx,salt,saltlen);
 
 		if(i % 7)
-			MD5Update(&ctx1,pw,strlen(pw));
+			MD5_Update(&ctx,passwd,pwdlen);
 
 		if(i & 1)
-			MD5Update(&ctx1,final,16);
+			MD5_Update(&ctx,tmpbuf, MD5_DIGEST_LENGTH);
 		else
-			MD5Update(&ctx1,pw,strlen(pw));
-		MD5Final(final,&ctx1);
+			MD5_Update(&ctx,passwd,pwdlen);
+		MD5_Final(tmpbuf,&ctx);
 	}
 
-	p = passwd + strlen(passwd);
-
-	l = (final[ 0]<<16) | (final[ 6]<<8) | final[12]; to64(p,l,4); p += 4;
-	l = (final[ 1]<<16) | (final[ 7]<<8) | final[13]; to64(p,l,4); p += 4;
-	l = (final[ 2]<<16) | (final[ 8]<<8) | final[14]; to64(p,l,4); p += 4;
-	l = (final[ 3]<<16) | (final[ 9]<<8) | final[15]; to64(p,l,4); p += 4;
-	l = (final[ 4]<<16) | (final[10]<<8) | final[ 5]; to64(p,l,4); p += 4;
-	l =                    final[11]                ; to64(p,l,2); p += 2;
+	p = outbuf;
+	l = (tmpbuf[ 0]<<16) | (tmpbuf[ 6]<<8) | tmpbuf[12]; to64(p,l,4); p += 4;
+	l = (tmpbuf[ 1]<<16) | (tmpbuf[ 7]<<8) | tmpbuf[13]; to64(p,l,4); p += 4;
+	l = (tmpbuf[ 2]<<16) | (tmpbuf[ 8]<<8) | tmpbuf[14]; to64(p,l,4); p += 4;
+	l = (tmpbuf[ 3]<<16) | (tmpbuf[ 9]<<8) | tmpbuf[15]; to64(p,l,4); p += 4;
+	l = (tmpbuf[ 4]<<16) | (tmpbuf[10]<<8) | tmpbuf[ 5]; to64(p,l,4); p += 4;
+	l =                     tmpbuf[11]                 ; to64(p,l,2); p += 2;
 	*p = '\0';
 
 	/* Don't leave anything around in vm they could use. */
-	memset(final,0,sizeof final);
+	memset(tmpbuf, 0, sizeof(tmpbuf));
+	memset(&ctx, 0, sizeof(ctx));
 
-	return passwd;
+	return 0;
 }

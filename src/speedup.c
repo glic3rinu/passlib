@@ -16,6 +16,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include "des.h"
+#include "md5crypt.h"
 
 static PyObject *UnknownDigestError;
 
@@ -260,6 +261,36 @@ des_cipher_block_py(PyObject *self, PyObject *args, PyObject *kwds)
     memset(outbuf, 0, 8);
     return result;
 }
+/**************************************************************************
+ * des
+ **************************************************************************/
+
+#define MD5_CRYPT_DOCSTRING "md5_crypt(password, salt, magic)"
+
+static char *md5_crypt_kwds[] = {"password", "salt", "magic", NULL};
+
+static PyObject *
+md5_crypt_py(PyObject *self, PyObject *args, PyObject *kwds)
+{
+    PyObject *result;
+    char *password, *salt, *magic;
+    char outbuf[24];
+
+    /* parse python args*/
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sss", md5_crypt_kwds,
+                                     &password, &salt, &magic))
+        return NULL;
+
+    /* create context, set the key, encode block */
+    Py_BEGIN_ALLOW_THREADS;
+    md5_crypt(outbuf, password, salt, magic);
+    Py_END_ALLOW_THREADS;
+
+    /* cleanup & return */
+    result = Py_BuildValue("s", outbuf);
+    memset(outbuf, 0, sizeof(outbuf));
+    return result;
+}
 
 /**************************************************************************
  * module init
@@ -270,6 +301,8 @@ static PyMethodDef SpeedupMethods[] = {
             METH_VARARGS|METH_KEYWORDS, PBKDF2_HMAC_DOCSTRING },
     {"des_cipher_block", (PyCFunction) des_cipher_block_py,
             METH_VARARGS|METH_KEYWORDS, DES_CIPHER_BLOCK_DOCSTRING },
+    {"md5_crypt", (PyCFunction) md5_crypt_py,
+            METH_VARARGS|METH_KEYWORDS, MD5_CRYPT_DOCSTRING },
     {NULL, NULL, 0, NULL}
 };
 

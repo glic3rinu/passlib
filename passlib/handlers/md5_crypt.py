@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import h64, os_crypt, classproperty, handlers as uh
+from passlib.utils import h64, os_crypt, classproperty, handlers as uh, _speedup
 #pkg
 #local
 __all__ = [
@@ -173,22 +173,28 @@ class md5_crypt(uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #primary interface
     #=========================================================
-    backends = ("os_crypt", "builtin")
+    backends = ("cext", "os_crypt", "builtin")
 
+    _has_backend_cext = (_speedup is not None)
     _has_backend_builtin = True
 
     @classproperty
     def _has_backend_os_crypt(cls):
         return os_crypt is not None and os_crypt("test", "$1$test") == '$1$test$pi/xDtU5WFVRqYS6BMU8X/'
 
+    #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
+
+    def _calc_checksum_cext(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return _speedup.md5_crypt(secret, self.salt, self.ident)
+
     def _calc_checksum_builtin(self, secret):
-        #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         return raw_md5_crypt(secret, self.salt)
 
     def _calc_checksum_os_crypt(self, secret):
-        #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         return os_crypt(secret, self.to_string())[-22:]
@@ -200,7 +206,7 @@ class md5_crypt(uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):
 #=========================================================
 #apache variant of md5-crypt
 #=========================================================
-class apr_md5_crypt(uh.HasSalt, uh.GenericHandler):
+class apr_md5_crypt(uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):
     """This class implements the Apr-MD5-Crypt password hash, and follows the :ref:`password-hash-api`.
 
     It supports a variable-length salt.
@@ -241,7 +247,17 @@ class apr_md5_crypt(uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #primary interface
     #=========================================================
-    def calc_checksum(self, secret):
+    backends = ("cext", "builtin")
+
+    _has_backend_cext = (_speedup is not None)
+    _has_backend_builtin = True
+
+    def _calc_checksum_cext(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return _speedup.md5_crypt(secret, self.salt, self.ident)
+
+    def _calc_checksum_builtin(self, secret):
         #FIXME: can't find definitive policy on how md5-crypt handles non-ascii.
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
