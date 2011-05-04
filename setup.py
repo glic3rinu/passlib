@@ -38,8 +38,9 @@ class build_optional_ext(build_ext):
 #setup config
 #=========================================================
 names = [ "speedup", "des", "h64", "md5crypt" ]
-sources = [ 'src/%s.c' % n for n in names ]
+sources = [ 'src/%s.c' % n for n in names ] + [ "src/sha512_crypt.c", "src/sha256_crypt.c" ]
 depends = [ 'src/%s.h' % n for n in names ]
+cflags = [ '--std=c99' ] #FIXME: this assumes gcc!
 
 speedup = Feature(
     "optional C speedup module for passlib",
@@ -49,6 +50,7 @@ speedup = Feature(
                   sources=sources,
                   depends=depends,
                   libraries=["ssl"],
+                  extra_compile_args=cflags,
                   ),
     ],
 )

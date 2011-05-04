@@ -262,7 +262,7 @@ des_cipher_block_py(PyObject *self, PyObject *args, PyObject *kwds)
     return result;
 }
 /**************************************************************************
- * des
+ * md5_crypt
  **************************************************************************/
 
 #define MD5_CRYPT_DOCSTRING "md5_crypt(password, salt, magic)"
@@ -296,6 +296,13 @@ md5_crypt_py(PyObject *self, PyObject *args, PyObject *kwds)
  * module init
  **************************************************************************/
 
+/* from sha256_crypt.c */
+PyObject *sha256_crypt_py(PyObject *self, PyObject *args, PyObject **kwds);
+
+/* from sha512_crypt.c */
+PyObject *sha512_crypt_py(PyObject *self, PyObject *args, PyObject **kwds);
+
+/* list of all module funcs */
 static PyMethodDef SpeedupMethods[] = {
     {"pbkdf2_hmac", (PyCFunction) pbkdf2_hmac_py,
             METH_VARARGS|METH_KEYWORDS, PBKDF2_HMAC_DOCSTRING },
@@ -303,6 +310,11 @@ static PyMethodDef SpeedupMethods[] = {
             METH_VARARGS|METH_KEYWORDS, DES_CIPHER_BLOCK_DOCSTRING },
     {"md5_crypt", (PyCFunction) md5_crypt_py,
             METH_VARARGS|METH_KEYWORDS, MD5_CRYPT_DOCSTRING },
+    {"sha256_crypt", (PyCFunction) sha256_crypt_py,
+            METH_VARARGS|METH_KEYWORDS, "sha256_crypt(password, config, withchk=True)" },
+    {"sha512_crypt", (PyCFunction) sha512_crypt_py,
+            METH_VARARGS|METH_KEYWORDS, "sha512_crypt(password, config, withchk=True)" },
+
     {NULL, NULL, 0, NULL}
 };
 

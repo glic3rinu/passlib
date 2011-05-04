@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import h64, os_crypt, classproperty, handlers as uh
+from passlib.utils import h64, os_crypt, classproperty, handlers as uh, _speedup
 #pkg
 #local
 __all__ = [
@@ -314,8 +314,9 @@ class sha256_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     #=========================================================
     #backend
     #=========================================================
-    backends = ("os_crypt", "builtin")
+    backends = ("cext", "os_crypt", "builtin")
 
+    _has_backend_cext = (_speedup is not None)
     _has_backend_builtin = True
 
     @classproperty
@@ -325,6 +326,11 @@ class sha256_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
             os_crypt("test", "$5$rounds=1000$test") ==
             "$5$rounds=1000$test$QmQADEXMG8POI5WDsaeho0P36yK3Tcrgboabng6bkb/"
             )
+
+    def _calc_checksum_cext(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return _speedup.sha256_crypt(secret, self.to_string(), withchk=False)
 
     def _calc_checksum_builtin(self, secret):
         checksum, salt, rounds = raw_sha256_crypt(secret, self.salt, self.rounds)
@@ -460,8 +466,9 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     #=========================================================
     #backend
     #=========================================================
-    backends = ("os_crypt", "builtin")
+    backends = ("cext", "os_crypt", "builtin")
 
+    _has_backend_cext = (_speedup is not None)
     _has_backend_builtin = True
 
     @classproperty
@@ -473,6 +480,11 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
             )
 
     #NOTE: testing w/ HashTimer shows 64-bit linux's crypt to be ~2.6x faster than builtin (627253 vs 238152 rounds/sec)
+
+    def _calc_checksum_cext(self, secret):
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        return _speedup.sha512_crypt(secret, self.to_string(), withchk=False)
 
     def _calc_checksum_builtin(self, secret):
         checksum, salt, rounds = raw_sha512_crypt(secret, self.salt, self.rounds)

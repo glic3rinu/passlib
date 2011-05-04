@@ -7,12 +7,12 @@
 #include <stdint.h>
 #include "h64.h"
 
-static char hash64[] =
+static const char hash64[] =
      "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 /*	  0000000000111111111122222222223333333333444444444455555555556666 */
 /*	  0123456789012345678901234567890123456789012345678901234567890123 */
-
 /* plain 6-bit int <-> ascii char */
+/*
 inline uint8_t h64_decode_int6(char ch)
 {
 	if (ch > 'z')
@@ -30,11 +30,11 @@ inline uint8_t h64_decode_int6(char ch)
 	return(0);
 }
 
-inline char h64_encode_int6(uint8_t value)
+char h64_encode_int6(uint8_t value)
 {
     return hash64[value & 0x3f];
 }
-
+*/
 /* encode multi-byte strings <-> long */
 void h64_encode_from_long(char *dst, unsigned long src, int bytes)
 {
