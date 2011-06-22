@@ -16,11 +16,11 @@ have the format :samp:`${identifier}${content}`; where
 :samp:`{identifier}` is an short alphanumeric string uniquely
 identifying a particular scheme, and :samp:`{content}`
 is the contents of the scheme, using only the characters
-``[a-zA-Z0-9./]``.
+in the regexp range ``[a-zA-Z0-9./]``.
 
-However, there appears to be no actual rules, specification document,
-or central registry of identifiers; so the modular
-crypt format is more of an ad-hoc idea than a true standard.
+However, there appears to be no central registry of identifiers,
+no specification document, and no actual rules;
+so the modular crypt format is more of an ad-hoc idea rather than a true standard.
 
 History
 =======
@@ -45,13 +45,11 @@ by the modular crypt format hashes found in passlib:
 
 1. Hash strings must use only 7-bit ascii characters.
 
-   This is not strictly enforced at all;
-   for example Linux will accept 8-bit characters
-   within hash salt strings. However, **no** known
-   system generates hashes violating this rule;
-   and no such test vectors exist either,
-   so it can probably be assumed to be a case
-   of "permissive in what you accept, strict in what you generate".
+   No known OS or application generates hashes which violate this rule.
+   However, some systems (eg Linux's shadow routines) will happily
+   and correctly accept hashes which contain 8-bit characters in their salt.
+   This is probably a case of "permissive in what you accept,
+   strict in what you generate".
 
 2. Hash strings should always start with the prefix :samp:`${identifier}$`,
    where :samp:`{identifier}` is a short string uniquely identifying
@@ -69,17 +67,17 @@ by the modular crypt format hashes found in passlib:
    identifying strings (eg ``$sha1$`` for :class:`sha1_crypt`);
    so in general identifier strings should not be assumed to use a single character.
 
-3. Aside from the prefix, hashes should contain only ascii letters a-z A-Z,
-   ascii numbers 0-9, and the characters ``./``; though additionally ``$``
-   may/should be used as an internal field separator.
+3. Hashes should contain only ascii letters ``a``-``z`` and ``A``-``Z``,
+   ascii numbers 0-9, and the characters ``./``; though additionally
+   they should use the ``$`` character as an internal field separator.
 
    This is the least adhered-to of any modular crypt format rule.
-   Other characters (such as ``=``, ``,``) are sometimes
-   used by various formats.
+   Other characters (such as ``=,-``) are sometimes
+   used by various formats, though sparingly.
 
    The only hard and fast stricture
-   is that ``:`` and non-printable characters be avoided,
-   since this would interfere with parsing of /etc/passwd
+   is that ``:;!*`` and non-printable characters be avoided,
+   since this would interfere with parsing of /etc/shadow
    where these hashes are typically stored.
 
    Pretty much all modular-crypt-format hashes
@@ -96,13 +94,19 @@ by the modular crypt format hashes found in passlib:
    to a "configuration string" containing just
    the identifying prefix, rounds, salt, etc.
 
-   This string then encodes all the information
+   This configuration string then encodes all the information
    generated needed to generate a new hash
    in order to verify a password, without
    having to perform excessive parsing.
 
    Most modular crypt format hashes follow this,
    though some (like :class:`~passlib.hash.bcrypt`) omit the ``$`` separator.
+
+   As well, there is no set standard about whether configuration
+   strings should or should not include a trailing ``$`` at the end,
+   though the general rule is that a hash behave the same regardless
+   (:class:`~passlib.hash.sun_md5_crypt` behaves particularly poorly
+   regarding this last point).
 
 .. note::
 
@@ -118,29 +122,41 @@ by the modular crypt format hashes found in passlib:
 Identifiers & Platform Support
 ==============================
 
-The following chart lists the various operating systems, which
-hash algorithms are known to be supported, as well as the hash's
-identifying prefix.
+The following table lists of all the major MCF hashes supported by passlib,
+and indicates which operating systems offer native support. 
 
-==================================== ================== =========== =========== =========== ===========
-Scheme                               Prefix             Linux       FreeBSD     NetBSD      OpenBSD
-==================================== ================== =========== =========== =========== ===========
-:class:`~passlib.hash.nthash`        ``$3$``                        y
-:class:`~passlib.hash.des_crypt`     n/a                y           y           y           y
+==================================== ================== =========== =========== =========== =========== =======
+Scheme                               Prefix             Linux       FreeBSD     NetBSD      OpenBSD     Solaris
+==================================== ================== =========== =========== =========== =========== =======
+:class:`~passlib.hash.des_crypt`     n/a                y           y           y           y           y
 :class:`~passlib.hash.bsdi_crypt`    ``_``                          y           y
-:class:`~passlib.hash.md5_crypt`     ``$1$``            y           y           y           y
-:class:`~passlib.hash.sun_md5_crypt` ``$md5$``
-:class:`~passlib.hash.bcrypt`        ``$2$``, ``$2a$``              y           y           y
-:class:`~passlib.hash.sha1_crypt`    ``$sha1$``                                 y
-:class:`~passlib.hash.sha256_crypt`  ``$5$``            y
-:class:`~passlib.hash.sha512_crypt`  ``$6$``            y
-==================================== ================== =========== =========== =========== ===========
+:class:`~passlib.hash.md5_crypt`     ``$1$``            y           y           y           y           y
+:class:`~passlib.hash.sun_md5_crypt` ``$md5$``                                                          y
+:class:`~passlib.hash.bcrypt`        ``$2$``, ``$2a$``              y           y           y           y
+:class:`~passlib.hash.nthash`        ``$3$``                        y
+:class:`~passlib.hash.sha256_crypt`  ``$5$``            y                                               y
+:class:`~passlib.hash.sha512_crypt`  ``$6$``            y                                               y
+:class:`~passlib.hash.sha1_crypt`    ``$sha1$``                                 y 
+==================================== ================== =========== =========== =========== =========== =======
+
+The following table lists the other MCF hashes supported by passlib,
+most of which are only used by applications:
+
+=========================================== =================== ===========================
+Scheme                                      Prefix              Known Uses
+=========================================== =================== ===========================
+:class:`~passlib.hash.apr_md5_crypt`        ``$apr1$``          Apache htdigest files
+:class:`~passlib.hash.phpass`               ``$P$``, ``$H$``    PHPass-based applications
+:class:`~passlib.hash.pbkdf2_sha1`          ``$pbkdf2$``
+:class:`~passlib.hash.pbkdf2_sha256`        ``$pbkdf2-sha256$``
+:class:`~passlib.hash.pbkdf2_sha512`        ``$pbkdf2-sha512$``
+:class:`~passlib.hash.cta_pbkdf2_sha1`      ``$p5k2$``
+:class:`~passlib.hash.dlitz_pbkdf2_sha1`    ``$p5k2$``
+=========================================== =================== ===========================
 
 .. note::
-
-    :class:`!des_crypt` and :class:`!bsdi_crypt` do not conform to the MCF,
-    but are listed here for completeness.
-
-.. todo::
-
-    include Solaris and other Unix flavors in this chart.
+    :class:`!cta_pbkdf2_sha1` and :class:`!dlitz_pbkdf2_sha1` both use
+    the same identifier. They can be distinguished
+    by the fact that cta hashes will always end in ``=``, while dlitz
+    hashes contain no ``=`` at all.
+    

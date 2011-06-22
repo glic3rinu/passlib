@@ -2,7 +2,7 @@
 :samp:`passlib.hash.pbkdf2_{digest}` - Generic PBKDF2 Hashes
 ===============================================================
 
-.. index:: pbkdf2 hash; generic mcf 
+.. index:: pbkdf2 hash; generic mcf
 
 .. currentmodule:: passlib.hash
 
@@ -42,7 +42,7 @@ Interface
 
 .. autoclass:: pbkdf2_sha512()
 
-.. rst-class:: html-toggle
+.. _mcf-pbkdf2-format:
 
 Format & Algorithm
 ==================

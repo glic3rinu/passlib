@@ -7,10 +7,27 @@ import atexit
 import logging; log = logging.getLogger(__name__)
 import re
 import os
+import sys
 import tempfile
-import unittest
+
+# Py2k #
+if sys.version_info < (2,7):
+# Py3k #
+#if sys.version_info < (3,2):
+# end Py3k #
+    try:
+        import unittest2 as unittest
+        ut_version = 2
+    except ImportError:
+        import unittest
+        ut_version = 1
+else:
+    import unittest
+    ut_version = 2
+
 import warnings
 from warnings import warn
+
 try:
     from warnings import catch_warnings
 except ImportError:
@@ -23,12 +40,14 @@ except ImportError:
             return None
         __name__ = 'stub'
 #site
-from nose.plugins.skip import SkipTest
+if ut_version < 2:
+    #used to provide replacement skipTest() method
+    from nose.plugins.skip import SkipTest
 #pkg
 from passlib import registry
 from passlib.utils import classproperty, handlers as uh, \
         has_rounds_info, has_salt_info, \
-        rounds_cost_values
+        rounds_cost_values, b, bytes, native_str, NoneType
 #local
 __all__ = [
     #util funcs
@@ -45,24 +64,21 @@ __all__ = [
 #=========================================================
 #option flags
 #=========================================================
-DEFAULT_TESTS = "active-backends"
+DEFAULT_TESTS = ""
 
 tests = set(
     v.strip()
     for v
     in os.environ.get("PASSLIB_TESTS", DEFAULT_TESTS).lower().split(",")
     )
-if 'all-backends' in tests:
-    tests.add("backends")
 
 def enable_option(*names):
     """check if a given test should be included based on the env var.
 
     test flags:
-        active-backends     test active backends
-        all-backends        test ALL backends, even the inactive ones
-        cover               enable minor tweaks to maximize coverage testing
-        all                 run ALL tests
+        all-backends    test all backends, even the inactive ones
+        cover           enable minor tweaks to maximize coverage testing
+        all             run all tests
     """
     return 'all' in tests or any(name in tests for name in names)
 
@@ -109,71 +125,119 @@ class TestCase(unittest.TestCase):
     easier to distinguish from eachother.
     """
 
+    #=============================================================
+    #make it ease for test cases to add common prefix to all descs
+    #=============================================================
+    #: string or method returning string - prepended to all tests in TestCase
     case_prefix = None
 
-    def __init__(self, *a, **k):
-        #set the doc strings for all test messages to begin w/ case_prefix
-        #yes, this is incredibly hacked.
+    #: flag to disable feature
+    longDescription = True
+
+    def shortDescription(self):
+        "wrap shortDescription() method to prepend case_prefix"
+        desc = super(TestCase, self).shortDescription()
+        if desc is None:
+            #would still like to add prefix, but munges things up.
+            return None
         prefix = self.case_prefix
-        if prefix:
+        if prefix and self.longDescription:
             if callable(prefix):
                 prefix = prefix()
-            for attr in dir(self):
-                if not attr.startswith("test"):
-                    continue
-                v = getattr(self, attr)
-                if not hasattr(v, "im_func"):
-                    continue
-                d = v.im_func.__doc__ or v.im_func.__name__
-                idx = d.find(": ")
-                if idx > -1:
-                    d = d[idx+1:]
-                v.im_func.__doc__ = d = "%s: %s" % (prefix, d.lstrip())
-                assert v.__doc__ == d
-        unittest.TestCase.__init__(self, *a, **k)
+            desc = "%s: %s" % (prefix, desc)
+        return desc
 
-    def assertEquals(self, real, correct, msg=None):
-        #NOTE: overriding this to get msg formatting capability
-        msg = self._format_msg(msg, "got %r, expected would equal %r", real, correct)
-        return self.assert_(real == correct, msg)
+    #============================================================
+    #hack to set UT2 private skip attrs to mirror nose's __test__ attr
+    #============================================================
+    if ut_version >= 2:
 
-    def assertEqual(self, *a, **k):
-        return self.assertEquals(*a, **k)
+        @classproperty
+        def __unittest_skip__(cls):
+            return not getattr(cls, "__test__", True)
 
-    def assertNotEquals(self, real, correct, msg=None):
-        #NOTE: overriding this to get msg formatting capability
-        msg = self._format_msg(msg, "got %r, expected would not equal %r", real, correct)
-        return self.assert_(real != correct, msg)
+    #============================================================
+    # tweak msg formatting for some assert methods
+    #============================================================
+    longMessage = True #override python default (False)
 
-    def assertNotEqual(self, *a, **k):
-        return self.assertNotEquals(*a, **k)
+    def _formatMessage(self, msg, std):
+        "override UT2's _formatMessage - only use longMessage if msg ends with ':'"
+        if not msg:
+            return std
+        if not self.longMessage or not msg.endswith(":"):
+            return msg.rstrip(":")
+        return '%s %s' % (msg, std)
 
-    def assertIs(self, real, correct, msg=None):
-        msg = self._format_msg(msg, "got %r, expected would be %r", real, correct)
-        return self.assert_(real is correct, msg)
+    #============================================================
+    #override some unittest1 methods to support _formatMessage
+    #============================================================
+    if ut_version < 2:
 
-    def assertIsNot(self, real, correct, msg=None):
-        msg = self._format_msg(msg, "expected would not be %r", real)
-        return self.assert_(real is not correct, msg)
+        def assertEqual(self, real, correct, msg=None):
+            if real != correct:
+                std = "got %r, expected would equal %r" % (real, correct)
+                msg = self._formatMessage(msg, std)
+                raise self.failureException(msg)
 
-    def assertIsInstance(self, obj, klass, msg=None):
-        msg = self._format_msg(msg, "got %r, expected instance of %r", obj, klass)
-        return self.assert_(isinstance(obj, klass), msg)
+        def assertNotEqual(self, real, correct, msg=None):
+            if real == correct:
+                std = "got %r, expected would not equal %r" % (real, correct)
+                msg = self._formatMessage(msg, std)
+                raise self.failureException(msg)
 
+        assertEquals = assertEqual
+        assertNotEquals = assertNotEqual
+
+    #NOTE: overriding this even under UT2.
+    #FIXME: this doesn't support the fancy context manager UT2 provides.
     def assertRaises(self, type, func, *args, **kwds):
+        #NOTE: overriding this for format ability,
+        #      but ALSO adding "__msg__" kwd so we can set custom msg
         msg = kwds.pop("__msg__", None)
-        err = None
         try:
             result = func(*args, **kwds)
         except Exception, err:
-            pass
-        if err is None:
-            msg = self._format_msg(msg, "function returned %r, expected it to raise %r", result, type)
-            raise AssertionError(msg)
-        elif not isinstance(err, type):
-            msg = self._format_msg(msg, "function raised %r, expected %r", err, type)
-            raise AssertionError(msg)
+            if isinstance(err, type):
+                return True
+            ##import traceback, sys
+            ##print >>sys.stderr, traceback.print_exception(*sys.exc_info())
+            std = "function raised %r, expected %r" % (err, type)
+            msg = self._formatMessage(msg, std)
+            raise self.failureException(msg)
+        std = "function returned %r, expected it to raise %r" % (result, type)
+        msg = self._formatMessage(msg, std)
+        raise self.failureException(msg)
 
+    #===============================================================
+    #add some extra methods (these are already present in unittest2)
+    #===============================================================
+    if ut_version < 2:
+
+        def assertIs(self, real, correct, msg=None):
+            if real is not correct:
+                std = "got %r, expected would be %r" % (real, correct)
+                msg = self._formatMessage(msg, std)
+                raise self.failureException(msg)
+
+        def assertIsNot(self, real, correct, msg=None):
+            if real is correct:
+                std = "got %r, expected would not be %r" % (real, correct)
+                msg = self._formatMessage(msg, std)
+                raise self.failureException(msg)
+
+        def assertIsInstance(self, obj, klass, msg=None):
+            if not isinstance(obj, klass):
+                std = "got %r, expected instance of %r" % (obj, klass)
+                msg = self._formatMessage(msg, std)
+                raise self.failureException(msg)
+
+        def skipTest(self, reason):
+            raise SkipTest(reason)
+
+    #============================================================
+    #add some custom methods
+    #============================================================
     def assertFunctionResults(self, func, cases):
         """helper for running through function calls.
 
@@ -186,21 +250,12 @@ class TestCase(unittest.TestCase):
             elem = Params.norm(elem)
             correct = elem.args[0]
             result = func(*elem.args[1:], **elem.kwds)
-            self.assertEqual(result, correct,
-                    "error for case %s: got %r, expected would equal %r" % (elem.render(1), result, correct)
-                    )
+            msg = "error for case %r:" % (elem.render(1),)
+            self.assertEqual(result, correct, msg)
 
-    def _format_msg(self, msg, template, *args, **kwds):
-        "helper for generating default message"
-        if msg and not msg.endswith(":"):
-            return msg
-        if args:
-            template %= args
-        if kwds:
-            template %= kwds
-        if msg:
-            return msg + " " + template
-        return template
+    #============================================================
+    #eoc
+    #============================================================
 
 #=========================================================
 #other unittest helpers
@@ -225,30 +280,27 @@ class HandlerCase(TestCase):
     #attrs to be filled in by subclass for testing specific handler
     #=========================================================
 
-    #specify handler object here (required)
+    #: specify handler object here (required)
     handler = None
 
-    #this option is available for hashes which can't handle unicode
-    supports_unicode = True
-
-    #maximum number of chars which hash will include in checksum
-    #override this only if hash doesn't use all chars (the default)
+    #: maximum number of chars which hash will include in checksum
+    #  override this only if hash doesn't use all chars (the default)
     secret_chars = -1
 
-    #list of (secret,hash) pairs which handler should verify as matching
+    #: list of (secret,hash) pairs which handler should verify as matching
     known_correct_hashes = []
 
-    #list of (config, secret, hash) triples which handler should genhash & verify
+    #: list of (config, secret, hash) triples which handler should genhash & verify
     known_correct_configs = []
 
-    # hashes so malformed they aren't even identified properly
+    #: hashes so malformed they aren't even identified properly
     known_unidentified_hashes = []
 
-    # hashes which are malformed - they should identify() as True, but cause error when passed to genhash/verify
+    #: hashes which are malformed - they should identify() as True, but cause error when passed to genhash/verify
     known_malformed_hashes = []
 
-    #list of (handler name, hash) pairs for other algorithm's hashes, that handler shouldn't identify as belonging to it
-    #this list should generally be sufficient (if handler name in list, that entry will be skipped)
+    #: list of (handler name, hash) pairs for other algorithm's hashes, that handler shouldn't identify as belonging to it
+    #  this list should generally be sufficient (if handler name in list, that entry will be skipped)
     known_other_hashes = [
         ('des_crypt', '6f8c114b58f2c'),
         ('md5_crypt', '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
@@ -256,8 +308,11 @@ class HandlerCase(TestCase):
             "elCjmw2kSYu.Ec6ycULevoBK25fs2xXgMNrCzIMVcgEJAstJeonj1"),
     ]
 
-    #flag if scheme accepts empty string as hash (rare)
+    #: flag if scheme accepts empty string as hash (rare)
     accepts_empty_hash = False
+
+    #: if handler uses multiple backends, explicitly set this one when running tests.
+    backend = None
 
     #=========================================================
     #alg interface helpers - allows subclass to overide how
@@ -288,7 +343,10 @@ class HandlerCase(TestCase):
         "return other secret which won't match"
         #NOTE: this is subclassable mainly for some algorithms
         #which accept non-strings in secret
-        return 'x' + secret
+        if isinstance(secret, unicode):
+            return u'x' + secret
+        else:
+            return b('x') + secret
 
     #=========================================================
     #internal class attrs
@@ -296,30 +354,28 @@ class HandlerCase(TestCase):
     @classproperty
     def __test__(cls):
         #so nose won't auto run *this* cls, but it will for subclasses
-        return cls is not HandlerCase
+        return cls is not HandlerCase and not cls.__name__.startswith("_")
 
     #optional prefix to prepend to name of test method as it's called,
     #useful when multiple handler test classes being run.
     #default behavior should be sufficient
     def case_prefix(self):
         name = self.handler.name if self.handler else self.__class__.__name__
-        backend = getattr(self.handler, "get_backend", None) #set by some of the builtin handlers
-        if backend:
-            name += " (%s backend)" % (backend(),)
+        get_backend = getattr(self.handler, "get_backend", None) #set by some of the builtin handlers
+        if get_backend:
+            name += " (%s backend)" % (get_backend(),)
         return name
-
-    backend = "default"
 
     def setUp(self):
         h = self.handler
-        if hasattr(h, "set_backend"):
-            self.orig_backend = h.get_backend()
+        if self.backend and hasattr(h, "set_backend"):
+            self._orig_backend = h.get_backend()
             h.set_backend(self.backend)
 
     def tearDown(self):
         h = self.handler
-        if hasattr(h, "set_backend"):
-            h.set_backend(self.orig_backend)
+        if self.backend and hasattr(h, "set_backend"):
+            h.set_backend(self._orig_backend)
 
     #=========================================================
     #attributes
@@ -332,6 +388,7 @@ class HandlerCase(TestCase):
 
         name = ga("name")
         self.assert_(name, "name not defined:")
+        self.assertIsInstance(name, native_str, "name must be native str")
         self.assert_(name.lower() == name, "name not lower-case:")
         self.assert_(re.match("^[a-z0-9_]+$", name), "name must be alphanum + underscore: %r" % (name,))
 
@@ -347,7 +404,9 @@ class HandlerCase(TestCase):
         "validate optional salt attributes"
         cls = self.handler
         if not has_salt_info(cls):
-            raise SkipTest
+            raise self.skipTest("handler doesn't provide salt info")
+
+        AssertionError = self.failureException
 
         #check max_salt_size
         mx_set = (cls.max_salt_size is not None)
@@ -371,7 +430,7 @@ class HandlerCase(TestCase):
                 (not mx_set or cls.min_salt_size < cls.max_salt_size):
             #NOTE: for now, only bothering to issue warning if default_salt_size isn't maxed out
             if (not mx_set or cls.default_salt_size < cls.max_salt_size):
-                warn("%s: hash handler supports range of salt sizes, but doesn't specify 'salt_size' setting" % (cls.name,))
+                warn("%s: hash handler supports range of salt sizes, but doesn't offer 'salt_size' setting" % (cls.name,))
 
         #check salt_chars & default_salt_chars
         if cls.salt_chars:
@@ -387,7 +446,9 @@ class HandlerCase(TestCase):
         "validate optional rounds attributes"
         cls = self.handler
         if not has_rounds_info(cls):
-            raise SkipTest
+            raise self.skipTest("handler lacks rounds attributes")
+
+        AssertionError = self.failureException
 
         #check max_rounds
         if cls.max_rounds is None:
@@ -412,25 +473,43 @@ class HandlerCase(TestCase):
         if cls.rounds_cost not in rounds_cost_values:
             raise AssertionError("unknown rounds cost constant: %r" % (cls.rounds_cost,))
 
-    def test_05_ext_handler(self):
-        "check configuration of GenericHandler-derived classes"
+    def test_03_HasManyIdents(self):
+        "check configuration of HasManyIdents-derived classes"
         cls = self.handler
-        if not isinstance(cls, type) or not issubclass(cls, uh.GenericHandler):
-            raise SkipTest
+        if not isinstance(cls, type) or not issubclass(cls, uh.HasManyIdents):
+            raise self.skipTest("handler doesn't derive from HasManyIdents")
 
-        if 'ident' in cls.setting_kwds:
-            # assume uses HasManyIdents
-            self.assertTrue(len(cls.ident_values)>1, "cls.ident_values must have 2+ elements")
-            self.assertTrue(cls.default_ident in cls.ident_values, "cls.default_ident must specify member of cls.ident_values")
-            if cls.ident_aliases:
-                for alias, ident in cls.ident_aliases.iteritems():
-                    self.assertTrue(ident in cls.ident_values, "cls.ident_aliases must map to cls.ident_values members: %r" % (ident,))
+        #check settings
+        self.assertTrue('ident' in cls.setting_kwds)
 
-    def test_06_backend_handler(self):
+        #check ident_values list
+        for value in cls.ident_values:
+            self.assertIsInstance(value, unicode,
+                                  "cls.ident_values must be unicode:")
+        self.assertTrue(len(cls.ident_values)>1,
+                        "cls.ident_values must have 2+ elements:")
+
+        #check default_ident value
+        self.assertIsInstance(cls.default_ident, unicode,
+                              "cls.default_ident must be unicode:")
+        self.assertTrue(cls.default_ident in cls.ident_values,
+                        "cls.default_ident must specify member of cls.ident_values")
+
+        #check optional aliases list
+        if cls.ident_aliases:
+            for alias, ident in cls.ident_aliases.iteritems():
+                self.assertIsInstance(alias, unicode,
+                                      "cls.ident_aliases keys must be unicode:") #XXX: allow ints?
+                self.assertIsInstance(ident, unicode,
+                                      "cls.ident_aliases values must be unicode:")
+                self.assertTrue(ident in cls.ident_values,
+                                "cls.ident_aliases must map to cls.ident_values members: %r" % (ident,))
+
+    def test_04_backend_handler(self):
         "check behavior of multiple-backend handlers"
         h = self.handler
         if not hasattr(h, "get_backend"):
-            raise SkipTest
+            raise self.skipTest("handler has single backend")
         #preserve current backend
         orig = h.get_backend()
         try:
@@ -465,21 +544,21 @@ class HandlerCase(TestCase):
     def test_11_identify_config(self):
         "test identify() against scheme's own config strings"
         if not self.known_correct_configs:
-            raise SkipTest
+            raise self.skipTest("no config strings provided")
         for config, secret, hash in self.known_correct_configs:
             self.assertEqual(self.do_identify(config), True, "config=%r:" % (config,))
 
     def test_12_identify_unidentified(self):
         "test identify() against scheme's own hashes that are mangled beyond identification"
         if not self.known_unidentified_hashes:
-            raise SkipTest
+            raise self.skipTest("no unidentified hashes provided")
         for hash in self.known_unidentified_hashes:
             self.assertEqual(self.do_identify(hash), False, "hash=%r:" % (hash,))
 
     def test_13_identify_malformed(self):
         "test identify() against scheme's own hashes that are mangled but identifiable"
         if not self.known_malformed_hashes:
-            raise SkipTest
+            raise self.skipTest("no malformed hashes provided")
         for hash in self.known_malformed_hashes:
             self.assertEqual(self.do_identify(hash), True, "hash=%r:" % (hash,))
 
@@ -491,7 +570,8 @@ class HandlerCase(TestCase):
     def test_15_identify_none(self):
         "test identify() against None / empty string"
         self.assertEqual(self.do_identify(None), False)
-        self.assertEqual(self.do_identify(''), self.accepts_empty_hash)
+        self.assertEqual(self.do_identify(b('')), self.accepts_empty_hash)
+        self.assertEqual(self.do_identify(u''), self.accepts_empty_hash)
 
     #=========================================================
     #verify()
@@ -514,19 +594,19 @@ class HandlerCase(TestCase):
         for name, hash in self.known_other_hashes:
             if name == self.handler.name:
                 continue
-            self.assertRaises(ValueError, self.do_verify, 'stub', hash, __msg__="scheme=%r, hash=%r:" % (name, hash))
+            self.assertRaises(ValueError, self.do_verify, 'fakesecret', hash, __msg__="scheme=%r, hash=%r:" % (name, hash))
 
     def test_22_verify_unidentified(self):
         "test verify() throws error against known-unidentified hashes"
         if not self.known_unidentified_hashes:
-            raise SkipTest
+            raise self.skipTest("no unidentified hashes provided")
         for hash in self.known_unidentified_hashes:
             self.assertRaises(ValueError, self.do_verify, 'stub', hash, __msg__="hash=%r:" % (hash,))
 
     def test_23_verify_malformed(self):
         "test verify() throws error against known-malformed hashes"
         if not self.known_malformed_hashes:
-            raise SkipTest
+            raise self.skipTest("no malformed hashes provided")
         for hash in self.known_malformed_hashes:
             self.assertRaises(ValueError, self.do_verify, 'stub', hash, __msg__="hash=%r:" % (hash,))
 
@@ -535,9 +615,11 @@ class HandlerCase(TestCase):
         #find valid hash so that doesn't mask error
         self.assertRaises(ValueError, self.do_verify, 'stub', None, __msg__="hash=None:")
         if self.accepts_empty_hash:
-            self.do_verify("stub", "")
+            self.do_verify("stub", u"")
+            self.do_verify("stub", b(""))
         else:
-            self.assertRaises(ValueError, self.do_verify, 'stub', '', __msg__="hash='':")
+            self.assertRaises(ValueError, self.do_verify, 'stub', u'', __msg__="hash='':")
+            self.assertRaises(ValueError, self.do_verify, 'stub', b(''), __msg__="hash='':")
 
     #=========================================================
     #genconfig()
@@ -545,41 +627,45 @@ class HandlerCase(TestCase):
     def test_30_genconfig_salt(self):
         "test genconfig() generates new salt"
         if 'salt' not in self.handler.setting_kwds:
-            raise SkipTest
+            raise self.skipTest("handler doesn't have salt")
         c1 = self.do_genconfig()
         c2 = self.do_genconfig()
+        self.assertIsInstance(c1, native_str, "genconfig() must return native str:")
+        self.assertIsInstance(c2, native_str, "genconfig() must return native str:")
         self.assertNotEquals(c1,c2)
 
     def test_31_genconfig_minsalt(self):
         "test genconfig() honors min salt chars"
         handler = self.handler
         if not has_salt_info(handler):
-            raise SkipTest
+            raise self.skipTest("handler doesn't provide salt info")
         cs = handler.salt_chars
+        cc = cs[0:1]
         mn = handler.min_salt_size
-        c1 = self.do_genconfig(salt=cs[0] * mn)
+        c1 = self.do_genconfig(salt=cc * mn)
         if mn > 0:
-            self.assertRaises(ValueError, self.do_genconfig, salt=cs[0]*(mn-1))
+            self.assertRaises(ValueError, self.do_genconfig, salt=cc*(mn-1))
 
     def test_32_genconfig_maxsalt(self):
         "test genconfig() honors max salt chars"
         handler = self.handler
         if not has_salt_info(handler):
-            raise SkipTest
+            raise self.skipTest("handler doesn't provide salt info")
         cs = handler.salt_chars
+        cc = cs[0:1]
         mx = handler.max_salt_size
         if mx is None:
             #make sure salt is NOT truncated,
             #use a really large salt for testing
-            salt = cs[0] * 1024
+            salt = cc * 1024
             c1 = self.do_genconfig(salt=salt)
-            c2 = self.do_genconfig(salt=salt + cs[0])
+            c2 = self.do_genconfig(salt=salt + cc)
             self.assertNotEqual(c1,c2)
         else:
             #make sure salt is truncated exactly where it should be.
-            salt = cs[0] * mx
+            salt = cc * mx
             c1 = self.do_genconfig(salt=salt)
-            c2 = self.do_genconfig(salt=salt + cs[0])
+            c2 = self.do_genconfig(salt=salt + cc)
             self.assertEqual(c1,c2)
 
             #if min_salt supports it, check smaller than mx is NOT truncated
@@ -587,17 +673,18 @@ class HandlerCase(TestCase):
                 c3 = self.do_genconfig(salt=salt[:-1])
                 self.assertNotEqual(c1,c3)
 
-    def test_33_genconfig_saltcharset(self):
-        "test genconfig() honors salt charset"
+    def test_33_genconfig_saltchars(self):
+        "test genconfig() honors salt_chars"
         handler = self.handler
         if not has_salt_info(handler):
-            raise SkipTest
+            raise self.skipTest("handler doesn't provide salt info")
         mx = handler.max_salt_size
         mn = handler.min_salt_size
         cs = handler.salt_chars
+        raw = isinstance(cs, bytes)
 
         #make sure all listed chars are accepted
-        chunk = 1024 if mx is None else mx
+        chunk = 32 if mx is None else mx
         for i in xrange(0,len(cs),chunk):
             salt = cs[i:i+chunk]
             if len(salt) < mn:
@@ -605,10 +692,13 @@ class HandlerCase(TestCase):
             self.do_genconfig(salt=salt)
 
         #check some invalid salt chars, make sure they're rejected
-        chunk = mn if mn > 0 else 1
-        for c in '\x00\xff':
+        source = u'\x00\xff'
+        if raw:
+            source = source.encode("latin-1")
+        chunk = max(mn, 1)
+        for c in source:
             if c not in cs:
-                self.assertRaises(ValueError, self.do_genconfig, salt=c*chunk)
+                self.assertRaises(ValueError, self.do_genconfig, salt=c*chunk, __msg__="invalid salt char %r:" % (c,))
 
     #=========================================================
     #genhash()
@@ -618,7 +708,7 @@ class HandlerCase(TestCase):
     def test_40_genhash_config(self):
         "test genhash() against known config strings"
         if not self.known_correct_configs:
-            raise SkipTest
+            raise self.skipTest("no config strings provided")
         fk = self.filter_known_config_warnings
         if fk:
             ctx = catch_warnings()
@@ -633,7 +723,7 @@ class HandlerCase(TestCase):
     def test_41_genhash_hash(self):
         "test genhash() against known hash strings"
         if not self.known_correct_hashes:
-            raise SkipTest
+            raise self.skipTest("no correct hashes provided")
         handler = self.handler
         for secret, hash in self.known_correct_hashes:
             result = self.do_genhash(secret, hash)
@@ -647,11 +737,11 @@ class HandlerCase(TestCase):
         self.assert_(handler.identify(hash))
 
     def test_43_genhash_none(self):
-        "test genhash() against empty hash"
+        "test genhash() against hash=None"
         handler = self.handler
         config = handler.genconfig()
         if config is None:
-            raise SkipTest
+            raise self.skipTest("handler doesnt use config strings")
         self.assertRaises(ValueError, handler.genhash, 'secret', None)
 
     #=========================================================
@@ -659,11 +749,17 @@ class HandlerCase(TestCase):
     #=========================================================
     def test_50_encrypt_plain(self):
         "test encrypt() basic behavior"
-        if self.supports_unicode:
-            secret = u"unic\u00D6de"
-        else:
-            secret = "too many secrets"
+        #check it handles unicode password
+        secret = u"\u20AC\u00A5$"
         result = self.do_encrypt(secret)
+        self.assertIsInstance(result, native_str, "encrypt must return native str:")
+        self.assert_(self.do_identify(result))
+        self.assert_(self.do_verify(secret, result))
+
+        #check it handles bytes password as well
+        secret = b('\xe2\x82\xac\xc2\xa5$')
+        result = self.do_encrypt(secret)
+        self.assertIsInstance(result, native_str, "encrypt must return native str:")
         self.assert_(self.do_identify(result))
         self.assert_(self.do_verify(secret, result))
 
@@ -674,7 +770,7 @@ class HandlerCase(TestCase):
     def test_52_encrypt_salt(self):
         "test encrypt() generates new salt"
         if 'salt' not in self.handler.setting_kwds:
-            raise SkipTest
+            raise self.skipTest("handler doesn't have salt")
         #test encrypt()
         h1 = self.do_encrypt("stub")
         h2 = self.do_encrypt("stub")
@@ -728,26 +824,46 @@ class HandlerCase(TestCase):
 #=========================================================
 #backend test helpers
 #=========================================================
-def enable_backend_case(handler, name):
+def _enable_backend_case(handler, name):
     "helper to check if a separate test is needed for the specified backend"
     assert hasattr(handler, "backends"), "handler must support uh.HasManyBackends protocol"
     assert name in handler.backends, "unknown backend: %r" % (name,)
-    return enable_option("all-backends") and handler.get_backend() != name and handler.has_backend(name)
+    if not handler.has_backend(name):
+        return False
+    if enable_option("all-backends"):
+        return True
+    #otherwise only enable if backend is default
+    orig = handler.get_backend()
+    try:
+        return handler.set_backend("default") == name
+    finally:
+        handler.set_backend(orig)
 
-def create_backend_case(base_test, name):
-    "create a test case (subclassing); if test doesn't need to be enabled, returns None"
-    if base_test is None:
+def create_backend_case(base, name):
+    "create a test case (subclassing)"
+    #NOTE: if backend not available,
+    #      then we return None under UT1,
+    #      but return class w/ skip flag set under UT2.
+    handler = base.handler
+    enable = _enable_backend_case(handler, name)
+
+    #UT1 doesn't support skipping whole test cases,
+    #so we just return None.
+    if not enable and ut_version < 2:
         return None
-    handler = base_test.handler
 
-    if not enable_backend_case(handler, name):
-        return None
+    dummy = type(
+        "%s_%s" % (name.title(), base.__name__),
+        (base,),
+        dict(
+            case_prefix = "%s (%s backend)" % (handler.name, name),
+            backend = name,
+        )
+    )
 
-    class dummy(base_test):
-        case_prefix = "%s (%s backend)" % (handler.name, name)
-        backend = name
+    if not enable:
+        dummy = unittest.skip("backend not available")(dummy)
 
-    dummy.__name__ = name.title() + base_test.__name__
     return dummy
 
 #=========================================================

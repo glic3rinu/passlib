@@ -4,7 +4,38 @@
 Release History
 ===============
 
-**1.4** (NOT YET RELEASED)
+**1.5** (NOT YET RELEASED)
+
+    Hashes
+        * added support for FSHP family of hashes
+        * added support for Cryptacular's PBKDF2 format
+        * added support for using BCryptor as BCrypt backend
+    
+    CryptContext
+        * interpolation deprecation:
+        
+          CryptPolicy.from_file() / .from_string() now
+          use SafeConfigParser instead of ConfigParser.
+          This may cause some existing config files containing unescaped ``%``
+          to result in errors; passlib 1.5 will demote these to warnings,
+          but any extant config files should be updated,
+          as the errors will be fatal in passlib 1.6.
+    
+        * added encoding keyword to CryptContext's from_path, from_string,
+          and to_string methods.          
+    
+    Documentation
+        * added quickstart guide to documentation
+        
+    Other
+        * removed deprecated parts of :mod:`passlib.utils.handlers`.
+    
+**1.4** (2011-05-04)
+
+    This release contains a large number of changes, both large and small.
+    It adds a number of PBKDF2-based schemes, better support
+    for LDAP-format hashes, improved documentation,
+    and faster load times. In detail...
 
     Hashes
 
@@ -63,6 +94,8 @@ Release History
           added support for hashes w/ no max salt size.
 
         * improved password hash api conformance tests
+
+        * PyPy compatibility
 
 **1.3.1** (2011-03-28)
 

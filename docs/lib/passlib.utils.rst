@@ -45,14 +45,8 @@ String Manipulation
 Bytes Manipulation
 ==================
 
-.. autofunction:: adapted_b64_encode
-.. autofunction:: adapted_b64_decode
-
 .. autofunction:: bytes_to_int
 .. autofunction:: int_to_bytes
-.. autofunction:: list_to_bytes
-.. autofunction:: bytes_to_list
-
 .. autofunction:: xor_bytes
 
 Randomness
@@ -76,11 +70,8 @@ Randomness
 Object Tests
 ============
 .. autofunction:: is_crypt_handler
-
 .. autofunction:: is_crypt_context
-
 .. autofunction:: has_rounds_info
-
 .. autofunction:: has_salt_info
 
 Submodules

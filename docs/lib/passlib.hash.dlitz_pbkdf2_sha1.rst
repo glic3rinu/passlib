@@ -1,6 +1,6 @@
-========================================================================
-:class:`passlib.hash.dlitz_pbkdf2_sha1` - Dwayne Litzenger's PBKDF2 hash
-========================================================================
+===========================================================================
+:class:`passlib.hash.dlitz_pbkdf2_sha1` - Dwayne Litzenberger's PBKDF2 hash
+===========================================================================
 
 .. index:: pbkdf2 hash; dlitz
 
@@ -15,6 +15,9 @@ variable length salts, variable number of rounds.
 
     :doc:`passlib.hash.pbkdf2_digest <passlib.hash.pbkdf2_digest>`
     for some other PBKDF2-based hashes.
+    
+    :doc:`passlib.hash.cta_pbkdf2_sha1 <passlib.hash.cta_pbkdf2_sha1>`
+    for another hash which looks almost exactly like this one.
 
 Usage
 =====

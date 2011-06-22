@@ -80,8 +80,7 @@ They all follow the modular crypt format.
 Other Modular Crypt Schemes
 ---------------------------
 While most of these schemes are not (commonly) used by any Unix flavor to store user passwords,
-these are compatible with the modular crypt format, and can be used
-compatible by along side others in this section.
+they can be used compatibly along side other modular crypt format hashes.
 
 .. toctree::
     :maxdepth: 1
@@ -90,6 +89,7 @@ compatible by along side others in this section.
     passlib.hash.phpass
     passlib.hash.nthash
     passlib.hash.pbkdf2_digest
+    passlib.hash.cta_pbkdf2_sha1
     passlib.hash.dlitz_pbkdf2_sha1
 
 Special note should be made of the fallback helper,
@@ -144,16 +144,17 @@ but follow the LDAP format:
 
     passlib.hash.ldap_other
 
-* :class:`ldap_hex_md5` - Hex-encoded MD5 Digest
-* :class:`ldap_hex_sha1` - Hex-encoded SHA1 Digest
+* :class:`passlib.hash.ldap_hex_md5` - Hex-encoded MD5 Digest
+* :class:`passlib.hash.ldap_hex_sha1` - Hex-encoded SHA1 Digest
 
 .. toctree::
     :maxdepth: 1
 
     passlib.hash.ldap_pbkdf2_digest
     passlib.hash.atlassian_pbkdf2_sha1
+    passlib.hash.fshp
 
-* :class:`roundup_plaintext` - Roundup-specific LDAP Plaintext Handler
+* :class:`passlib.hash.roundup_plaintext` - Roundup-specific LDAP Plaintext Handler
 
 .. _database-hashes:
 

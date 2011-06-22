@@ -39,9 +39,9 @@ Custom Applications
         >>> #[optional] encrypting a password for an admin account - uses stronger settings
         >>> hash = pwd_context.encrypt("somepass", category="admin")
 
-    For applications which started using this preset, but whose needs
-    have grown beyond it, it is recommended to create your own CryptContext
-    instance; the configuration used to create this object can be a good starting point.
+.. seealso::
+
+    The :doc:`/new_app_quickstart` guide.
 
 .. _ldap-contexts:
 
@@ -110,7 +110,13 @@ It is found in a wide range of PHP applications, including Drupal and Wordpress.
     and implements an custom scheme called the "phpass portable hash" :class:`~passlib.hash.phpass` as a fallback.
 
     BCrypt is used as the default if support is available,
-    otherwise BSDI-Crypt will be used as the default.
+    otherwise the Portable Hash will be used as the default.
+    
+    .. versionchanged:: 1.5
+        Now uses Portable Hash as fallback if BCrypt isn't available.
+        Previously used BSDI-Crypt as fallback
+        (per original PHPass implementation),
+        but it was decided PHPass is in fact more secure.
 
 .. data:: phpbb3_context
 
@@ -143,25 +149,23 @@ PostgreSQL
 
 Roundup
 =======
-The `Roundup Issue Tracker <http://www.roundup-tracker.org>` has long
+The `Roundup Issue Tracker <http://www.roundup-tracker.org>`_ has long
 supported a series of different methods for encoding passwords.
+The following contexts are available for reading Roundup password hash fields:
 
 .. data:: roundup10_context
 
-    This object should recognize all password hashes used by Roundup:
-    :class:`ldap_hex_sha1` (the default), :class:`ldap_hex_md5`, :class:`ldap_des_crypt`,
-    and :class:`roundup_plaintext`.
+    This object should recognize all password hashes used by Roundup 1.4.16 and earlier:
+    :class:`~passlib.hash.ldap_hex_sha1` (the default),
+    :class:`~passlib.hash.ldap_hex_md5`, :class:`~passlib.hash.ldap_des_crypt`,
+    and :class:`~passlib.hash.roundup_plaintext`.
 
 .. data:: roundup15_context
 
-    As of 2011-04-28, the next release of Roundup will add support
-    for :class:`ldap_pbkdf2_sha1`. This context supports all the :data:`roundup10_context`
-    hashes, but adds this hash as well (as uses it as the default).
-
-    .. note::
-
-        This version of Roundup has not been released yet,
-        databases using Roundup 1.4.16 and earlier should use the :data:`roundup10_context` instead.
+    Roundup 1.4.17 adds support for :class:`~passlib.hash.ldap_pbkdf2_sha1`
+    as it's preferred hash format.  
+    This context supports all the :data:`roundup10_context` hashes, 
+    but adds that hash as well (and uses it as the default).
 
 .. data:: roundup_context
 

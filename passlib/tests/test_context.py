@@ -14,6 +14,7 @@ import sys
 #pkg
 from passlib import hash
 from passlib.context import CryptContext, CryptPolicy, LazyCryptContext
+from passlib.utils import to_bytes
 import passlib.utils.handlers as uh
 from passlib.tests.utils import TestCase, mktemp, catch_warnings
 from passlib.registry import register_crypt_handler_path, has_crypt_handler, \
@@ -42,7 +43,7 @@ class CryptPolicyTest(TestCase):
 [passlib]
 schemes = des_crypt, md5_crypt, bsdi_crypt, sha512_crypt
 default = md5_crypt
-all.vary_rounds = 10%
+all.vary_rounds = 10%%
 bsdi_crypt.max_rounds = 30000
 bsdi_crypt.default_rounds = 25000
 sha512_crypt.max_rounds = 50000
@@ -134,9 +135,9 @@ sha512_crypt.min_rounds = 45000
     sample_config_4s = """
 [passlib]
 schemes = sha512_crypt
-all.vary_rounds = 10%
+all.vary_rounds = 10%%
 default.sha512_crypt.max_rounds = 20000
-admin.all.vary_rounds = 5%
+admin.all.vary_rounds = 5%%
 admin.sha512_crypt.max_rounds = 40000
 """
 
@@ -183,9 +184,16 @@ admin.sha512_crypt.max_rounds = 40000
     def test_01_from_path(self):
         "test CryptPolicy.from_path() constructor"
         path = mktemp()
-        with file(path, "w") as fh:
+        with open(path, "w") as fh:
             fh.write(self.sample_config_1s)
         policy = CryptPolicy.from_path(path)
+        self.assertEquals(policy.to_dict(), self.sample_config_1pd)
+
+        #test with custom encoding
+        uc2 = to_bytes(self.sample_config_1s, "utf-16", source_encoding="utf-8")
+        with open(path, "wb") as fh:
+            fh.write(uc2)
+        policy = CryptPolicy.from_path(path, encoding="utf-16")
         self.assertEquals(policy.to_dict(), self.sample_config_1pd)
 
         #test if path missing
@@ -199,13 +207,18 @@ admin.sha512_crypt.max_rounds = 40000
 
         policy = CryptPolicy.from_string(self.sample_config_4s)
         self.assertEquals(policy.to_dict(), self.sample_config_4pd)
+    
+        #test with custom encoding
+        uc2 = to_bytes(self.sample_config_1s, "utf-16", source_encoding="utf-8")
+        policy = CryptPolicy.from_string(uc2, encoding="utf-16")
+        self.assertEquals(policy.to_dict(), self.sample_config_1pd)
 
     def test_03_from_source(self):
         "test CryptPolicy.from_source() constructor"
 
         #pass it a path
         path = mktemp()
-        with file(path, "w") as fh:
+        with open(path, "w") as fh:
             fh.write(self.sample_config_1s)
         policy = CryptPolicy.from_source(path)
         self.assertEquals(policy.to_dict(), self.sample_config_1pd)
@@ -238,7 +251,7 @@ admin.sha512_crypt.max_rounds = 40000
 
         #pass multiple sources
         path = mktemp()
-        with file(path, "w") as fh:
+        with open(path, "w") as fh:
             fh.write(self.sample_config_1s)
         policy = CryptPolicy.from_sources([
             path,

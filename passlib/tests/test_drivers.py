@@ -9,7 +9,8 @@ import logging; log = logging.getLogger(__name__)
 import warnings
 #site
 #pkg
-from passlib.tests.utils import TestCase, HandlerCase, create_backend_case, enable_option
+from passlib.tests.utils import TestCase, HandlerCase, create_backend_case, \
+        enable_option, b
 #module
 
 #=========================================================
@@ -20,9 +21,9 @@ class AprMd5CryptTest(HandlerCase):
     handler = apr_md5_crypt
 
     #values taken from http://httpd.apache.org/docs/2.2/misc/password_encryptions.html
-    known_correct_hashes = (
+    known_correct_hashes = [
         ('myPassword', '$apr1$r31.....$HqJZimcKQFAMYayBlzkrA/'),
-        )
+        ]
 
     known_malformed_hashes = [
         #bad char in otherwise correct hash
@@ -34,18 +35,20 @@ class AprMd5CryptTest(HandlerCase):
 #=========================================================
 from passlib.handlers.bcrypt import bcrypt
 
-class BCryptTest(HandlerCase):
+class _BCryptTest(HandlerCase):
+    "base for BCrypt test cases"
+    
     handler = bcrypt
     secret_chars = 72
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         #selected bcrypt test vectors
         ('', '$2a$06$DCq7YPn5Rq63x1Lad4cll.TV4S6ytwfsfvkgY8jIucDrjc8deX1s.'),
         ('a', '$2a$10$k87L/MF28Q673VKh8/cPi.SUl7MU/rWuSiIDDFayrKk/1tBsSQu4u'),
         ('abc', '$2a$10$WvvTPHKwdBJ3uk0Z37EMR.hLA2W6N9AEBhEgrAOljy2Ae5MtaSIUi'),
         ('abcdefghijklmnopqrstuvwxyz', '$2a$10$fVH8e28OQRj9tqiDXs1e1uxpsjN0c7II7YPKXua2NAKYvM6iQk7dq'),
         ('~!@#$%^&*()      ~!@#$%^&*()PNBFRD', '$2a$10$LgfYWkbzEvQ4JakH7rOvHe0y8pHKF9OaFgwUZ2q7W2FFZmZzJYlfS'),
-        )
+        ]
 
     known_unidentified_hashes = [
         #unsupported minor version
@@ -72,34 +75,31 @@ class BCryptTest(HandlerCase):
         kwds['ident'] = 'Q'
         self.assertRaises(ValueError, handler, **kwds)
 
-    #this method is added in order to maximize test coverage on systems
-    #where os_crypt is missing or doesn't support bcrypt
-    if enable_option("cover") and not bcrypt.has_backend("os_crypt") and bcrypt.has_backend("pybcrypt"):
-        def test_backend(self):
-            from passlib.handlers import bcrypt as bcrypt_mod
-            orig = bcrypt_mod.os_crypt
-            bcrypt_mod.os_crypt = bcrypt_mod.pybcrypt_hashpw
-            orig = bcrypt.get_backend()
-            try:
-                bcrypt.set_backend("os_crypt")
-                bcrypt.encrypt(u"test", rounds=4)
-            finally:
-                bcrypt.set_backend(orig)
-                bcrypt_mod.os_crypt = orig
+    #FIXME: this would probably still be useful,
+    #       but have to make it patch os_crypt in utils now,
+    #       so that it's called by safe_os_crypt...
+    #
+    ###this method is added in order to maximize test coverage on systems
+    ###where os_crypt is missing or doesn't support bcrypt
+    ##if enable_option("cover") and not bcrypt.has_backend("os_crypt") and bcrypt.has_backend("pybcrypt"):
+    ##    def test_backend(self):
+    ##        from passlib.handlers import bcrypt as bcrypt_mod
+    ##        orig = bcrypt_mod.os_crypt
+    ##        bcrypt_mod.sos_crypt = bcrypt_mod.pybcrypt_hashpw
+    ##        orig = bcrypt.get_backend()
+    ##        try:
+    ##            bcrypt.set_backend("os_crypt")
+    ##            bcrypt.encrypt(u"test", rounds=4)
+    ##        finally:
+    ##            bcrypt.set_backend(orig)
+    ##            bcrypt_mod.os_crypt = orig
 
-bcrypt._no_backends_msg()
+bcrypt._no_backends_msg() #call this for coverage purposes
 
-try:
-    bcrypt.get_backend()
-except EnvironmentError:
-    #no bcrypt backends available!
-    BCryptTest = None
-
-#NOTE: pybcrypt backend will be chosen as primary if possible, so just check for os crypt and builtin
-OsCrypt_BCryptTest = create_backend_case(BCryptTest, "os_crypt")
-
-###this one's unusuablly slow, don't test it unless user asks for it.
-##Builtin_BCryptTest = create_backend_case(BCryptTest, "builtin") if enable_option("slow") else None
+#create test cases for specific backends
+PyBCrypt_BCryptTest = create_backend_case(_BCryptTest, "pybcrypt")
+BCryptor_BCryptTest = create_backend_case(_BCryptTest, "bcryptor")
+OsCrypt_BCryptTest = create_backend_case(_BCryptTest, "os_crypt")
 
 #=========================================================
 #bigcrypt
@@ -170,12 +170,12 @@ class Crypt16Test(HandlerCase):
 #=========================================================
 from passlib.handlers.des_crypt import des_crypt
 
-class DesCryptTest(HandlerCase):
+class _DesCryptTest(HandlerCase):
     "test des-crypt algorithm"
     handler = des_crypt
     secret_chars = 8
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         #secret, example hash which matches secret
         ('', 'OgAwTx2l6NADI'),
         (' ', '/Hk.VPuwQTXbc'),
@@ -184,7 +184,7 @@ class DesCryptTest(HandlerCase):
         ('4lpHa N|_|M3r1K W/ Cur5Es: #$%(*)(*%#', 'sNYqfOyauIyic'),
         ('AlOtBsOl', 'cEpWz5IUCShqM'),
         (u'hell\u00D6', 'saykDgk3BPZ9E'),
-        )
+        ]
     known_unidentified_hashes = [
         #bad char in otherwise correctly formatted hash
         '!gAwTx2l6NADI',
@@ -193,8 +193,55 @@ class DesCryptTest(HandlerCase):
     def test_invalid_secret_chars(self):
         self.assertRaises(ValueError, self.do_encrypt, 'sec\x00t')
 
-BuiltinDesCryptTest = create_backend_case(DesCryptTest, "builtin")
+OsCrypt_DesCryptTest = create_backend_case(_DesCryptTest, "os_crypt")
+Builtin_DesCryptTest = create_backend_case(_DesCryptTest, "builtin")
 
+#=========================================================
+#fshp
+#=========================================================
+from passlib.hash import fshp
+
+class FSHPTest(HandlerCase):
+    "test fshp algorithm"
+    handler = fshp
+
+    known_correct_hashes = [
+        #secret, example hash which matches secret
+        
+        #test vectors from FSHP reference implementation
+        ('test', '{FSHP0|0|1}qUqP5cyxm6YcTAhz05Hph5gvu9M='),
+ 
+        ('test',
+            '{FSHP1|8|4096}MTIzNDU2NzjTdHcmoXwNc0f'
+            'f9+ArUHoN0CvlbPZpxFi1C6RDM/MHSA=='
+            ),
+        
+        ('OrpheanBeholderScryDoubt',
+            '{FSHP1|8|4096}GVSUFDAjdh0vBosn1GUhz'
+            'GLHP7BmkbCZVH/3TQqGIjADXpc+6NCg3g=='
+            ),
+        ('ExecuteOrder66',
+            '{FSHP3|16|8192}0aY7rZQ+/PR+Rd5/I9ss'
+            'RM7cjguyT8ibypNaSp/U1uziNO3BVlg5qPU'
+            'ng+zHUDQC3ao/JbzOnIBUtAeWHEy7a2vZeZ'
+            '7jAwyJJa2EqOsq4Io='
+            ),
+        ]
+
+    known_unidentified_hashes = [
+        #bad char in otherwise correctly formatted hash
+        '{FSHX0|0|1}qUqP5cyxm6YcTAhz05Hph5gvu9M=',
+        'FSHP0|0|1}qUqP5cyxm6YcTAhz05Hph5gvu9M=',
+        ]
+    
+    known_malformed_hashes = [
+        #wrong salt size
+        '{FSHP0|1|1}qUqP5cyxm6YcTAhz05Hph5gvu9M=',
+        
+        #bad rounds
+        '{FSHP0|0|A}qUqP5cyxm6YcTAhz05Hph5gvu9M=',
+    ]
+  
 #=========================================================
 #hex digests
 #=========================================================
@@ -253,24 +300,25 @@ class LdapPlaintextTest(HandlerCase):
 #NOTE: since the ldap_{crypt} handlers are all wrappers,
 # don't need separate test. have just one for end-to-end testing purposes.
 
-class LdapMd5CryptTest(HandlerCase):
+class _LdapMd5CryptTest(HandlerCase):
     handler = ldap_digests.ldap_md5_crypt
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         ('', '{CRYPT}$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
         (' ', '{CRYPT}$1$m/5ee7ol$bZn0kIBFipq39e.KDXX8I0'),
         ('test', '{CRYPT}$1$ec6XvcoW$ghEtNK2U1MC5l.Dwgi3020'),
         ('Compl3X AlphaNu3meric', '{CRYPT}$1$nX1e7EeI$ljQn72ZUgt6Wxd9hfvHdV0'),
         ('4lpHa N|_|M3r1K W/ Cur5Es: #$%(*)(*%#', '{CRYPT}$1$jQS7o98J$V6iTcr71CGgwW2laf17pi1'),
         ('test', '{CRYPT}$1$SuMrG47N$ymvzYjr7QcEQjaK5m1PGx1'),
-        )
+        ]
 
     known_malformed_hashes = [
         #bad char in otherwise correct hash
         '{CRYPT}$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o!',
         ]
 
-BuiltinLdapMd5CryptTest = create_backend_case(LdapMd5CryptTest, "builtin")
+OsCrypt_LdapMd5CryptTest = create_backend_case(_LdapMd5CryptTest, "os_crypt")
+Builtin_LdapMd5CryptTest = create_backend_case(_LdapMd5CryptTest, "builtin")
 
 #=========================================================
 #ldap_pbkdf2_{digest}
@@ -312,17 +360,21 @@ class LdapPbkdf2Test(TestCase):
 #md5 crypt
 #=========================================================
 from passlib.handlers.md5_crypt import md5_crypt, raw_md5_crypt
-class Md5CryptTest(HandlerCase):
+class _Md5CryptTest(HandlerCase):
     handler = md5_crypt
 
-    known_correct_hashes = (
+    known_correct_hashes = [
+        #NOTE: would need to patch HandlerCase to coerce hashes
+        #to_hash_str() for this first one to work under py3.
+##        ('', b('$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.')),
         ('', '$1$dOHYPKoP$tnxS1T8Q6VVn3kpV8cN6o.'),
         (' ', '$1$m/5ee7ol$bZn0kIBFipq39e.KDXX8I0'),
         ('test', '$1$ec6XvcoW$ghEtNK2U1MC5l.Dwgi3020'),
         ('Compl3X AlphaNu3meric', '$1$nX1e7EeI$ljQn72ZUgt6Wxd9hfvHdV0'),
         ('4lpHa N|_|M3r1K W/ Cur5Es: #$%(*)(*%#', '$1$jQS7o98J$V6iTcr71CGgwW2laf17pi1'),
         ('test', '$1$SuMrG47N$ymvzYjr7QcEQjaK5m1PGx1'),
-        )
+        (b('test'), '$1$SuMrG47N$ymvzYjr7QcEQjaK5m1PGx1'),
+        ]
 
     known_malformed_hashes = [
         #bad char in otherwise correct hash
@@ -330,9 +382,10 @@ class Md5CryptTest(HandlerCase):
         ]
 
     def test_raw(self):
-        self.assertEquals(raw_md5_crypt('s','s'*16), 'YgmLTApYTv12qgTwBoj8i/')
+        self.assertEquals(raw_md5_crypt(u's',u's'*16), u'YgmLTApYTv12qgTwBoj8i/')
 
-BuiltinMd5CryptTest = create_backend_case(Md5CryptTest, "builtin")
+OsCrypt_Md5CryptTest = create_backend_case(_Md5CryptTest, "os_crypt")
+Builtin_Md5CryptTest = create_backend_case(_Md5CryptTest, "builtin")
 
 #=========================================================
 #mysql 323 & 41
@@ -342,9 +395,9 @@ from passlib.handlers.mysql import mysql323, mysql41
 class Mysql323Test(HandlerCase):
     handler = mysql323
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         ('mypass', '6f8c114b58f2ce9e'),
-    )
+    ]
     known_unidentified_hashes = [
         #bad char in otherwise correct hash
         '6z8c114b58f2ce9e',
@@ -358,9 +411,9 @@ class Mysql323Test(HandlerCase):
 
 class Mysql41Test(HandlerCase):
     handler = mysql41
-    known_correct_hashes = (
+    known_correct_hashes = [
         ('mypass', '*6C8989366EAF75BB670AD8EA7A7FC1176A95CEF4'),
-    )
+    ]
     known_unidentified_hashes = [
         #bad char in otherwise correct hash
         '*6Z8989366EAF75BB670AD8EA7A7FC1176A95CEF4',
@@ -374,10 +427,10 @@ from passlib.handlers.nthash import nthash
 class NTHashTest(HandlerCase):
     handler = nthash
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         ('passphrase', '$3$$7f8fe03093cc84b267b109625f6bbf4b'),
         ('passphrase', '$NT$7f8fe03093cc84b267b109625f6bbf4b'),
-    )
+    ]
 
     known_malformed_hashes = [
         #bad char in otherwise correct hash
@@ -474,11 +527,11 @@ from passlib.handlers import pbkdf2 as pk2
 
 class AtlassianPbkdf2Sha1Test(HandlerCase):
     handler = pk2.atlassian_pbkdf2_sha1
-    known_correct_hashes = (
+    known_correct_hashes = [
         ("admin", '{PKCS5S2}c4xaeTQM0lUieMS3V5voiexyX9XhqC2dBd5ecVy60IPksHChwoTAVYFrhsgoq8/p'),
         (u'\u0399\u03c9\u03b1\u03bd\u03bd\u03b7\u03c2',
                   "{PKCS5S2}cE9Yq6Am5tQGdHSHhky2XLeOnURwzaLBG2sur7FHKpvy2u0qDn6GcVGRjlmJoIUy"),
-    )
+    ]
 
     known_malformed_hashes = [
         #bad char
@@ -493,26 +546,26 @@ class AtlassianPbkdf2Sha1Test(HandlerCase):
 
 class Pbkdf2Sha1Test(HandlerCase):
     handler = pk2.pbkdf2_sha1
-    known_correct_hashes = (
+    known_correct_hashes = [
         ("password", '$pbkdf2$1212$OB.dtnSEXZK8U5cgxU/GYQ$y5LKPOplRmok7CZp/aqVDVg8zGI'),
         (u'\u0399\u03c9\u03b1\u03bd\u03bd\u03b7\u03c2',
             '$pbkdf2$1212$THDqatpidANpadlLeTeOEg$HV3oi1k5C5LQCgG1BMOL.BX4YZc'),
-    )
+    ]
 
 class Pbkdf2Sha256Test(HandlerCase):
     handler = pk2.pbkdf2_sha256
-    known_correct_hashes = (
+    known_correct_hashes = [
         ("password",
             '$pbkdf2-sha256$1212$4vjV83LKPjQzk31VI4E0Vw$hsYF68OiOUPdDZ1Fg.fJPeq1h/gXXY7acBp9/6c.tmQ'
             ),
         (u'\u0399\u03c9\u03b1\u03bd\u03bd\u03b7\u03c2',
             '$pbkdf2-sha256$1212$3SABFJGDtyhrQMVt1uABPw$WyaUoqCLgvz97s523nF4iuOqZNbp5Nt8do/cuaa7AiI'
             ),
-    )
+    ]
 
 class Pbkdf2Sha512Test(HandlerCase):
     handler = pk2.pbkdf2_sha512
-    known_correct_hashes = (
+    known_correct_hashes = [
         ("password",
             '$pbkdf2-sha512$1212$RHY0Fr3IDMSVO/RSZyb5ow$eNLfBK.eVozomMr.1gYa1'
             '7k9B7KIK25NOEshvhrSX.esqY3s.FvWZViXz4KoLlQI.BzY/YTNJOiKc5gBYFYGww'
@@ -521,11 +574,23 @@ class Pbkdf2Sha512Test(HandlerCase):
             '$pbkdf2-sha512$1212$KkbvoKGsAIcF8IslDR6skQ$8be/PRmd88Ps8fmPowCJt'
             'tH9G3vgxpG.Krjt3KT.NP6cKJ0V4Prarqf.HBwz0dCkJ6xgWnSj2ynXSV7MlvMa8Q'
             ),
-    )
+    ]
+
+class CtaPbkdf2Sha1Test(HandlerCase):
+    handler = pk2.cta_pbkdf2_sha1
+    known_correct_hashes = [
+        #test vectors from original implementation
+        (u"hashy the \N{SNOWMAN}", '$p5k2$1000$ZxK4ZBJCfQg=$jJZVscWtO--p1-xIZl6jhO2LKR0='),
+
+        #additional test vectors
+        ("password", "$p5k2$1$$h1TDLGSw9ST8UMAPeIE13i0t12c="),
+        (u'\u0399\u03c9\u03b1\u03bd\u03bd\u03b7\u03c2',
+            "$p5k2$4321$OTg3NjU0MzIx$jINJrSvZ3LXeIbUdrJkRpN62_WQ="),
+        ]
 
 class DlitzPbkdf2Sha1Test(HandlerCase):
     handler = pk2.dlitz_pbkdf2_sha1
-    known_correct_hashes = (
+    known_correct_hashes = [
         #test vectors from original implementation
         ('cloadm',  '$p5k2$$exec$r1EWMCMk7Rlv3L/RNcFXviDefYa0hlql'),
         ('gnu',     '$p5k2$c$u9HvcT4d$Sd1gwSVCLZYAuqZ25piRnbBEoAesaa/g'),
@@ -533,11 +598,11 @@ class DlitzPbkdf2Sha1Test(HandlerCase):
         ('spam',    '$p5k2$3e8$H0NX9mT/$wk/sE8vv6OMKuMaqazCJYDSUhWY9YB2J'),
         (u'\u0399\u03c9\u03b1\u03bd\u03bd\u03b7\u03c2',
                     '$p5k2$$KosHgqNo$9mjN8gqjt02hDoP0c2J0ABtLIwtot8cQ'),
-        )
+        ]
 
 class GrubPbkdf2Sha512Test(HandlerCase):
     handler = pk2.grub_pbkdf2_sha512
-    known_correct_hashes = (
+    known_correct_hashes = [
         #test vectors generated from cmd line tool
 
         #salt=32 bytes
@@ -557,7 +622,7 @@ class GrubPbkdf2Sha512Test(HandlerCase):
             '2D3256ECC9F765D84956FC5CA5C4B6FD711AA285F0A04DCF4'
             '634083F9A20F4B6F339A52FBD6BED618E527B'),
 
-        )
+        ]
 
 #=========================================================
 #PHPass Portable Crypt
@@ -567,11 +632,11 @@ from passlib.handlers.phpass import phpass
 class PHPassTest(HandlerCase):
     handler = phpass
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         ('', '$P$7JaFQsPzJSuenezefD/3jHgt5hVfNH0'),
         ('compL3X!', '$P$FiS0N5L672xzQx1rt1vgdJQRYKnQM9/'),
         ('test12345', '$P$9IQRaTwmfeRo7ud9Fh4E2PdI0S3r.L0'), #from the source
-        )
+        ]
 
     known_malformed_hashes = [
         #bad char in otherwise correct hash
@@ -599,10 +664,10 @@ from passlib.handlers.misc import plaintext
 class PlaintextTest(HandlerCase):
     handler = plaintext
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         ('',''),
         ('password', 'password'),
-    )
+    ]
 
     known_other_hashes = [] #all strings are identified as belonging to this scheme
 
@@ -679,10 +744,10 @@ from passlib.handlers.sha1_crypt import sha1_crypt
 class SHA1CryptTest(HandlerCase):
     handler = sha1_crypt
 
-    known_correct_hashes = (
+    known_correct_hashes = [
         ("password", "$sha1$19703$iVdJqfSE$v4qYKl1zqYThwpjJAoKX6UvlHq/a"),
         ("password", "$sha1$21773$uV7PTeux$I9oHnvwPZHMO0Nq6/WgyGV/tDJIH"),
-    )
+    ]
 
     known_malformed_hashes = [
         #bad char in otherwise correct hash
@@ -738,7 +803,7 @@ class RoundupTest(TestCase):
 #=========================================================
 from passlib.handlers.sha2_crypt import sha256_crypt, raw_sha_crypt
 
-class SHA256CryptTest(HandlerCase):
+class _SHA256CryptTest(HandlerCase):
     handler = sha256_crypt
 
     known_correct_hashes = [
@@ -791,21 +856,22 @@ class SHA256CryptTest(HandlerCase):
     def test_raw(self):
         #run some tests on raw backend func to ensure it works right
         self.assertEqual(
-             raw_sha_crypt('secret', 'salt'*10, 1, hashlib.md5),
-             ('\x1f\x96\x1cO\x11\xa9h\x12\xc4\xf3\x9c\xee\xf5\x93\xf3\xdd',
-            'saltsaltsaltsalt',
+             raw_sha_crypt(b('secret'), b('salt')*10, 1, hashlib.md5),
+             (b('\x1f\x96\x1cO\x11\xa9h\x12\xc4\xf3\x9c\xee\xf5\x93\xf3\xdd'),
+            b('saltsaltsaltsalt'),
             1000)
             )
-        self.assertRaises(ValueError, raw_sha_crypt, 'secret', '$', 1, hashlib.md5)
+        self.assertRaises(ValueError, raw_sha_crypt, b('secret'), b('$'), 1, hashlib.md5)
 
-BuiltinSHA256CryptTest = create_backend_case(SHA256CryptTest, "builtin")
+OsCrypt_SHA256CryptTest = create_backend_case(_SHA256CryptTest, "os_crypt")
+Builtin_SHA256CryptTest = create_backend_case(_SHA256CryptTest, "builtin")
 
 #=========================================================
 #test sha512-crypt
 #=========================================================
 from passlib.handlers.sha2_crypt import sha512_crypt
 
-class SHA512CryptTest(HandlerCase):
+class _SHA512CryptTest(HandlerCase):
     handler = sha512_crypt
 
     known_correct_hashes = [
@@ -861,7 +927,8 @@ class SHA512CryptTest(HandlerCase):
     def filter_known_config_warnings(self):
         warnings.filterwarnings("ignore", "sha512_crypt does not allow less than 1000 rounds: 10", UserWarning)
 
-BuiltinSHA512CryptTest = create_backend_case(SHA512CryptTest, "builtin")
+OsCrypt_SHA512CryptTest = create_backend_case(_SHA512CryptTest, "os_crypt")
+Builtin_SHA512CryptTest = create_backend_case(_SHA512CryptTest, "builtin")
 
 #=========================================================
 #sun md5 crypt
@@ -971,10 +1038,7 @@ class UnixFallbackTest(HandlerCase):
 
     def test_50_encrypt_plain(self):
         "test encrypt() basic behavior"
-        if self.supports_unicode:
-            secret = u"unic\u00D6de"
-        else:
-            secret = "too many secrets"
+        secret = u"\u20AC\u00A5$"
         result = self.do_encrypt(secret)
         self.assertEquals(result, "!")
         self.assert_(not self.do_verify(secret, result))
