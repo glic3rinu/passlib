@@ -12,6 +12,7 @@ Note that rounds must be >= 10 or an error will be returned.
 #=========================================================
 from __future__ import with_statement, absolute_import
 #core
+import os
 import re
 import logging; log = logging.getLogger(__name__)
 from warnings import warn
@@ -33,6 +34,13 @@ from passlib.utils import safe_os_crypt, classproperty, handlers as uh, \
 __all__ = [
     "bcrypt",
 ]
+
+_builtin_bcrypt = None
+
+def _load_builtin():
+    global _builtin_bcrypt
+    if _builtin_bcrypt is None:
+        from passlib.utils._slow_bcrypt import raw_bcrypt as _builtin_bcrypt
 
 # base64 character->value mapping used by bcrypt.
 # this is same as as H64_CHARS, but the positions are different.
@@ -194,7 +202,7 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
     #=========================================================
     #primary interface
     #=========================================================
-    backends = ("pybcrypt", "bcryptor", "os_crypt")
+    backends = ("pybcrypt", "bcryptor", "os_crypt", "builtin")
 
     @classproperty
     def _has_backend_pybcrypt(cls):
@@ -203,6 +211,14 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
     @classproperty
     def _has_backend_bcryptor(cls):
         return bcryptor_engine is not None
+
+    @classproperty
+    def _has_backend_builtin(cls):
+        if os.environ.get("PASSLIB_BUILTIN_BCRYPT") != "enabled":
+            return False
+        #look at it cross-eyed, and it loads itself
+        _load_builtin()
+        return True
 
     @classproperty
     def _has_backend_os_crypt(cls):
@@ -248,6 +264,14 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
         hash = bcryptor_engine(False).hash_key(secret,
                                                self.to_string(native=False))
         return hash[-31:].decode("ascii")
+
+    def _calc_checksum_builtin(self, secret):
+        if secret is None:
+            raise TypeError("no secret provided")
+        if isinstance(secret, unicode):
+            secret = secret.encode("utf-8")
+        chk = _builtin_bcrypt(secret, self.ident.strip("$"), self.salt.encode("ascii"), self.rounds)
+        return chk.decode("ascii")
 
     #=========================================================
     #eoc

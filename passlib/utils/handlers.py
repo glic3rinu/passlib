@@ -1031,7 +1031,7 @@ class HasManyBackends(GenericHandler):
         if no backend has been loaded,
         loads and returns name of default backend.
 
-        :raises MissingBackendError: if no backends are available.
+        :raises passlib.utils.MissingBackendError: if no backends are available.
 
         :returns: name of active backend
         """
@@ -1056,12 +1056,7 @@ class HasManyBackends(GenericHandler):
         :returns:
             ``True`` if backend is currently supported, else ``False``.
         """
-        if name in (None, "any", "default"):
-            if name is None:
-                warn("has_backend(None) is deprecated,"
-                     " and support will be removed in Passlib 1.6;"
-                     " use has_backend('any') instead.",
-                    DeprecationWarning, stacklevel=2)
+        if name in ("any", "default"):
             try:
                 cls.set_backend()
                 return True
@@ -1099,27 +1094,17 @@ class HasManyBackends(GenericHandler):
               the current backend if one has been loaded,
               else acts like ``"default"``.
 
-        :raises MissingBackendError:
-            * if a specific backend was specified,
+        :raises passlib.utils.MissingBackendError:
+            * ... if a specific backend was requested,
               but is not currently available.
 
-            * if ``"any"`` or ``"default"`` was specified,
-              and NO backends are currently available.
-    
-        return value should be ignored.
-        
-        .. note::
+            * ... if ``"any"`` or ``"default"`` was specified,
+              and *no* backends are currently available.
 
-            :exc:`~passlib.utils.MissingBackendError` derives
-            from :exc:`RuntimeError`, since this usually indicates
-            lack of an external library or OS feature.
+        :returns:
+
+            The return value of this function should be ignored.
         """
-        if name is None:
-            warn("set_backend(None) is deprecated,"
-                 " and support will be removed in Passlib 1.6;"
-                 " use set_backend('any') instead.",
-                DeprecationWarning, stacklevel=2)
-            name = "any"
         if name == "any":
             name = cls._backend
             if name:
