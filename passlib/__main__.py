@@ -8,9 +8,13 @@ from optparse import OptionParser
 import re
 import sys
 # package
+from passlib import __version__
 from passlib.registry import list_crypt_handlers, get_crypt_handler
 from passlib.utils.compat import print_, iteritems
 import passlib.utils.handlers as uh
+
+vstr = "Passlib " + __version__
+
 #=========================================================
 # utils
 #=========================================================
@@ -26,7 +30,7 @@ def encrypt_cmd(args):
     #
     # parse args
     #
-    p = OptionParser(prog="passlib encrypt",
+    p = OptionParser(prog="passlib encrypt", version=vstr,
                      usage="%prog [options] <format> <password>")
     ##p.add_option("-d", "--details",
     ##                  action="store_true", dest="details", default=False,
@@ -181,7 +185,8 @@ def identify_cmd(args):
     #
     # parse args
     #
-    p = OptionParser(prog="passlib identify", usage="%prog [options] <hash>")
+    p = OptionParser(prog="passlib identify", version=vstr,
+                     usage="%prog [options] <hash>")
     p.add_option("-d", "--details",
                       action="store_true", dest="details", default=False,
                       help="show details about referenced hashes")
@@ -233,11 +238,106 @@ def identify_cmd(args):
     return 0 if results else 1
 
 #=========================================================
+# timer command
+#=========================================================
+def benchmark_cmd(args):
+    """benchmark speed of hash algorithms"""
+    #
+    # parse args
+    #
+    p = OptionParser(prog="passlib benchmark", version=vstr,
+                     usage="%prog [options] <alg> [ <alg> ... ]",
+                     description="""You should provide the names of one
+or more algorithms to benchmark, as positional arguments. If you
+provide the special name "all", all algorithms in Passlib will be tested.""",
+                     )
+    p.add_option("--max-time", action="store", type="float",
+                 dest="max_time", default=1.0, metavar="TIME",
+                 help="spend at most TIME seconds benchmarking each hash (default=%default)",
+                )
+
+    p.add_option("--csv", action="store_true",
+                 dest="csv", default=False,
+                 help="Output results in CSV format")
+
+    opts, args = p.parse_args(args)
+    if not args:
+        p.error("no algorithm names provided")
+    elif len(args) == 1 and args[0] == "all":
+        autoall = True
+        args = [ name for name in list_crypt_handlers()
+                if name not in _skip_handlers ]
+    else:
+        autoall = False
+
+    from passlib.utils._cost import HashTimer
+
+    kwds = dict(max_time=opts.max_time)
+
+    if opts.csv:
+        fmt = "%s,%s,%s,%s"
+        print_(fmt % ("handler", "backend", "cost", "speed"))
+    else:
+        fmt = "%-30s %-10s %10s"
+        print_(fmt % ("handler", "cost", "speed"))
+        print_(fmt % ("-" * 30, "-" * 10, "-" * 10))
+
+    def measure(handler, backend=None):
+        if backend:
+            tag = "%s (%s)" % (handler.name, backend)
+            if not hasattr(handler, "backends"):
+                print_("\nerror: %r handler does not support multiple backends"
+                                % (handler.name,))
+                return 1
+            if backend not in handler.backends:
+                print_("\nerror: %r handler has no backend named %r" %
+                                 (handler.name, backend))
+                return 1
+            if not handler.has_backend(backend):
+                cost = getattr(handler, "rounds_cost", None) or "fixed"
+                if opts.csv:
+                    print_(fmt % (handler.name, backend, cost, ""))
+                else:
+                    print_(fmt % (tag, cost, ""))
+                return
+        else:
+            tag = handler.name
+        timer = HashTimer(handler, backend=backend, **kwds)
+        cost = timer.scale if timer.hasrounds else "fixed"
+        if timer.speed < 10:
+            spd = "%g" % (timer.speed,)
+        else:
+            spd = "%d" % (timer.speed,)
+        if opts.csv:
+            print_(fmt % (handler.name, backend or '', cost, spd))
+        else:
+            print_(fmt % (tag, cost, spd))
+
+    for name in args:
+        if ":" in name:
+            name, backend = name.split(":")
+        else:
+            backend = None
+        handler = get_crypt_handler(name)
+        if (backend == "all" or autoall) and hasattr(handler, "backends"):
+            for backend in handler.backends:
+                rc = measure(handler, backend)
+                if rc:
+                    return rc
+        else:
+            rc = measure(handler, backend)
+            if rc:
+                return rc
+
+    return 0
+
+#=========================================================
 # main
 #=========================================================
 commands = {
     "identify": identify_cmd,
     "encrypt": encrypt_cmd,
+    "benchmark": benchmark_cmd,
     # TODO: verify_cmd
     # TODO: gencfg_cmd - generate config w/ timings, possibly taking in another
     # TODO: chkcfg_cmd - check config file for errors.
@@ -266,8 +366,7 @@ def main(args):
         _print_usage()
         return 0
     elif cmd in ["version", "--version", "-v"]:
-        from passlib import __version__ as vstr
-        print_("Passlib %s" % (vstr,))
+        print_(vstr)
         return 0
     func = commands.get(cmd)
     if not func:
