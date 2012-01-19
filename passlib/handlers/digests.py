@@ -9,8 +9,9 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import handlers as uh, to_native_str, bytes
-from passlib.utils.compat import unicode
+from passlib.utils import to_native_str
+from passlib.utils.compat import bascii_to_str, bytes, unicode
+import passlib.utils.handlers as uh
 from passlib.utils.md4 import md4
 #pkg
 #local
@@ -52,13 +53,11 @@ class HexDigestHash(uh.StaticHandler):
             raise TypeError("no secret provided")
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        return to_native_str(cls._hash_func(secret).hexdigest())
+        return cls._hash_func(secret).hexdigest()
 
     @classmethod
     def _norm_hash(cls, hash):
-        if isinstance(hash, bytes):
-            hash = hash.decode("ascii")
-        return hash.lower()
+        return to_native_str(hash, "ascii", errname="hash").lower()
 
 def create_hex_hash(hash, digest_name):
     #NOTE: could set digest_name=hash.name for cpython, but not for some other platforms.

@@ -17,8 +17,10 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import h64, handlers as uh, to_native_str, to_unicode, bytes, b, bord
-from passlib.utils.compat import trange, unicode, u
+from passlib.utils import h64
+from passlib.utils.compat import b, bytes, belem_ord, trange, u, \
+                                 uascii_to_str, unicode, str_to_bascii
+import passlib.utils.handlers as uh
 #pkg
 #local
 __all__ = [
@@ -114,7 +116,7 @@ def raw_sun_md5_crypt(secret, rounds, salt):
     round = 0
     while round < real_rounds:
         #convert last result byte string to list of byte-ints for easy access
-        rval = [ bord(c) for c in result ].__getitem__
+        rval = [ belem_ord(c) for c in result ].__getitem__
 
         #build up X bit by bit
         x = 0
@@ -195,7 +197,7 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     #=========================================================
     name = "sun_md5_crypt"
     setting_kwds = ("salt", "rounds", "bare_salt", "salt_size")
-    checksum_chars = uh.H64_CHARS
+    checksum_chars = uh.HASH64_CHARS
 
     #NOTE: docs say max password length is 255.
     #release 9u2
@@ -205,7 +207,7 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     default_salt_size = 8
     min_salt_size = 0
     max_salt_size = None
-    salt_chars = uh.H64_CHARS
+    salt_chars = uh.HASH64_CHARS
 
     default_rounds = 5000 #current passlib default
     min_rounds = 0
@@ -260,7 +262,7 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
             if rstr != unicode(rounds):
                 raise ValueError("invalid sun-md5-crypt hash (zero-padded rounds)")
             if rounds == 0:
-                #NOTE: not sure if this is *forbidden* precisely,
+                #NOTE: not sure if this is forbidden by spec or not;
                 #      but allowing it would complicate things,
                 #      and it should never occur anyways.
                 raise ValueError("invalid sun-md5-crypt hash (explicit zero rounds)")
@@ -305,18 +307,18 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
             strict=bool(chk),
         )
 
-    def to_string(self, withchk=True, native=True):
+    def to_string(self, withchk=True):
         ss = u('') if self.bare_salt else u('$')
         rounds = self.rounds
         if rounds > 0:
-            out = u("$md5,rounds=%d$%s%s") % (rounds, self.salt, ss)
+            hash = u("$md5,rounds=%d$%s%s") % (rounds, self.salt, ss)
         else:
-            out = u("$md5$%s%s") % (self.salt, ss)
+            hash = u("$md5$%s%s") % (self.salt, ss)
         if withchk:
             chk = self.checksum
             if chk:
-                out = u("%s$%s") % (out, chk)
-        return to_native_str(out) if native else out
+                hash = u("%s$%s") % (hash, chk)
+        return uascii_to_str(hash)
 
     #=========================================================
     #primary interface
@@ -332,7 +334,7 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
             raise TypeError("no secret specified")
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        config = self.to_string(withchk=False,native=False).encode("ascii")
+        config = str_to_bascii(self.to_string(withchk=False))
         return raw_sun_md5_crypt(secret, self.rounds, config).decode("ascii")
 
     #=========================================================

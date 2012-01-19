@@ -15,8 +15,7 @@ from binascii import hexlify
 import struct
 from warnings import warn
 #site
-from passlib.utils import b, bytes, to_native_str
-from passlib.utils.compat import irange, PY3
+from passlib.utils.compat import b, bytes, bascii_to_str, irange, PY3
 #local
 __all__ = [ "md4" ]
 #=========================================================================
@@ -224,8 +223,7 @@ class md4(object):
         return out
 
     def hexdigest(self):
-        # PY3: hexlify returns bytes, but hexdigest should return str.
-        return to_native_str(hexlify(self.digest()))
+        return bascii_to_str(hexlify(self.digest()))
 
     #=========================================================================
     #eoc
@@ -237,8 +235,8 @@ _builtin_md4 = md4
 #=========================================================================
 #check if hashlib provides accelarated md4
 #=========================================================================
-from passlib.utils.compat import PYPY
 import hashlib
+from passlib.utils import PYPY
 
 def _has_native_md4():
     try:
@@ -254,7 +252,9 @@ def _has_native_md4():
         #since this is expected, don't bother w/ warning.
         return False
     #anything else should alert user
-    warn("native md4 support disabled, incorrect value returned")
+    from passlib.exc import PasslibRuntimeWarning
+    warn("native md4 support disabled, incorrect value returned!",
+         PasslibRuntimeWarning)
     return False
 
 if _has_native_md4():
@@ -262,8 +262,6 @@ if _has_native_md4():
     def md4(content=None):
         "wrapper for hashlib.new('md4')"
         return hashlib.new('md4', content or b(''))
-else:
-    del hashlib
 
 #=========================================================================
 #eof

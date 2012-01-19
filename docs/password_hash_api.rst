@@ -259,9 +259,12 @@ which scheme a hash belongs to when multiple schemes are in use.
     :raises TypeError: if :samp:`{secret}` is not a bytes or unicode instance.
 
     :raises ValueError:
-        * if the hash not specified
-        * if the hash does not match this algorithm's hash format
-        * if the provided secret contains forbidden characters (see :meth:`~PasswordHash.encrypt`)
+        * if the hash not specified.
+        * if the hash does not match this algorithm's hash format.
+        * if the provided secret contains forbidden characters (see
+          :meth:`~PasswordHash.encrypt`).
+        * if a configuration string from :meth:`~PasswordHash.genconfig`
+          is passed in as the value for *hash*.
 
     :returns:
         ``True`` if the secret matches, otherwise ``False``.
@@ -326,7 +329,8 @@ and :meth:`~PasswordHash.genhash`.
           normalized in a reasonble manner (eg: salt strings clipped to maximum size).
 
     :returns:
-        the configuration string, or ``None`` if the algorithm does not support any configuration options.
+        the configuration string, or ``None`` if the algorithm does not support
+        any configuration options.
 
 .. classmethod:: PasswordHash.genhash(secret, config, \*\*context_kwds)
 
@@ -451,7 +455,7 @@ the following attributes are usually exposed.
     string containing list of all characters which are allowed
     to be specified in salt parameter.
     for most :ref:`MCF <modular-crypt-format>` hashes,
-    this is equal to :data:`passlib.utils.h64.CHARS`.
+    this is equal to :data:`passlib.utils.HASH64_CHARS`.
 
     this must be a :class:`!unicode` string if the salt is encoded,
     or (rarely) :class:`!bytes` if the salt is manipulating as unencoded raw bytes.
@@ -578,10 +582,10 @@ and ease of implementation issues:
     use ``utf-8`` to encode unicode passwords,
     and reproduce existing passwords as opaque bytes.
 
-*   Internally, it is recommended that handlers
-    operate on :class:`unicode` for parsing / formatting
-    purposes, and using :class:`bytes` only on decoded
-    data to be passed directly into their digest routine.
+*   Internally, it is recommended that handlers use 
+    :class:`unicode` for parsing / formatting
+    purposes, and only use :class:`bytes` for decoded
+    binary data ready to be passed into their digest routines.
 
 *   Handlers should return hashes as native python strings.
     This means :class:`unicode` under Python 3,

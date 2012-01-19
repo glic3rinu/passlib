@@ -11,10 +11,10 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import handlers as uh, bytes, b, to_native_str
-from passlib.utils.compat import iteritems, unicode
+import passlib.utils.handlers as uh
+from passlib.utils.compat import b, bytes, bascii_to_str, iteritems, u,\
+                                 unicode
 from passlib.utils.pbkdf2 import pbkdf1
-from passlib.utils.compat import u
 #pkg
 #local
 __all__ = [
@@ -23,7 +23,7 @@ __all__ = [
 #=========================================================
 #sha1-crypt
 #=========================================================
-class fshp(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
+class fshp(uh.HasStubChecksum, uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     """This class implements the FSHP password hash, and follows the :ref:`password-hash-api`.
 
     It supports a variable-length salt, and a variable number of rounds.
@@ -57,7 +57,7 @@ class fshp(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     #--GenericHandler--
     name = "fshp"
     setting_kwds = ("salt", "salt_size", "rounds", "variant")
-    checksum_chars = uh.PADDED_B64_CHARS
+    checksum_chars = uh.PADDED_BASE64_CHARS
 
     #--HasRawSalt--
     default_salt_size = 16 #current passlib default, FSHP uses 8
@@ -157,14 +157,15 @@ class fshp(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
         return cls(checksum=chk, salt=salt, rounds=rounds,
                    variant=variant, strict=True)
 
+    @property
+    def _stub_checksum(self):
+        return b('\x00') * self._info[1]
+
     def to_string(self):
-        chk = self.checksum
-        if not chk: #fill in stub checksum
-            chk = b('\x00') * self._info[1]
+        chk = self.checksum or self._stub_checksum
         salt = self.salt
-        data = b64encode(salt+chk).decode("ascii")
-        hash = u("{FSHP%d|%d|%d}%s") % (self.variant, len(salt), self.rounds, data)
-        return to_native_str(hash)
+        data = bascii_to_str(b64encode(salt+chk))
+        return "{FSHP%d|%d|%d}%s" % (self.variant, len(salt), self.rounds, data)
 
     #=========================================================
     #backend

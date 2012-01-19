@@ -8,9 +8,10 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import handlers as uh, to_unicode, to_native_str, to_bytes, bytes
+from passlib.utils import to_unicode
+from passlib.utils.compat import bytes, str_to_uascii, u, uascii_to_str
 from passlib.utils.md4 import md4
-from passlib.utils.compat import u
+import passlib.utils.handlers as uh
 #pkg
 #local
 __all__ = [
@@ -20,7 +21,7 @@ __all__ = [
 #=========================================================
 #handler
 #=========================================================
-class nthash(uh.HasManyIdents, uh.GenericHandler):
+class nthash(uh.HasStubChecksum, uh.HasManyIdents, uh.GenericHandler):
     """This class implements the NT Password hash in a manner compatible with the :ref:`modular-crypt-format`, and follows the :ref:`password-hash-api`.
 
     It has no salt and a single fixed round.
@@ -40,7 +41,7 @@ class nthash(uh.HasManyIdents, uh.GenericHandler):
     #--GenericHandler--
     name = "nthash"
     setting_kwds = ("ident",)
-    checksum_chars = uh.LC_HEX_CHARS
+    checksum_chars = uh.LOWER_HEX_CHARS
 
     _stub_checksum = u("0") * 32
 
@@ -69,7 +70,7 @@ class nthash(uh.HasManyIdents, uh.GenericHandler):
 
     def to_string(self):
         hash = self.ident + (self.checksum or self._stub_checksum)
-        return to_native_str(hash)
+        return uascii_to_str(hash)
 
     #=========================================================
     #primary interface
@@ -86,10 +87,10 @@ class nthash(uh.HasManyIdents, uh.GenericHandler):
             returns string of raw bytes if ``hex=False``,
             returns digest as hexidecimal unicode if ``hex=True``.
         """
-        secret = to_unicode(secret, "utf-8")
+        secret = to_unicode(secret, "utf-8", errname="secret")
         hash = md4(secret.encode("utf-16le"))
         if hex:
-            return to_unicode(hash.hexdigest(), 'ascii')
+            return str_to_uascii(hash.hexdigest())
         else:
             return hash.digest()
 

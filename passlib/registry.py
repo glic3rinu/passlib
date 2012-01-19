@@ -9,6 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
+from passlib.exc import PasslibWarning
 from passlib.utils import is_crypt_handler
 #pkg
 #local
@@ -133,6 +134,7 @@ _handler_locations = {
     "plaintext":        ("passlib.handlers.misc",        "plaintext"),
     "postgres_md5":     ("passlib.handlers.postgres",    "postgres_md5"),
     "roundup_plaintext":("passlib.handlers.roundup",     "roundup_plaintext"),
+    "scram":            ("passlib.handlers.scram",       "scram"),
     "sha1_crypt":       ("passlib.handlers.sha1_crypt",  "sha1_crypt"),
     "sha256_crypt":     ("passlib.handlers.sha2_crypt",  "sha256_crypt"),
     "sha512_crypt":     ("passlib.handlers.sha2_crypt",  "sha512_crypt"),
@@ -285,7 +287,8 @@ def get_crypt_handler(name, default=_NOTSET):
     #normalize name (and if changed, check dict again)
     alt = name.replace("-","_").lower()
     if alt != name:
-        warn("handler names should be lower-case, and use underscores instead of hyphens: %r => %r" % (name, alt))
+        warn("handler names should be lower-case, and use underscores instead "
+             "of hyphens: %r => %r" % (name, alt), PasslibWarning)
         name = alt
 
         #check if handler loaded
@@ -298,12 +301,12 @@ def get_crypt_handler(name, default=_NOTSET):
     if route:
         modname, modattr = route
 
-        #try to load the module - any import errors indicate runtime config,
-        # either missing packages, or bad path provided to register_crypt_handler_path()
-        mod = __import__(modname, None, None, ['dummy'], 0)
+        #try to load the module - any import errors indicate runtime config, usually
+        # either missing package, or bad path provided to register_crypt_handler_path()
+        mod = __import__(modname, None, None, [modattr], 0)
 
         #first check if importing module triggered register_crypt_handler(),
-        #(though this is discouraged due to it's magical implicitness)
+        #(this is discouraged due to it's magical implicitness)
         handler = _handlers.get(name)
         if handler:
             #XXX: issue deprecation warning here?

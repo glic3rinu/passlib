@@ -6,12 +6,25 @@ Release History
 
 **1.6** (NOT YET RELEASED)
 
+    Hashes
+
+        * Passlib now offers the :doc:`scram <lib/passlib.hash.scram>` hash,
+          specially designed for storing digest information for verifying
+          a user against the SCRAM protocol (:rfc:`5802`). It can also
+          be used to verify users in the same way as any other password
+          hash in Passlib, though it offers no particular advantages
+          outside of this special case.
+
+        * Fixed rare ``'NoneType' object has no attribute 'decode'`` error
+          that sometimes occurred on platforms with a deviant implementation
+          of :func:`!os_crypt`.
+
     CryptContext
 
         .. currentmodule:: passlib.context
 
-        * :class:`~CryptContext` now supports a :ref:`passprep` option,
-          which runs all passwords through :rfc:`SASLPrep <4013>`
+        * :class:`~CryptContext` now supports a :ref:`passprep <passprep>` option,
+          which runs all passwords through SASLPrep (:rfc:`4013`)
           in order to normalize their unicode representation before hashing
           [issue 24].
 
@@ -40,10 +53,26 @@ Release History
           This affects all schemes in :mod:`passlib.hash` which support
           multiple backends.
 
+        .. currentmodule:: passlib.utils
+
+        * :mod:`!passlib.utils.h64` has been replaced by an instance of the
+          new :class:`~passlib.utils.Base64Engine` class. This  instance is
+          imported under the same name, and has (mostly) the same interface;
+          but should be faster, more flexible, and better unit-tested.
+
+        * deprecated some unused functions in :mod:`!passlib.utils`,
+          they will be removed in release 1.7.
+
+        * The :class:`!CryptContext` option
+          :ref:`min_verify_time <min-verify-time>` has been deprecated,
+          will be ignored in release 1.7, and will be removed in release 1.8.
+
     Other
 
         * Passlib is now source-compatible with Python 2.5+ and Python 3,
-          and no longer requires the use of :cmd:`2to3` to run under Python 3.
+          and no longer requires the use of :command:`2to3` to run under Python 3.
+
+        .. currentmodule:: passlib.hash
 
         .. _consteq-issue:
 
@@ -59,11 +88,15 @@ Release History
               as it requires the attacker to both know the salt,
               and be able to generate digests beginning with a specific prefix.
               However, while this task should be computationally difficult
-              against modern hashes (such as :class:`!sha512_crypt`), this
+              against modern hashes (such as :class:`sha512_crypt`), this
               change should pre-emptively protect Passlib in case someone
               constructs a such an attack in the future. Furthermore, some of
               the legacy hashes supported by Passlib (such as
-              :class:`!mysql323`) are already weak enough to be vulnerable.
+              :class:`mysql323`) are already weak enough to be vulnerable.
+
+        * Builtin implementations of :class:`md5_crypt`,
+          :class:`sha256_crypt`, and :class:`sha512_crypt` sped up by
+          about 25% due via additional pre-computation step.
 
         * Restored builtin pure-python BCrypt implementation
           (:mod:`passlib.utils._slow_bcrypt`) that was removed in v1.3.
@@ -129,7 +162,7 @@ Release History
         .. currentmodule:: passlib.hash
 
         * *bugfix:* :class:`django_des_crypt` now accepts all
-          :mod:`Hash64 <passlib.utils.h64>` characters in it's salts;
+          :data:`hash64 <passlib.utils.h64>` characters in it's salts;
           previously it accepted only lower-case hexidecimal characters [issue 22].
 
         * Additional unittests added for all
@@ -231,7 +264,7 @@ Release History
         * Various minor changes to
           :class:`passlib.utils.handlers.HasManyBackends`;
           main change is that multi-backend handlers now raise
-          :exc:`~passlib.utils.MissingBackendError`
+          :exc:`~passlib.exc.MissingBackendError`
           if no backends are available.
 
     Other

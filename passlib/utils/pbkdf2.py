@@ -20,9 +20,8 @@ try:
 except ImportError:
     _EVP = None
 #pkg
-from passlib.utils import xor_bytes, to_bytes, b, bytes
-from passlib.utils.compat import irange, callable, int_types
-from passlib.utils.compat.aliases import BytesIO
+from passlib.utils import to_bytes, xor_bytes
+from passlib.utils.compat import b, bytes, BytesIO, irange, callable, int_types
 #local
 __all__ = [
     "hmac_sha1",
@@ -44,7 +43,9 @@ if _EVP:
         result = _EVP.hmac(b('x'),b('y'))
     except ValueError: #pragma: no cover
         #this is probably not a good sign if it happens.
-        warn("PassLib: M2Crypt.EVP.hmac() unexpected threw value error during passlib startup test")
+        from passlib.exc import PasslibRuntimeWarning
+        warn("PassLib: M2Crypt.EVP.hmac() unexpected threw value error during "
+             "passlib startup test", PasslibRuntimeWarning)
     else:
         if result == b(',\x1cb\xe0H\xa5\x82M\xfb>\xd6\x98\xef\x8e\xf9oQ\x85\xa3i'):
             hmac_sha1 = _EVP.hmac
@@ -156,7 +157,7 @@ def pbkdf1(secret, salt, rounds, keylen, hash="sha1"):
     :arg secret: passphrase to use to generate key
     :arg salt: salt string to use when generating key
     :param rounds: number of rounds to use to generate key
-    :arg keylen: number of bytes to generate
+    :arg keylen: number of bytes to generate.
     :param hash:
         hash function to use.
         if specified, it must be one of the following:
@@ -225,7 +226,9 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
     :arg secret: passphrase to use to generate key
     :arg salt: salt string to use when generating key
     :param rounds: number of rounds to use to generate key
-    :arg keylen: number of bytes to generate
+    :arg keylen:
+        number of bytes to generate.
+        if -1, will use digest size of prf.
     :param prf:
         psuedo-random family to use for key strengthening.
         this can be any string or callable accepted by :func:`get_prf`.
@@ -249,6 +252,8 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
 
     #special case for m2crypto + hmac-sha1
     if prf == "hmac-sha1" and _EVP:
+        if keylen == -1:
+            keylen = 20
         #NOTE: doing check here, because M2crypto won't take longs (which this is, under 32bit)
         if keylen > MAX_HMAC_SHA1_KEYLEN:
             raise ValueError("key length too long")
@@ -261,6 +266,8 @@ def pbkdf2(secret, salt, rounds, keylen, prf="hmac-sha1"):
 
     #resolve prf
     encode_block, digest_size = get_prf(prf)
+    if keylen == -1:
+        keylen = digest_size
 
     #figure out how many blocks we'll need
     bcount = (keylen+digest_size-1)//digest_size

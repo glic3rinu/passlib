@@ -8,7 +8,9 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import to_native_str, handlers as uh, bytes
+from passlib.utils import to_native_str
+from passlib.utils.compat import bytes, unicode
+import passlib.utils.handlers as uh
 #pkg
 #local
 __all__ = [
@@ -47,18 +49,24 @@ class unix_fallback(uh.StaticHandler):
             raise TypeError("secret must be string")
         if hash is None:
             raise ValueError("no hash provided")
-        return to_native_str(hash)
+        # NOTE: hash will generally be "!"
+        return to_native_str(hash, "ascii", errname="hash")
 
     @classmethod
     def verify(cls, secret, hash, enable_wildcard=False):
         if hash is None:
             raise ValueError("no hash provided")
-        return enable_wildcard and not hash
+        elif hash:
+            return False
+        else:
+            return enable_wildcard
 
 class plaintext(uh.StaticHandler):
     """This class stores passwords in plaintext, and follows the :ref:`password-hash-api`.
 
     Unicode passwords will be encoded using utf-8.
+
+    Under Python 3, existing 'hashes' must decode as utf-8.
     """
     name = "plaintext"
 
@@ -66,21 +74,18 @@ class plaintext(uh.StaticHandler):
     def identify(cls, hash):
         return hash is not None
 
+    # NOTE: this tries to avoid decoding bytes under py2,
+    # for applications that are using latin-1 or some other encoding.
+    # they'll just have to stop using plaintext under py3 :)
+    # (or re-encode as utf-8)
+
     @classmethod
     def genhash(cls, secret, hash):
-        if secret is None:
-            raise TypeError("secret must be string")
-        return to_native_str(secret, "utf-8")
+        return to_native_str(secret, "utf-8", errname="secret")
 
     @classmethod
     def _norm_hash(cls, hash):
-        if isinstance(hash, bytes):
-            #XXX: current code uses utf-8
-            #     if existing hashes use something else,
-            #     probably have to modify this code to allow hash_encoding
-            #     to be specified as an option.
-            hash = hash.decode("utf-8")
-        return hash
+        return to_native_str(hash, "utf-8", errname="hash")
 
 #=========================================================
 #eof

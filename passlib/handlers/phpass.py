@@ -15,8 +15,9 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import h64, handlers as uh, bytes, b, to_unicode, to_native_str
-from passlib.utils.compat import unicode, u
+from passlib.utils import h64
+from passlib.utils.compat import b, bytes, u, uascii_to_str, unicode
+import passlib.utils.handlers as uh
 #pkg
 #local
 __all__ = [
@@ -56,11 +57,11 @@ class phpass(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     #--GenericHandler--
     name = "phpass"
     setting_kwds = ("salt", "rounds", "ident")
-    checksum_chars = uh.H64_CHARS
+    checksum_chars = uh.HASH64_CHARS
 
     #--HasSalt--
     min_salt_size = max_salt_size = 8
-    salt_chars = uh.H64_CHARS
+    salt_chars = uh.HASH64_CHARS
 
     #--HasRounds--
     default_rounds = 9
@@ -101,7 +102,7 @@ class phpass(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):
             ident=ident,
             rounds=h64.decode_int6(rounds.encode("ascii")),
             salt=salt,
-            checksum=chk,
+            checksum=chk or None,
             strict=bool(chk),
         )
 
@@ -110,7 +111,7 @@ class phpass(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):
                               h64.encode_int6(self.rounds).decode("ascii"),
                               self.salt,
                               self.checksum or u(''))
-        return to_native_str(hash)
+        return uascii_to_str(hash)
 
     #=========================================================
     #backend

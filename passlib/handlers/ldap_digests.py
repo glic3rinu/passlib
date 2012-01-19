@@ -11,8 +11,9 @@ import re
 from warnings import warn
 #site
 #libs
-from passlib.utils import handlers as uh, unix_crypt_schemes, b, bytes, to_native_str
-from passlib.utils.compat import unicode, u
+from passlib.utils import to_native_str, unix_crypt_schemes
+from passlib.utils.compat import b, bytes, uascii_to_str, unicode, u
+import passlib.utils.handlers as uh
 #pkg
 #local
 __all__ = [
@@ -44,7 +45,7 @@ class _Base64DigestHelper(uh.StaticHandler):
     ident = None #required - prefix identifier
     _hash_func = None #required - hash function
     _pat = None #required - regexp to recognize hash
-    checksum_chars = uh.PADDED_B64_CHARS
+    checksum_chars = uh.PADDED_BASE64_CHARS
 
     @classmethod
     def identify(cls, hash):
@@ -60,12 +61,12 @@ class _Base64DigestHelper(uh.StaticHandler):
             raise ValueError("not a %s hash" % (cls.name,))
         chk = cls._hash_func(secret).digest()
         hash = cls.ident + b64encode(chk).decode("ascii")
-        return to_native_str(hash)
+        return uascii_to_str(hash)
 
-class _SaltedBase64DigestHelper(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
+class _SaltedBase64DigestHelper(uh.HasStubChecksum, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     "helper for ldap_salted_md5 / ldap_salted_sha1"
     setting_kwds = ("salt",)
-    checksum_chars = uh.PADDED_B64_CHARS
+    checksum_chars = uh.PADDED_BASE64_CHARS
 
     ident = None #required - prefix identifier
     _hash_func = None #required - hash function
@@ -93,7 +94,7 @@ class _SaltedBase64DigestHelper(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHand
     def to_string(self):
         data = (self.checksum or self._stub_checksum) + self.salt
         hash = self.ident + b64encode(data).decode("ascii")
-        return to_native_str(hash)
+        return uascii_to_str(hash)
 
     def calc_checksum(self, secret):
         if secret is None:
@@ -194,19 +195,11 @@ class ldap_plaintext(uh.StaticHandler):
     def genhash(cls, secret, hash):
         if hash is not None and not cls.identify(hash):
             raise ValueError("not a valid ldap_plaintext hash")
-        if secret is None:
-            raise TypeError("secret must be string")
-        return to_native_str(secret, "utf-8")
+        return to_native_str(secret, "utf-8", errname="secret")
 
     @classmethod
     def _norm_hash(cls, hash):
-        if isinstance(hash, bytes):
-            #XXX: current code uses utf-8
-            #     if existing hashes use something else,
-            #     probably have to modify this code to allow hash_encoding
-            #     to be specified as an option.
-            hash = hash.decode("utf-8")
-        return hash
+        return to_native_str(hash, "utf-8", errname="hash")
 
 #=========================================================
 #{CRYPT} wrappers

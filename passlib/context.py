@@ -21,13 +21,13 @@ except ImportError:
     #not available eg: under GAE
     resource_string = None
 #libs
+from passlib.exc import PasslibContextWarning
 from passlib.registry import get_crypt_handler, _validate_handler_name
-from passlib.utils import to_bytes, to_unicode, bytes, \
-                          is_crypt_handler, rng, \
-                          PasslibPolicyWarning, timer, saslprep
-from passlib.utils.compat import is_mapping, iteritems, num_types, \
-                                 PY3, PY_MIN_32, unicode, bytes
-from passlib.utils.compat.aliases import SafeConfigParser, StringIO, BytesIO
+from passlib.utils import is_crypt_handler, rng, saslprep, tick, to_bytes, \
+                          to_unicode
+from passlib.utils.compat import bytes, is_mapping, iteritems, num_types, \
+                                 PY3, PY_MIN_32, unicode, SafeConfigParser, \
+                                 StringIO, BytesIO
 #pkg
 #local
 __all__ = [
@@ -421,6 +421,8 @@ class CryptPolicy(object):
                                    "in policy: %r" % (scheme,))
 
         elif key == "min_verify_time":
+            warn("'min_verify_time' is deprecated as of Passlib 1.6, will be "
+                 "ignored in 1.7, and removed in 1.8.", DeprecationWarning)
             value = float(value)
             if value < 0:
                 raise ValueError("'min_verify_time' must be >= 0")
@@ -582,7 +584,8 @@ class CryptPolicy(object):
         return bool(kwds.get("deprecated"))
 
     def get_min_verify_time(self, category=None):
-        # XXX: deprecate this function ?
+        warn("get_min_verify_time is deprecated, and will be removed in "
+             "Passlib 1.8", DeprecationWarning)
         kwds = self._get_handler_options("all", category)[0]
         return kwds.get("min_verify_time") or 0
 
@@ -853,10 +856,10 @@ class _CryptRecord(object):
             "issue warnings if value outside of handler limits"
             if hmn is not None and value < hmn:
                 warn("%s: %s value is below handler minimum %d: %d" %
-                     (self._ident, name, hmn, value), PasslibPolicyWarning)
+                     (self._ident, name, hmn, value), PasslibContextWarning)
             if hmx is not None and value > hmx:
                 warn("%s: %s value is above handler maximum %d: %d" %
-                     (self._ident, name, hmx, value), PasslibPolicyWarning)
+                     (self._ident, name, hmx, value), PasslibContextWarning)
 
         def clip(value):
             "clip value to policy & handler limits"
@@ -1008,12 +1011,12 @@ class _CryptRecord(object):
                 mn = self._min_rounds
                 if mn is not None and rounds < mn:
                     warn("%s requires rounds >= %d, increasing value from %d" %
-                         (self._ident, mn, rounds), PasslibPolicyWarning, 4)
+                         (self._ident, mn, rounds), PasslibContextWarning, 4)
                     rounds = mn
                 mx = self._max_rounds
                 if mx and rounds > mx:
                     warn("%s requires rounds <= %d, decreasing value from %d" %
-                         (self._ident, mx, rounds), PasslibPolicyWarning, 4)
+                         (self._ident, mx, rounds), PasslibContextWarning, 4)
                     rounds = mx
                 kwds['rounds'] = rounds
 
@@ -1031,19 +1034,22 @@ class _CryptRecord(object):
     def verify(self, secret, hash, **context):
         "verify helper - adds min_verify_time delay"
         mvt = self._min_verify_time
-        assert mvt
-        start = timer()
+        assert mvt > 0
+        start = tick()
         ok = self.handler.verify(secret, hash, **context)
-        end = timer()
+        if ok:
+            return True
+        end = tick()
         delta = mvt + start - end
         if delta > 0:
             sleep(delta)
         elif delta < 0:
-            #warn app they aren't being protected against timing attacks...
+            #warn app they exceeded bounds (this might reveal
+            #relative costs of different hashes if under migration)
             warn("CryptContext: verify exceeded min_verify_time: "
                  "scheme=%r min_verify_time=%r elapsed=%r" %
-                 (self.scheme, mvt, end-start))
-        return ok
+                 (self.scheme, mvt, end-start), PasslibContextWarning)
+        return False
 
     #================================================================
     # hash_needs_update()
@@ -1053,8 +1059,20 @@ class _CryptRecord(object):
             self.hash_needs_update = lambda hash: True
             return
 
+        # let handler detect hashes with configurations that don't match
+        # current settings. currently do this by calling
+        # ``handler._deprecation_detector(**settings)``, which if defined
+        # should return None or a callable ``is_deprecated(hash)->bool``.
+        #
+        # NOTE: this interface is still private, because it was hacked in
+        # for the sake of bcrypt & scram, and is subject to change.
+        #
         handler = self.handler
-        self._hash_needs_update = getattr(handler, "_hash_needs_update", None)
+        const = getattr(handler, "_deprecation_detector", None)
+        if const:
+            self._hash_needs_update = const(**self._settings)
+
+        # XXX: what about a "min_salt_size" deprecator?
 
         # check if there are rounds, rounds limits, and if we can
         # parse the rounds from the handler. if that's the case...
@@ -1064,12 +1082,7 @@ class _CryptRecord(object):
     def hash_needs_update(self, hash):
         # NOTE: this is replaced by _compile_deprecation() if self.deprecated
 
-        # XXX: could check if handler provides it's own helper, e.g.
-        # getattr(handler, "hash_needs_update", None), possibly instead of
-        # calling the default check below...
-        #
-        # NOTE: hacking this in for the sake of bcrypt & issue 25,
-        # will formalize (and possibly change) interface later.
+        # check handler's detector if it provided one.
         hnu = self._hash_needs_update
         if hnu and hnu(hash):
             return True
@@ -1354,6 +1367,7 @@ class CryptContext(object):
     #       since it will have optimized itself for the particular
     #       settings used within the policy by that (scheme,category).
 
+    # XXX: would a better name be is_deprecated(hash)?
     def hash_needs_update(self, hash, category=None):
         """check if hash is allowed by current policy, or if secret should be re-encrypted.
 

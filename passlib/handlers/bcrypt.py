@@ -16,7 +16,6 @@ import os
 import re
 import logging; log = logging.getLogger(__name__)
 from warnings import warn
-from passlib.utils.compat import u
 #site
 try:
     from bcrypt import hashpw as pybcrypt_hashpw
@@ -27,9 +26,11 @@ try:
 except ImportError: #pragma: no cover - though should run whole suite w/o bcryptor installed
     bcryptor_engine = None
 #libs
-from passlib.utils import safe_os_crypt, classproperty, handlers as uh, \
-    h64, to_native_str, rng, getrandstr, bytes
-from passlib.utils.compat import unicode
+from passlib.exc import PasslibHandlerWarning
+from passlib.utils import BCRYPT_CHARS as BCHARS, safe_crypt, \
+                          classproperty, rng, getrandstr, test_crypt
+from passlib.utils.compat import bytes, u, uascii_to_str, unicode
+import passlib.utils.handlers as uh
 
 #pkg
 #local
@@ -44,9 +45,8 @@ def _load_builtin():
     if _builtin_bcrypt is None:
         from passlib.utils._blowfish import raw_bcrypt as _builtin_bcrypt
 
-# base64 character->value mapping used by bcrypt.
-# this is same as as H64_CHARS, but the positions are different.
-BCHARS = u("./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+# BCHARS imported from passlib.utils
+# BCHARS = u("./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
 
 # last bcrypt salt char should have 4 padding bits set to 0.
 # thus, only the following chars are allowed:
@@ -85,7 +85,7 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
     3. stdlib's :func:`crypt.crypt()`, if the host OS supports BCrypt (eg: BSD).
 
     If no backends are available at runtime,
-    :exc:`~passlib.utils.MissingBackendError` will be raised
+    :exc:`~passlib.exc.MissingBackendError` will be raised
     whenever :meth:`encrypt` or :meth:`verify` are called.
     You can see which backend is in use by calling the
     :meth:`~passlib.utils.handlers.HasManyBackends.get_backend()` method.
@@ -144,13 +144,18 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
             strict=strict and bool(chk),
         )
 
-    def to_string(self, native=True):
-        hash = u("%s%02d$%s%s") % (self.ident, self.rounds, self.salt, self.checksum or u(''))
-        return to_native_str(hash) if native else hash
+    def to_string(self):
+        hash = u("%s%02d$%s%s") % (self.ident, self.rounds, self.salt,
+                                   self.checksum or u(''))
+        return uascii_to_str(hash)
 
     #=========================================================
     # specialized salt generation - fixes passlib issue 25
     #=========================================================
+
+    @classmethod
+    def _deprecation_detector(cls, **settings):
+        return cls._hash_needs_update
 
     @classmethod
     def _hash_needs_update(cls, hash):
@@ -184,8 +189,8 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
             warn(
                 "encountered a bcrypt hash with incorrectly set padding bits; "
                 "you may want to use bcrypt.normhash() "
-                "to fix this; see Passlib 1.5.3 changelog."
-                )
+                "to fix this; see Passlib 1.5.3 changelog.",
+                PasslibHandlerWarning)
         return salt
 
     @classmethod
@@ -197,8 +202,8 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
             warn(
                 "encountered a bcrypt hash with incorrectly set padding bits; "
                 "you may want to use bcrypt.normhash() "
-                "to fix this; see Passlib 1.5.3 changelog."
-                )
+                "to fix this; see Passlib 1.5.3 changelog.",
+                PasslibHandlerWarning)
         return checksum
 
     #=========================================================
@@ -224,18 +229,17 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
 
     @classproperty
     def _has_backend_os_crypt(cls):
-        h1 = u('$2$04$......................1O4gOrCYaqBG3o/4LnT2ykQUt1wbyju')
-        h2 = u('$2a$04$......................qiOQjkB8hxU8OzRhS.GhRMa4VUnkPty')
-        return bool(safe_os_crypt and safe_os_crypt(u("test"),h1)[1]==h1 and
-                    safe_os_crypt(u("test"), h2)[1]==h2)
+        h1 = '$2$04$......................1O4gOrCYaqBG3o/4LnT2ykQUt1wbyju'
+        h2 = '$2a$04$......................qiOQjkB8hxU8OzRhS.GhRMa4VUnkPty'
+        return test_crypt("test",h1) and test_crypt("test", h2)
 
     @classmethod
     def _no_backends_msg(cls):
         return "no BCrypt backends available - please install pybcrypt or bcryptor for BCrypt support"
 
     def _calc_checksum_os_crypt(self, secret):
-        ok, hash = safe_os_crypt(secret, self.to_string(native=False))
-        if ok:
+        hash = safe_crypt(secret, self.to_string())
+        if hash:
             return hash[-31:]
         else:
             #NOTE: not checking backends since this is lowest priority,
@@ -245,26 +249,22 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
 
     def _calc_checksum_pybcrypt(self, secret):
         #pybcrypt behavior:
-        #   py2: unicode secret -> ascii bytes (we override this)
-        #        unicode hash -> ascii bytes (we provide ascii bytes)
-        #        returns ascii bytes
+        #   py2: unicode secret/hash encoded as ascii bytes before use,
+        #        bytes takes as-is; returns ascii bytes.
         #   py3: can't get to install
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        hash = pybcrypt_hashpw(secret,
-                               self.to_string(native=False))
+        hash = pybcrypt_hashpw(secret, self.to_string())
         return hash[-31:].decode("ascii")
 
     def _calc_checksum_bcryptor(self, secret):
         #bcryptor behavior:
-        #   py2: unicode secret -> ascii bytes (we have to override)
-        #        unicode hash -> ascii bytes (we provide ascii bytes)
-        #        returns ascii bytes
+        #   py2: unicode secret/hash encoded as ascii bytes before use,
+        #        bytes takes as-is; returns ascii bytes.
         #   py3: can't get to install
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        hash = bcryptor_engine(False).hash_key(secret,
-                                               self.to_string(native=False))
+        hash = bcryptor_engine(False).hash_key(secret, self.to_string())
         return hash[-31:].decode("ascii")
 
     def _calc_checksum_builtin(self, secret):

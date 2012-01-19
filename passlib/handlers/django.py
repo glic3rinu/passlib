@@ -9,8 +9,9 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import h64, handlers as uh, b, bytes, to_unicode, to_native_str
-from passlib.utils.compat import unicode, u
+from passlib.utils import to_unicode
+from passlib.utils.compat import b, bytes, str_to_uascii, uascii_to_str, unicode, u
+import passlib.utils.handlers as uh
 #pkg
 #local
 __all__ = [
@@ -34,18 +35,17 @@ def _import_des_crypt():
 #=========================================================
 #salted hashes
 #=========================================================
-class DjangoSaltedHash(uh.HasSalt, uh.GenericHandler):
+class DjangoSaltedHash(uh.HasStubChecksum, uh.HasSalt, uh.GenericHandler):
     """base class providing common code for django hashes"""
     #must be specified by subclass - along w/ calc_checksum
     setting_kwds = ("salt", "salt_size")
     ident = None #must have "$" suffix
-    _stub_checksum = None
 
     #common to most subclasses
     min_salt_size = 0
     default_salt_size = 5
     max_salt_size = None
-    salt_chars = checksum_chars = uh.LC_HEX_CHARS
+    salt_chars = checksum_chars = uh.LOWER_HEX_CHARS
 
     @classmethod
     def identify(cls, hash):
@@ -62,12 +62,12 @@ class DjangoSaltedHash(uh.HasSalt, uh.GenericHandler):
         if not hash.startswith(ident):
             raise ValueError("invalid %s hash" % (cls.name,))
         _, salt, chk = hash.split(u("$"))
-        return cls(salt=salt, checksum=chk, strict=True)
+        return cls(salt=salt, checksum=chk or None, strict=True)
 
     def to_string(self):
         chk = self.checksum or self._stub_checksum
-        out = u("%s%s$%s") % (self.ident, self.salt, chk)
-        return to_native_str(out)
+        hash = u("%s%s$%s") % (self.ident, self.salt, chk)
+        return uascii_to_str(hash)
 
 class django_salted_sha1(DjangoSaltedHash):
     """This class implements Django's Salted SHA1 hash, and follows the :ref:`password-hash-api`.
@@ -93,7 +93,7 @@ class django_salted_sha1(DjangoSaltedHash):
     def calc_checksum(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        return to_unicode(sha1(self.salt.encode("ascii") + secret).hexdigest(), "ascii")
+        return str_to_uascii(sha1(self.salt.encode("ascii") + secret).hexdigest())
 
 class django_salted_md5(DjangoSaltedHash):
     """This class implements Django's Salted MD5 hash, and follows the :ref:`password-hash-api`.
@@ -119,7 +119,7 @@ class django_salted_md5(DjangoSaltedHash):
     def calc_checksum(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        return to_unicode(md5(self.salt.encode("ascii") + secret).hexdigest(), "ascii")
+        return str_to_uascii(md5(self.salt.encode("ascii") + secret).hexdigest())
 
 #=========================================================
 #other
@@ -145,7 +145,7 @@ class django_des_crypt(DjangoSaltedHash):
 
     name = "django_des_crypt"
     ident = "crypt$"
-    checksum_chars = salt_chars = uh.H64_CHARS
+    checksum_chars = salt_chars = uh.HASH64_CHARS
     checksum_size = 13
     min_salt_size = 2
 
@@ -211,7 +211,7 @@ class django_disabled(uh.StaticHandler):
     def genhash(cls, secret, config):
         if secret is None:
             raise TypeError("no secret provided")
-        return to_native_str(u("!"))
+        return "!"
 
     @classmethod
     def verify(cls, secret, hash):

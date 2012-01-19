@@ -12,8 +12,9 @@
 #site
 from warnings import warn
 #pkg
-from passlib.utils import is_crypt_context, bytes
-from passlib.utils.compat import get_method_function as um
+from passlib.exc import PasslibRuntimeWarning
+from passlib.utils import is_crypt_context
+from passlib.utils.compat import bytes, get_method_function as um
 #local
 __all__ = [
     "get_category",
@@ -149,13 +150,16 @@ def set_django_password_context(context=None, get_category=get_category):
     if state is not None:
         if um(User.set_password) is not state['user_set_password']:
             warn("another library has patched "
-                    "django.contrib.auth.models:User.set_password")
+                    "django.contrib.auth.models:User.set_password",
+                    PasslibRuntimeWarning)
         if um(User.check_password) is not state['user_check_password']:
             warn("another library has patched"
-                    "django.contrib.auth.models:User.check_password")
+                    "django.contrib.auth.models:User.check_password",
+                    PasslibRuntimeWarning)
         if _dam.check_password is not state['models_check_password']:
             warn("another library has patched"
-                    "django.contrib.auth.models:check_password")
+                    "django.contrib.auth.models:check_password",
+                    PasslibRuntimeWarning)
 
     #check if we should just restore original state
     if context is None:

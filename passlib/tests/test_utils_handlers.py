@@ -13,9 +13,11 @@ import warnings
 from passlib.hash import ldap_md5, sha256_crypt
 from passlib.registry import _unload_handler_name as unload_handler_name, \
     register_crypt_handler, get_crypt_handler
-from passlib.utils import rng, getrandstr, handlers as uh, bytes, b, \
-    to_native_str, to_unicode, MissingBackendError
-from passlib.utils.compat import unicode, JYTHON
+from passlib.exc import MissingBackendError
+from passlib.utils import getrandstr, JYTHON, rng, to_unicode
+from passlib.utils.compat import b, bytes, bascii_to_str, str_to_uascii, \
+                                 uascii_to_str, unicode
+import passlib.utils.handlers as uh
 from passlib.tests.utils import HandlerCase, TestCase, catch_warnings, \
     dummy_handler_in_registry
 from passlib.utils.compat import u
@@ -42,11 +44,11 @@ class SkeletonTest(TestCase):
             def genhash(cls, secret, hash, flag=False):
                 if isinstance(hash, bytes):
                     hash = hash.decode("ascii")
-                if hash not in (u('a'),u('b')):
-                    raise ValueError
-                return to_native_str(u('b') if flag else u('a'))
+                if hash not in (u('a'), u('b'), None):
+                    raise ValueError("unknown hash %r" % (hash,))
+                return 'b' if flag else 'a'
 
-        #check default identify method
+        # check default identify method
         self.assertTrue(d1.identify(u('a')))
         self.assertTrue(d1.identify(b('a')))
         self.assertTrue(d1.identify(u('b')))
@@ -55,23 +57,29 @@ class SkeletonTest(TestCase):
         self.assertFalse(d1.identify(u('')))
         self.assertFalse(d1.identify(None))
 
-        #check default genconfig method
+        # check default genconfig method
         self.assertIs(d1.genconfig(), None)
         d1._stub_config = u('b')
-        self.assertEqual(d1.genconfig(), to_native_str('b'))
+        self.assertEqual(d1.genconfig(), 'b')
 
-        #check default verify method
-        self.assertTrue(d1.verify('s','a'))
+        # check config string is rejected
+        self.assertRaises(ValueError, d1.verify, 's', b('b'))
+        self.assertRaises(ValueError, d1.verify, 's', u('b'))
+        del d1._stub_config
+
+        # check default verify method
+        self.assertTrue(d1.verify('s', b('a')))
         self.assertTrue(d1.verify('s',u('a')))
-        self.assertFalse(d1.verify('s','b'))
+        self.assertFalse(d1.verify('s', b('b')))
         self.assertFalse(d1.verify('s',u('b')))
-        self.assertTrue(d1.verify('s', 'b', flag=True))
-        self.assertRaises(ValueError, d1.verify, 's', 'c')
+        self.assertTrue(d1.verify('s', b('b'), flag=True))
+        self.assertRaises(ValueError, d1.verify, 's', b('c'))
+        self.assertRaises(ValueError, d1.verify, 's', u('c'))
 
-        #check default encrypt method
-        self.assertEqual(d1.encrypt('s'), to_native_str('a'))
-        self.assertEqual(d1.encrypt('s'), to_native_str('a'))
-        self.assertEqual(d1.encrypt('s', flag=True), to_native_str('b'))
+        # check default encrypt method
+        self.assertEqual(d1.encrypt('s'), 'a')
+        self.assertEqual(d1.encrypt('s'), 'a')
+        self.assertEqual(d1.encrypt('s', flag=True), 'b')
 
     #=========================================================
     #GenericHandler & mixins
@@ -336,7 +344,10 @@ class PrefixWrapperTest(TestCase):
 
         d2 = uh.PrefixWrapper("d2", "sha256_crypt", "{XXX}")
         self.assertIs(d2.setting_kwds, sha256_crypt.setting_kwds)
-        self.assertTrue('max_rounds' in dir(d2))
+        if PY_25_MAX: # lacks __dir__() support
+            self.assertFalse('max_rounds' in dir(d2))
+        else:
+            self.assertTrue('max_rounds' in dir(d2))
 
     def test_11_wrapped_methods(self):
         d1 = uh.PrefixWrapper("d1", "ldap_md5", "{XXX}", "{MD5}")
@@ -411,9 +422,9 @@ class UnsaltedHash(uh.StaticHandler):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         data = b("boblious") + secret
-        return to_native_str(hashlib.sha1(data).hexdigest())
+        return hashlib.sha1(data).hexdigest()
 
-class SaltedHash(uh.HasSalt, uh.GenericHandler):
+class SaltedHash(uh.HasStubChecksum, uh.HasSalt, uh.GenericHandler):
     "test algorithm with a salt"
     name = "salted_test_hash"
     setting_kwds = ("salt",)
@@ -421,7 +432,7 @@ class SaltedHash(uh.HasSalt, uh.GenericHandler):
     min_salt_size = 2
     max_salt_size = 4
     checksum_size = 40
-    salt_chars = checksum_chars = uh.LC_HEX_CHARS
+    salt_chars = checksum_chars = uh.LOWER_HEX_CHARS
 
     @classmethod
     def identify(cls, hash):
@@ -435,17 +446,17 @@ class SaltedHash(uh.HasSalt, uh.GenericHandler):
             hash = hash.decode("ascii")
         return cls(salt=hash[5:-40], checksum=hash[-40:], strict=True)
 
-    _stub_checksum = '0' * 40
+    _stub_checksum = u('0') * 40
 
     def to_string(self):
         hash = u("@salt%s%s") % (self.salt, self.checksum or self._stub_checksum)
-        return to_native_str(hash)
+        return uascii_to_str(hash)
 
     def calc_checksum(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
         data = self.salt.encode("ascii") + secret + self.salt.encode("ascii")
-        return to_unicode(hashlib.sha1(data).hexdigest(), "latin-1")
+        return str_to_uascii(hashlib.sha1(data).hexdigest())
 
 #=========================================================
 #test sample algorithms - really a self-test of HandlerCase

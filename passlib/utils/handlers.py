@@ -13,11 +13,14 @@ import os
 from warnings import warn
 #site
 #libs
+from passlib.exc import MissingBackendError, PasslibHandlerWarning, \
+                        PasslibRuntimeWarning
 from passlib.registry import get_crypt_handler
-from passlib.utils import to_native_str, bytes, b, consteq, \
-        classproperty, h64, getrandstr, getrandbytes, \
-        rng, is_crypt_handler, ALL_BYTE_VALUES, MissingBackendError
-from passlib.utils.compat import unicode, u
+from passlib.utils import is_crypt_handler
+from passlib.utils import classproperty, consteq, getrandstr, getrandbytes,\
+                          BASE64_CHARS, HASH64_CHARS, rng, to_native_str
+from passlib.utils.compat import b, bjoin_ints, bytes, irange, u, \
+                                 uascii_to_str, unicode
 #pkg
 #local
 __all__ = [
@@ -38,14 +41,23 @@ __all__ = [
 #constants
 #=========================================================
 
-#common salt_chars & checksum_chars values
-H64_CHARS = h64.CHARS
-B64_CHARS = u("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
-PADDED_B64_CHARS = B64_CHARS + u("=")
-U64_CHARS = u("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+# common salt_chars & checksum_chars values
+# (BASE64_CHARS, HASH64_CHARS imported above)
+PADDED_BASE64_CHARS = BASE64_CHARS + u("=")
 HEX_CHARS = u("0123456789abcdefABCDEF")
-UC_HEX_CHARS = u("0123456789ABCDEF")
-LC_HEX_CHARS = u("0123456789abcdef")
+UPPER_HEX_CHARS = u("0123456789ABCDEF")
+LOWER_HEX_CHARS = u("0123456789abcdef")
+
+#: special byte string containing all possible byte values
+# XXX: treated as singleton by some of the code for efficiency.
+ALL_BYTE_VALUES = bjoin_ints(irange(256))
+
+# deprecated aliases - will be removed after passlib 1.8
+H64_CHARS = HASH64_CHARS
+B64_CHARS = BASE64_CHARS
+PADDED_B64_CHARS = PADDED_BASE64_CHARS
+UC_HEX_CHARS = UPPER_HEX_CHARS
+LC_HEX_CHARS = LOWER_HEX_CHARS
 
 #=========================================================
 #identify helpers
@@ -126,7 +138,7 @@ def render_mc2(ident, salt, checksum, sep=u("$")):
         hash = u("%s%s%s%s") % (ident, salt, sep, checksum)
     else:
         hash = u("%s%s") % (ident, salt)
-    return to_native_str(hash)
+    return uascii_to_str(hash)
 
 def render_mc3(ident, rounds, salt, checksum, sep=u("$")):
     "format hash using 3-part modular crypt format; inverse of parse_mc3"
@@ -134,7 +146,7 @@ def render_mc3(ident, rounds, salt, checksum, sep=u("$")):
         hash = u("%s%s%s%s%s%s") % (ident, rounds, sep, salt, sep, checksum)
     else:
         hash = u("%s%s%s%s") % (ident, rounds, sep, salt)
-    return to_native_str(hash)
+    return uascii_to_str(hash)
 
 #=====================================================
 #StaticHandler
@@ -188,6 +200,8 @@ class StaticHandler(object):
     setting_kwds = ()
     context_kwds = ()
 
+    # reserved value to be returned by default genconfig()
+    # may be ``None`` if no such value; otherwise should be native ascii str.
     _stub_config = None
 
     #=====================================================
@@ -198,6 +212,8 @@ class StaticHandler(object):
         #NOTE: this relys on genhash() throwing error for invalid hashes.
         # this approach is bad because genhash may take a long time on valid hashes,
         # so subclasses *really* should override this.
+        if hash is None:
+            return False
         try:
             cls.genhash('fakesecret', hash)
             return True
@@ -224,16 +240,19 @@ class StaticHandler(object):
         if hash is None:
             raise ValueError("no hash specified")
         hash = cls._norm_hash(hash)
+        if hash == cls._stub_config:
+            raise ValueError("expected %s hash, got %s config string instead" %
+                             (cls.name, cls.name))
         result = cls.genhash(secret, hash, *cargs, **context)
-        return consteq(cls._norm_hash(result), hash)
+        return consteq(result, hash)
 
     @classmethod
     def _norm_hash(cls, hash):
-        """[helper for verify] normalize hash for comparsion purposes"""
-        #NOTE: this is mainly provided for case-insenstive subclasses to override.
-        if isinstance(hash, bytes):
-            hash = hash.decode("ascii")
-        return hash
+        """[helper for verify] normalize hash for comparsion purposes.
+
+        should return a native :class:`str` instance or raise a TypeError.
+        """
+        return to_native_str(hash, "ascii", errname="hash")
 
     #=====================================================
     #eoc
@@ -334,11 +353,13 @@ class GenericHandler(object):
     #instance attrs
     #=====================================================
     checksum = None
+    strict = False #: whether norm_xxx() functions should use strict checking.
 
     #=====================================================
     #init
     #=====================================================
     def __init__(self, checksum=None, strict=False, **kwds):
+        self.strict = strict
         self.checksum = self.norm_checksum(checksum, strict=strict)
         super(GenericHandler, self).__init__(**kwds)
 
@@ -414,7 +435,6 @@ class GenericHandler(object):
         #NOTE: documenting some non-standardized but common kwd flags
         #      that passlib to_string() method may have
         #
-        #      native=True -- if false, return unicode under py2 -- ignored under py3
         #      withchk=True -- if false, omit checksum portion of hash
         #
         raise NotImplementedError("%s must implement from_string()" % (type(self),))
@@ -463,7 +483,11 @@ class GenericHandler(object):
         # may wish to either override this, or override norm_checksum
         # to normalize any checksums provided by from_string()
         self = cls.from_string(hash)
-        return consteq(self.calc_checksum(secret), self.checksum)
+        chk = self.checksum
+        if chk is None:
+            raise ValueError("expected %s hash, got %s config string instead" %
+                             (cls.name, cls.name))
+        return consteq(self.calc_checksum(secret), chk)
 
     #=========================================================
     #eoc
@@ -495,6 +519,25 @@ class HasRawChecksum(GenericHandler):
         if cc and len(checksum) != cc:
             raise ValueError("%s checksum must be %d characters" % (cls.name, cc))
         return checksum
+
+class HasStubChecksum(GenericHandler):
+    """modifies class to ignore placeholder checksum used by genconfig().
+
+    this is mainly useful for hash formats which don't have a distinguishable
+    configuration-only format; and genconfig() has to use a placeholder
+    digest (usually all NULLs). this mixin causes that checksum to be
+    treated as if there wasn't a checksum at all; preventing the (remote)
+    chance of a configuration string 1) being stored as a hash, followed by
+    2) an attacker finding and trying a password which correctly maps to that
+    digest.
+    """
+    _stub_checksum = None
+
+    def __init__(self, **kwds):
+        super(HasStubChecksum, self).__init__(**kwds)
+        chk = self.checksum
+        if chk is not None and chk == self._stub_checksum:
+            self.checksum = None
 
 #NOTE: commented out because all use-cases work better with StaticHandler
 ##class HasNoSettings(GenericHandler):
@@ -956,20 +999,29 @@ class HasRounds(GenericHandler):
         if rounds < mn:
             if strict:
                 raise ValueError("%s rounds must be >= %d" % (cls.name, mn))
-            warn("%s does not allow less than %d rounds: %d" % (cls.name, mn, rounds))
+            warn("%s does not allow less than %d rounds: %d" %
+                 (cls.name, mn, rounds), PasslibHandlerWarning)
             rounds = mn
 
         mx = cls.max_rounds
         if mx and rounds > mx:
             if strict:
                 raise ValueError("%s rounds must be <= %d" % (cls.name, mx))
-            warn("%s does not allow more than %d rounds: %d" % (cls.name, mx, rounds))
+            warn("%s does not allow more than %d rounds: %d" %
+                 (cls.name, mx, rounds), PasslibHandlerWarning)
             rounds = mx
 
         return rounds
     #=========================================================
     #eoc
     #=========================================================
+
+def _clear_backend(cls):
+    "restore HasManyBackend subclass to unloaded state - used by unittests"
+    assert isinstance(cls, HasManyBackends)
+    if cls._backend:
+        del cls._backend
+        del cls.calc_checksum
 
 class HasManyBackends(GenericHandler):
     """GenericHandler mixin which provides selecting from multiple backends.
@@ -1033,7 +1085,7 @@ class HasManyBackends(GenericHandler):
         if no backend has been loaded,
         loads and returns name of default backend.
 
-        :raises passlib.utils.MissingBackendError: if no backends are available.
+        :raises passlib.exc.MissingBackendError: if no backends are available.
 
         :returns: name of active backend
         """
@@ -1096,7 +1148,7 @@ class HasManyBackends(GenericHandler):
               the current backend if one has been loaded,
               else acts like ``"default"``.
 
-        :raises passlib.utils.MissingBackendError:
+        :raises passlib.exc.MissingBackendError:
             * ... if a specific backend was requested,
               but is not currently available.
 
@@ -1189,7 +1241,9 @@ class PrefixWrapper(object):
     def _check_handler(self, handler):
         if 'ident' in handler.setting_kwds and self.orig_prefix:
             #TODO: look into way to fix the issues.
-            warn("PrefixWrapper: 'orig_prefix' option may not work correctly for handlers which have multiple identifiers: %r" % (handler.name,))
+            warn("PrefixWrapper: 'orig_prefix' option may not work correctly "
+                 "for handlers which have multiple identifiers: %r" %
+                 (handler.name,), PasslibRuntimeWarning)
 
     def _get_wrapped(self):
         handler = self._wrapped_handler
@@ -1290,7 +1344,7 @@ class PrefixWrapper(object):
         if not hash.startswith(orig_prefix):
             raise ValueError("not a valid %s hash" % (self.wrapped.name,))
         wrapped = self.prefix + hash[len(orig_prefix):]
-        return to_native_str(wrapped)
+        return uascii_to_str(wrapped)
 
     def identify(self, hash):
         if not hash:
