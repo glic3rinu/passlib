@@ -14,7 +14,7 @@ import sys
 #site
 #pkg
 from passlib.registry import get_crypt_handler
-from passlib.utils import timer
+from passlib.utils import tick
 from passlib.utils.compat import u
 #local
 __all__ = [
@@ -61,7 +61,7 @@ class HashTimer(object):
     #====================================================================
     # init / main loop
     #====================================================================
-    def __init__(self, handler, max_time=1, backend=None):
+    def __init__(self, handler, max_time=1, backend=None, autorun=True):
         # validate params
         self.max_time = max(0, max_time)
 
@@ -87,6 +87,13 @@ class HashTimer(object):
 
         # run timing loop
         self.backend = backend
+        if autorun:
+            self.run()
+
+    def run(self):
+        "(re)run measurements"
+        handler = self.handler
+        backend = self.backend
         if backend:
             orig_backend = handler.get_backend()
             handler.set_backend(backend)
@@ -98,7 +105,7 @@ class HashTimer(object):
 
     def _run(self):
         # init locals
-        terminate = timer() + self.max_time
+        terminate = tick() + self.max_time
         handler = self.handler
         ctx = self.ctx
         samples = self._samples = []
@@ -120,16 +127,16 @@ class HashTimer(object):
                 # NOTE: the extra time taken by this encrypt() call is
                 #       why setup_factor is set to 1.9, above
                 hash = handler.encrypt(SECRET, rounds=rounds, **ctx)
-                start = timer()
+                start = tick()
                 handler.verify(SECRET, hash, **ctx)
-                end = timer()
+                end = tick()
             else:
                 i = 0
-                start = timer()
+                start = tick()
                 while i < rounds:
                     handler.verify(SECRET, hash, **ctx)
                     i += 1
-                end = timer()
+                end = tick()
 
             # record speed, and decide if we have time to go again w/ 2x rounds
             elapsed = end - start
@@ -162,6 +169,25 @@ class HashTimer(object):
         if self.scale == "log2" and value > 1.5 * self.c2v(rounds):
             return rounds+1
         return rounds
+
+    def clean_estimate(self, target, tolerance=.05):
+        "find a nice round number near desired target"
+        cost = self.estimate(target)
+        if self.scale != "linear":
+            return cost
+        handler = self.handler
+        start = max(getattr(handler,"min_rounds", 1), int(cost*(1-tolerance)))
+        end = min(getattr(handler, "max_rounds", 1<<32), int(cost*(1+tolerance)))
+        def valid(value):
+            return start < value < end
+        for mag in (10000, 1000, 4096, 1024, 100):
+            upper = cost+(-cost%mag)
+            if valid(upper):
+                return upper
+            lower = cost-(cost%mag)
+            if valid(lower):
+                return lower
+        return cost
 
     #====================================================================
     # eoc

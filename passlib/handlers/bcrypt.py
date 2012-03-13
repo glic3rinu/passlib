@@ -124,9 +124,6 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
     @classmethod
     def from_string(cls, hash):
         ident, tail = cls._parse_ident(hash)
-        if ident == IDENT_2X:
-            raise ValueError("crypt_blowfish's buggy '2x' hashes are not "
-                             "currently supported")
         rounds, data = tail.split(u("$"))
         rval = int(rounds)
         if rounds != u('%02d') % (rval,):
@@ -150,8 +147,9 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
             ident = self.ident
         if ident == IDENT_2Y:
             ident = IDENT_2A
-        else:
-            assert ident != IDENT_2X
+        elif ident == IDENT_2X:
+            raise ValueError("crypt_blowfish's buggy '2x' hashes are not "
+                             "currently supported")
         config = u("%s%02d$%s") % (ident, self.rounds, self.salt)
         return uascii_to_str(config)
 

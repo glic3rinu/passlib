@@ -19,35 +19,82 @@ vstr = "Passlib " + __version__
 # utils
 #=========================================================
 
+# hashes with a username, but don't require one.
+_user_optional_hashes = ["cisco_pix"]
+
 #=========================================================
 # encrypt command
 #=========================================================
+
 def encrypt_cmd(args):
     """encrypt password using specific format"""
     # FIXME: this should read password from file / stdin
-    # TODO: add --salt, --user, --rounds etc for extra options.
+    # TODO: look at unix mkpasswd command (and maybe rename encrypt to that or digest)
 
     #
     # parse args
     #
     p = OptionParser(prog="passlib encrypt", version=vstr,
-                     usage="%prog [options] <format> <password>")
-    ##p.add_option("-d", "--details",
-    ##                  action="store_true", dest="details", default=False,
-    ##                  help="show details about referenced hashes")
+                     usage="%prog [options] <method> <password>",
+                     description="This subcommand will hash the specified password, "
+                                 "using the specified hashing method, and output a single line containing the result.",
+                     epilog="Specify the method 'help' to get a list of available methods")
+    p.add_option("-u", "--user", dest="user", default=None,
+                 help="specify username for algorithms which require it")
+    p.add_option("-s", "--salt", dest="salt", default=None,
+                 help="specify custom salt")
+    p.add_option("-z", "--salt-size", dest="salt_size", default=None, type="int",
+                 help="specify size of generated salt", metavar="SIZE")
+    p.add_option("-r", "--rounds", dest="rounds", default=None, type="int",
+                 help="specify number of rounds")
+    p.add_option("-i", "--ident", dest="ident", default=None,
+                 help="specify identifier or subformat")
 
+    #
+    # handle positional args
+    #
     opts, args = p.parse_args(args)
     if not args:
-        p.error("No format provided")
-    format = args.pop(0)
+        p.error("no method specified")
+    method = args.pop(0)
     if not args:
         p.error("No password provided")
     password = args.pop(0)
     if args:
         p.error("Unexpected positional arguments")
 
-    handler = get_crypt_handler(format)
-    print_(handler.encrypt(password))
+    #
+    # validate & assemble options
+    #
+    if not method:
+        p.error("No method provided")
+    elif method == "help":
+        print_("available hash algorithms:\n"
+               "--------------------------")
+        for name in list_crypt_handlers():
+            print_(name)
+        return 0
+    handler = get_crypt_handler(method)
+    kwds = {}
+    if 'user' in handler.context_kwds:
+        if opts.user:
+            kwds['user'] = opts.user
+        elif method not in _user_optional_hashes:
+            print_("error: %s requires a --user" % method)
+            return 1
+    if opts.rounds and 'rounds' in handler.setting_kwds:
+        kwds['rounds'] = int(opts.rounds)
+    if opts.salt and 'salt' in handler.setting_kwds:
+        kwds['salt'] = opts.salt
+    if opts.salt_size and 'salt_size' in handler.setting_kwds:
+        kwds['salt_size'] = int(opts.salt_size)
+    if opts.ident and 'ident' in handler.setting_kwds:
+        kwds['ident'] = opts.ident
+
+    #
+    # create hash, and done
+    #
+    print_(handler.encrypt(password, **kwds))
     return 0
 
 #=========================================================
@@ -59,6 +106,7 @@ _skip_handlers = [
     "plaintext",
     "ldap_plaintext",
     "unix_fallback",
+    "unix_disabled",
 ]
 
 # some handlers lack fixed identifier, and may match against hashes
@@ -79,6 +127,16 @@ def _match_ident_prefixes(hash, handler):
     if ident_values and any(hash.startswith(ident) for ident in ident_values):
         return True
     return False
+
+# todo - adjust score based on which one has charset that matches.
+##import passlib.utils.handlers as uh
+##charsets = [
+##    uh.LOWER_HEX_CHARS,
+##    uh.UPPER_HEX_CHARS,
+##    uh.HEX_CHARS,
+##    uh.HASH64_CHARS,
+##    uh.BASE64_CHARS,
+##]
 
 def _examine(hash, handler):
     """try to interpret hash as belonging to handler, report results
@@ -161,6 +219,9 @@ def identify(hash):
         * ``confidence`` -- confidence rating used to rank possibilities.
           currently rather arbitrary and inexact.
     """
+    # TODO: weight based on smallest encompassing character set
+    # (upper hex, lower hex, mixed hex, base64)
+
     # gather results
     results = []
     hist = dict(hash=0, salt=0, malformed=0)
@@ -246,7 +307,7 @@ def benchmark_cmd(args):
     # parse args
     #
     p = OptionParser(prog="passlib benchmark", version=vstr,
-                     usage="%prog [options] <alg> [ <alg> ... ]",
+                     usage="%prog [options] [all | <alg> ... ]",
                      description="""You should provide the names of one
 or more algorithms to benchmark, as positional arguments. If you
 provide the special name "all", all algorithms in Passlib will be tested.""",
@@ -255,63 +316,63 @@ provide the special name "all", all algorithms in Passlib will be tested.""",
                  dest="max_time", default=1.0, metavar="TIME",
                  help="spend at most TIME seconds benchmarking each hash (default=%default)",
                 )
-
+    p.add_option("--target-time", action="store", type="float",
+                 dest="target_time", default=.25, metavar="TIME",
+                 help="display cost setting needed to take specified amount of time (default=%default)",
+                )
+    p.add_option("--exclude-fixed", action="store_true",
+                 dest="exclude_fixed", default=False,
+                 help="exclude fixed-cost algorithms from benchmarks")
+    p.add_option("--exclude-wrappers", action="store_true",
+                 dest="exclude_wrappers", default=False,
+                 help="exclude wrappers from benchmarks")
+    p.add_option("--fastest-backend", action="store_true",
+                 dest="fastest_backend", default=False,
+                 help="list only the fastest backend for multi-backend hashes")
     p.add_option("--csv", action="store_true",
                  dest="csv", default=False,
                  help="Output results in CSV format")
 
     opts, args = p.parse_args(args)
-    if not args:
-        p.error("no algorithm names provided")
-    elif len(args) == 1 and args[0] == "all":
-        autoall = True
-        args = [ name for name in list_crypt_handlers()
+    if not args or (len(args) == 1 and args[0] == "all"):
+        args = [ name + ":all" for name in list_crypt_handlers()
                 if name not in _skip_handlers ]
-    else:
-        autoall = False
 
     from passlib.utils._cost import HashTimer
 
-    kwds = dict(max_time=opts.max_time)
+    def measure(handler, backend=None):
+        if backend and not handler.has_backend(backend):
+            # create stub instance by not running measurements;
+            # detected via .speed=None
+            return HashTimer(handler, backend=backend, autorun=False)
+        return HashTimer(handler, backend=backend, max_time=opts.max_time)
 
     if opts.csv:
-        fmt = "%s,%s,%s,%s"
-        print_(fmt % ("handler", "backend", "cost", "speed"))
+        fmt = "%s,%s,%s,%s,%s"
+        print_(fmt % ("handler", "backend", "speed", "costscale", "targetcost"))
     else:
-        fmt = "%-30s %-10s %10s"
-        print_(fmt % ("handler", "cost", "speed"))
-        print_(fmt % ("-" * 30, "-" * 10, "-" * 10))
+        fmt = "%-30s %-10s %10s %10s"
+        print_(fmt % ("handler", "speed", "costscale", "targetcost"))
+        print_(fmt % ("-" * 30, "-" * 10, "-" * 10, "-" * 10))
 
-    def measure(handler, backend=None):
-        if backend:
-            tag = "%s (%s)" % (handler.name, backend)
-            if not hasattr(handler, "backends"):
-                print_("\nerror: %r handler does not support multiple backends"
-                                % (handler.name,))
-                return 1
-            if backend not in handler.backends:
-                print_("\nerror: %r handler has no backend named %r" %
-                                 (handler.name, backend))
-                return 1
-            if not handler.has_backend(backend):
-                cost = getattr(handler, "rounds_cost", None) or "fixed"
-                if opts.csv:
-                    print_(fmt % (handler.name, backend, cost, ""))
-                else:
-                    print_(fmt % (tag, cost, ""))
-                return
+    def print_result(timer):
+        name = timer.handler.name
+        backend = timer.backend
+        scale = timer.scale if timer.hasrounds else "fixed"
+        if timer.speed is None:
+            spd = "" # no result
+            cost = ""
         else:
-            tag = handler.name
-        timer = HashTimer(handler, backend=backend, **kwds)
-        cost = timer.scale if timer.hasrounds else "fixed"
-        if timer.speed < 10:
-            spd = "%g" % (timer.speed,)
-        else:
-            spd = "%d" % (timer.speed,)
+            spd = ("%g" if timer.speed < 10 else "%d") % (timer.speed,)
+            if timer.hasrounds:
+                cost = "%10d %10d" % (timer.clean_estimate(opts.target_time), timer.handler.default_rounds)
+            else:
+                cost = ""
         if opts.csv:
-            print_(fmt % (handler.name, backend or '', cost, spd))
+            print_(fmt % (name, backend or '', spd, scale, cost))
         else:
-            print_(fmt % (tag, cost, spd))
+            tag = "%s (%s)" % (name, backend) if backend else name
+            print_(fmt % (tag, spd, scale, cost))
 
     for name in args:
         if ":" in name:
@@ -319,15 +380,35 @@ provide the special name "all", all algorithms in Passlib will be tested.""",
         else:
             backend = None
         handler = get_crypt_handler(name)
-        if (backend == "all" or autoall) and hasattr(handler, "backends"):
-            for backend in handler.backends:
-                rc = measure(handler, backend)
-                if rc:
-                    return rc
+        if opts.exclude_fixed and 'rounds' not in handler.setting_kwds:
+            continue
+        if opts.exclude_wrappers and hasattr(handler, "orig_prefix"):
+            continue
+        if not hasattr(handler, "backends"):
+            if backend and backend != "all":
+                print_("\nerror: %r handler does not support multiple backends"
+                                % (handler.name,))
+                return 1
+            else:
+                print_result(measure(handler))
+        elif backend == "all":
+            if opts.fastest_backend:
+                best = None
+                for backend in handler.backends:
+                    if handler.has_backend(backend):
+                        timer = measure(handler, backend)
+                        if best is None or timer.speed > best.speed:
+                            best = timer
+                print_result(best or HashTimer(handler, 'none', autorun=False))
+            else:
+                for backend in handler.backends:
+                    print_result(measure(handler, backend))
+        elif backend and backend not in handler.backends:
+            print_("\nerror: %r handler has no backend named %r" %
+                             (handler.name, backend))
+            return 1
         else:
-            rc = measure(handler, backend)
-            if rc:
-                return rc
+            print_result(measure(handler, backend or handler.get_backend()))
 
     return 0
 
