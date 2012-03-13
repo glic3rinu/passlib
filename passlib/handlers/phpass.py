@@ -56,6 +56,7 @@ class phpass(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #--GenericHandler--
     name = "phpass"
+    summary = "multi-round MD5-based hash used by PHPass"
     setting_kwds = ("salt", "rounds", "ident")
     checksum_chars = uh.HASH64_CHARS
 

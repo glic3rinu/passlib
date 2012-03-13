@@ -117,6 +117,7 @@ class mssql2000(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     #algorithm information
     #=========================================================
     name = "mssql2000"
+    summary = "SHA1-based hash, used to store MS SQL Server 2000 user passwords"
     setting_kwds = ("salt",)
     checksum_size = 40
     min_salt_size = max_salt_size = 4
@@ -183,6 +184,7 @@ class mssql2005(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     #algorithm information
     #=========================================================
     name = "mssql2005"
+    summary = "SHA1-based, hash used to store MS SQL Server 2005 user passwords"
     setting_kwds = ("salt",)
 
     checksum_size = 20

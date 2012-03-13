@@ -56,6 +56,7 @@ class fshp(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
     #=========================================================
     #--GenericHandler--
     name = "fshp"
+    summary = "Fairly Secure Hashed Password - a PBKDF1-based password hash"
     setting_kwds = ("salt", "salt_size", "rounds", "variant")
     checksum_chars = uh.PADDED_BASE64_CHARS
     ident = u("{FSHP")

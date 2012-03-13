@@ -46,7 +46,7 @@ class HashTimer(object):
 
     # inputs
     handler = None
-    max_time = None
+    max_time = 1
     backend = None
 
     # results
@@ -61,9 +61,10 @@ class HashTimer(object):
     #====================================================================
     # init / main loop
     #====================================================================
-    def __init__(self, handler, max_time=1, backend=None, autorun=True):
+    def __init__(self, handler, max_time=None, backend=None, autorun=True):
         # validate params
-        self.max_time = max(0, max_time)
+        if max_time is not None:
+            self.max_time = max(0, max_time)
 
         # characterize handler
         self.handler = handler
@@ -170,7 +171,7 @@ class HashTimer(object):
             return rounds+1
         return rounds
 
-    def clean_estimate(self, target, tolerance=.05):
+    def pretty_estimate(self, target, tolerance=.05):
         "find a nice round number near desired target"
         cost = self.estimate(target)
         if self.scale != "linear":
@@ -180,7 +181,7 @@ class HashTimer(object):
         end = min(getattr(handler, "max_rounds", 1<<32), int(cost*(1+tolerance)))
         def valid(value):
             return start < value < end
-        for mag in (10000, 1000, 4096, 1024, 100):
+        for mag in (10000, 1000, 100):
             upper = cost+(-cost%mag)
             if valid(upper):
                 return upper

@@ -82,6 +82,7 @@ class django_salted_sha1(DjangoSaltedHash):
         Defaults to 5, but can be any non-negative value.
     """
     name = "django_salted_sha1"
+    summary = "Django-specific salted SHA1 hash"
     ident = u("sha1$")
     checksum_size = 40
     _stub_checksum = u('0') * 40
@@ -108,6 +109,7 @@ class django_salted_md5(DjangoSaltedHash):
         Defaults to 5, but can be any non-negative value.
     """
     name = "django_salted_md5"
+    summary = "Django-specific salted MD5 hash"
     ident = u("md5$")
     checksum_size = 32
     _stub_checksum = u('0') * 32
@@ -140,6 +142,7 @@ class django_des_crypt(DjangoSaltedHash):
     """
 
     name = "django_des_crypt"
+    summary = "Django-specific DES-Crypt wrapper"
     ident = u("crypt$")
     checksum_chars = salt_chars = uh.HASH64_CHARS
     checksum_size = 13
@@ -198,6 +201,7 @@ class django_disabled(uh.StaticHandler):
     * it rejects all passwords.
     """
     name = "django_disabled"
+    summary = "Django-specific placeholder for disabled accounts"
 
     @classmethod
     def identify(cls, hash):

@@ -475,6 +475,9 @@ the following attributes are usually exposed.
 ..
     not yet documentated, want to make sure this is how we want to do things:
 
+    .. attribute:: PasswordHash.summary
+        optional one-line description of hash
+
     .. attribute:: PasswordHash.default_salt_chars
 
         sequence of characters used to generated new salts

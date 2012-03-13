@@ -251,6 +251,7 @@ class sha256_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     #=========================================================
     #--GenericHandler--
     name = "sha256_crypt"
+    summary = "multi-round SHA256-based hash used on Linux and other systems"
     setting_kwds = ("salt", "rounds", "implicit_rounds", "salt_size")
     ident = u("$5$")
     checksum_chars = uh.HASH64_CHARS
@@ -406,6 +407,7 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     #algorithm information
     #=========================================================
     name = "sha512_crypt"
+    summary = "multi-round SHA512-based hash used on Linux and other systems"
     ident = u("$6$")
     checksum_chars = uh.HASH64_CHARS
 

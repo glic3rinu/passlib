@@ -9,7 +9,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 #site
 #libs
-from passlib.utils import to_native_str, to_bytes
+from passlib.utils import to_native_str, to_bytes, classproperty
 from passlib.utils.compat import bascii_to_str, bytes, unicode, str_to_uascii
 import passlib.utils.handlers as uh
 from passlib.utils.md4 import md4
@@ -35,6 +35,10 @@ class HexDigestHash(uh.StaticHandler):
     _hash_func = None # hash function to use - filled in by create_hex_hash()
     checksum_size = None # filled in by create_hex_hash()
     checksum_chars = uh.HEX_CHARS
+
+    @classproperty
+    def summary(cls):
+        return "hexidecimal %s digest of password" % cls.name[4:]
 
     #=========================================================
     # methods

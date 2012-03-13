@@ -9,8 +9,9 @@ import re
 import sys
 # package
 from passlib import __version__
+from passlib.exc import MissingBackendError
 from passlib.registry import list_crypt_handlers, get_crypt_handler
-from passlib.utils.compat import print_, iteritems
+from passlib.utils.compat import print_, iteritems, imap, exc_err
 import passlib.utils.handlers as uh
 
 vstr = "Passlib " + __version__
@@ -19,8 +20,23 @@ vstr = "Passlib " + __version__
 # utils
 #=========================================================
 
+# handlers which aren't hashes
+_disabled_handlers = ["unix_fallback", "unix_disabled", "django_disabled"]
+
+# plaintext handlers
+_plaintext_handlers = ["plaintext", "roundup_plaintext", "ldap_plaintext"]
+
 # hashes with a username, but don't require one.
 _user_optional_hashes = ["cisco_pix"]
+
+def _is_psuedo(name):
+    return name in _disabled_handlers or name in _plaintext_handlers
+
+def _is_variable(name):
+    return 'rounds' in get_crypt_handler(name).setting_kwds
+
+def _is_wrapper(name):
+    return hasattr(get_crypt_handler(name), "orig_prefix")
 
 #=========================================================
 # encrypt command
@@ -117,6 +133,21 @@ _handler_weights = dict(
     crypt16=25,
 )
 
+_char_ranges = [
+    uh.LOWER_HEX_CHARS,
+    uh.UPPER_HEX_CHARS,
+    uh.HEX_CHARS,
+    uh.HASH64_CHARS,
+    uh.BASE64_CHARS,
+]
+
+def _identify_char_range(source):
+    source = set(source)
+    for cr in _char_ranges:
+        if source.issubset(cr):
+            return cr
+    return None
+
 def _match_ident_prefixes(hash, handler):
     if isinstance(hash, bytes):
         hash = hash.decode("utf-8")
@@ -127,16 +158,6 @@ def _match_ident_prefixes(hash, handler):
     if ident_values and any(hash.startswith(ident) for ident in ident_values):
         return True
     return False
-
-# todo - adjust score based on which one has charset that matches.
-##import passlib.utils.handlers as uh
-##charsets = [
-##    uh.LOWER_HEX_CHARS,
-##    uh.UPPER_HEX_CHARS,
-##    uh.HEX_CHARS,
-##    uh.HASH64_CHARS,
-##    uh.BASE64_CHARS,
-##]
 
 def _examine(hash, handler):
     """try to interpret hash as belonging to handler, report results
@@ -161,6 +182,16 @@ def _examine(hash, handler):
             return "malformed", malformed
         return None, 0
 
+    # hack for cisco_type7
+    fid = getattr(handler, "_fuzzy_identify", None)
+    if fid:
+        score = fid(hash)
+        assert 0 <= score <= 100
+        if score == 0:
+            return None, 0
+    else:
+        score = 100
+
     # first try to parse the hash using GenericHandler.from_string(),
     # since that's cheaper than always calling verify()
     if hasattr(handler, "from_string"):
@@ -172,16 +203,22 @@ def _examine(hash, handler):
 
         # detect salts
         if checksum is None:
-            return "salt", 100
+            return "salt", score
 
-        # examine checksum distribution - if should be base64,
-        # but is only using hex chars - probably false positive.
+        # if checksum contains suspiciously fewer chars than it should
+        # (e.g. is strictly hex, but should be h64), weaken score.
+        # uc>1 is there so we skip 'fake' checksums that are all one char.
+        uc = len(set(checksum))
         chars = getattr(handler, "checksum_chars", None)
-        if set(checksum).issubset(uh.HEX_CHARS) and \
-                len(set(uh.HEX_CHARS)) * 3 < len(set(chars)):
-            return "hash", 10
-
-        return "hash", 100
+        if isinstance(checksum, unicode) and uc > 1 and chars:
+            cr = _identify_char_range(checksum)
+            hr = _identify_char_range(chars)
+            if hr != cr:
+                if (cr in [uh.LOWER_HEX_CHARS, uh.UPPER_HEX_CHARS] and
+                    hr in [uh.HASH64_CHARS, uh.BASE64_CHARS]):
+                        # *really* unlikely this is right
+                        return None, 0
+        return "hash", score
 
     # prepare context kwds
     if handler.context_kwds == ("user",):
@@ -195,7 +232,7 @@ def _examine(hash, handler):
     except ValueError:
         pass
     else:
-        return "hash", 100
+        return "hash", score
 
     # check if we can encrypt against password
     try:
@@ -203,7 +240,7 @@ def _examine(hash, handler):
     except ValueError:
         pass
     else:
-        return "salt", 100
+        return "salt", score
 
     # identified, but can't parse
     return "malformed", malformed
@@ -273,17 +310,28 @@ def identify_cmd(args):
     if results:
         best = results[0][2]
         multi = len(results) > 1
+        trigger = (best>50)
         if best == 100 and not multi:
             print_("Input identified:")
         else:
             print_("Input is " + pl(best > 50, "likely", "possibly") +
                    pl(multi, " one of the following") + ":")
         for name, cat, conf in results:
+            if trigger and conf < 50:
+                print_("\nLess likely alternatives include:")
+                trigger = False
             details = []
             if cat != "hash":
                 details.append(cat)
             details.append("score=%s" % conf)
-            print "  %s (%s)" % (name, ", ".join(details))
+            details = "(%s)" % ", ".join(details)
+            summary = getattr(get_crypt_handler(name), "summary", "")
+            if summary:
+                summary = " %s" % summary
+            x = "%s %s" % (name, details)
+            print "  %-40s %s" % (x, summary)
+#            print "  %-15s %-20s %s" % (name, details, summary)
+#            print "  %s (%s) %s" % (name, ", ".join(details), summary)
     else:
         print_("Input could not be identified by Passlib.")
         best = 0
@@ -296,48 +344,48 @@ def identify_cmd(args):
                    "input is possibly an unknown/unsupported "
                    "hash using Modular Crypt Format." % (m.group(1),))
 
+        m = re.match(r"(\{\w+\})\w+", candidate)
+        if m:
+            print_("\nDue to the %r prefix, "
+                   "input is possibly an unknown/unsupported "
+                   "hash using an LDAP-style hash format." % (m.group(1),))
+
     return 0 if results else 1
 
 #=========================================================
 # timer command
 #=========================================================
-def benchmark_cmd(args):
-    """benchmark speed of hash algorithms"""
-    #
-    # parse args
-    #
-    p = OptionParser(prog="passlib benchmark", version=vstr,
-                     usage="%prog [options] [all | <alg> ... ]",
-                     description="""You should provide the names of one
-or more algorithms to benchmark, as positional arguments. If you
-provide the special name "all", all algorithms in Passlib will be tested.""",
-                     )
-    p.add_option("--max-time", action="store", type="float",
-                 dest="max_time", default=1.0, metavar="TIME",
-                 help="spend at most TIME seconds benchmarking each hash (default=%default)",
-                )
-    p.add_option("--target-time", action="store", type="float",
-                 dest="target_time", default=.25, metavar="TIME",
-                 help="display cost setting needed to take specified amount of time (default=%default)",
-                )
-    p.add_option("--exclude-fixed", action="store_true",
-                 dest="exclude_fixed", default=False,
-                 help="exclude fixed-cost algorithms from benchmarks")
-    p.add_option("--exclude-wrappers", action="store_true",
-                 dest="exclude_wrappers", default=False,
-                 help="exclude wrappers from benchmarks")
-    p.add_option("--fastest-backend", action="store_true",
-                 dest="fastest_backend", default=False,
-                 help="list only the fastest backend for multi-backend hashes")
-    p.add_option("--csv", action="store_true",
-                 dest="csv", default=False,
-                 help="Output results in CSV format")
+class BenchmarkError(ValueError):
+    pass
 
-    opts, args = p.parse_args(args)
-    if not args or (len(args) == 1 and args[0] == "all"):
-        args = [ name + ":all" for name in list_crypt_handlers()
-                if name not in _skip_handlers ]
+_bf_aliases = dict(a="all", d="default", f="fastest", i="installed")
 
+_benchmark_presets = dict(
+    all=lambda name: True,
+    variable=lambda name: _is_variable(name) and not _is_wrapper(name),
+    base=lambda name: not _is_wrapper(name),
+)
+
+def benchmark(schemes=None, backend_filter="all", max_time=None):
+    """helper for benchmark command"""
+
+    # expand aliases from list of schemes
+    if schemes is None:
+        schemes = ["all"]
+    names = set(schemes)
+    for scheme in schemes:
+        func = _benchmark_presets.get(scheme)
+        if func:
+            names.update(name for name in list_crypt_handlers()
+                         if not _is_psuedo(name) and func(name))
+            names.discard(scheme)
+
+    # validate backend filter
+    backend_filter = _bf_aliases.get(backend_filter, backend_filter)
+    if backend_filter not in ["all", "default", "installed", "fastest"]:
+        raise ValueError("unknown backend filter value: %r" % (backend_filter,))
+
+    # prepare for loop
     from passlib.utils._cost import HashTimer
 
     def measure(handler, backend=None):
@@ -345,71 +393,108 @@ provide the special name "all", all algorithms in Passlib will be tested.""",
             # create stub instance by not running measurements;
             # detected via .speed=None
             return HashTimer(handler, backend=backend, autorun=False)
-        return HashTimer(handler, backend=backend, max_time=opts.max_time)
+        return HashTimer(handler, backend=backend, max_time=max_time)
 
-    if opts.csv:
-        fmt = "%s,%s,%s,%s,%s"
-        print_(fmt % ("handler", "backend", "speed", "costscale", "targetcost"))
-    else:
-        fmt = "%-30s %-10s %10s %10s"
-        print_(fmt % ("handler", "speed", "costscale", "targetcost"))
-        print_(fmt % ("-" * 30, "-" * 10, "-" * 10, "-" * 10))
+    def stub(handler):
+        return HashTimer(handler, 'none', autorun=False)
 
-    def print_result(timer):
-        name = timer.handler.name
-        backend = timer.backend
-        scale = timer.scale if timer.hasrounds else "fixed"
-        if timer.speed is None:
-            spd = "" # no result
-            cost = ""
-        else:
-            spd = ("%g" if timer.speed < 10 else "%d") % (timer.speed,)
-            if timer.hasrounds:
-                cost = "%10d %10d" % (timer.clean_estimate(opts.target_time), timer.handler.default_rounds)
-            else:
-                cost = ""
-        if opts.csv:
-            print_(fmt % (name, backend or '', spd, scale, cost))
-        else:
-            tag = "%s (%s)" % (name, backend) if backend else name
-            print_(fmt % (tag, spd, scale, cost))
-
-    for name in args:
-        if ":" in name:
-            name, backend = name.split(":")
-        else:
-            backend = None
+    # run through all schemes
+    for name in sorted(names):
         handler = get_crypt_handler(name)
-        if opts.exclude_fixed and 'rounds' not in handler.setting_kwds:
-            continue
-        if opts.exclude_wrappers and hasattr(handler, "orig_prefix"):
-            continue
         if not hasattr(handler, "backends"):
-            if backend and backend != "all":
-                print_("\nerror: %r handler does not support multiple backends"
-                                % (handler.name,))
-                return 1
-            else:
-                print_result(measure(handler))
-        elif backend == "all":
-            if opts.fastest_backend:
-                best = None
-                for backend in handler.backends:
-                    if handler.has_backend(backend):
-                        timer = measure(handler, backend)
-                        if best is None or timer.speed > best.speed:
-                            best = timer
-                print_result(best or HashTimer(handler, 'none', autorun=False))
-            else:
-                for backend in handler.backends:
-                    print_result(measure(handler, backend))
-        elif backend and backend not in handler.backends:
-            print_("\nerror: %r handler has no backend named %r" %
-                             (handler.name, backend))
-            return 1
+            yield measure(handler)
+        elif backend_filter == "fastest":
+            best = None
+            for backend in handler.backends:
+                timer = measure(handler, backend)
+                if timer.speed is not None and (best is None or
+                                                timer.speed > best.speed):
+                    best = timer
+            yield best or stub(handler)
+        elif backend_filter == "all":
+            for backend in handler.backends:
+                yield measure(handler, backend)
+        elif backend_filter == "installed":
+            found = False
+            for backend in handler.backends:
+                if handler.has_backend(backend):
+                    found = True
+                    yield measure(handler, backend)
+            if not found:
+                yield stub(handler)
         else:
-            print_result(measure(handler, backend or handler.get_backend()))
+            assert backend_filter == "default"
+            try:
+                default = handler.get_backend()
+            except MissingBackendError:
+                yield stub(handler)
+            else:
+                yield measure(handler, default)
 
+def benchmark_cmd(args):
+    """benchmark speed of hash algorithms"""
+    #
+    # parse args
+    #
+    p = OptionParser(prog="passlib benchmark", version=vstr,
+                     usage="%prog [options] [all | variable | <alg> ... ]",
+                     description="""You should provide the names of one
+or more algorithms to benchmark, as positional arguments. If you
+provide the special name "all", all algorithms in Passlib will be tested.""",
+                     )
+    p.add_option("-b", "--backend-filter", action="store", default="installed",
+                 dest="backend_filter",
+                 help="only list specific backends (possible values are: all, default, installed, fastest)")
+    p.add_option("-t", "--target-time", action="store", type="float",
+                 dest="target_time", default=.25, metavar="TIME",
+                 help="display cost setting needed to take specified amount of seconds (default=%default)",
+                )
+    p.add_option("--max-time", action="store", type="float",
+                 dest="max_time", default=1.0, metavar="TIME",
+                 help="spend at most TIME seconds benchmarking each hash (default=%default)",
+                )
+    p.add_option("--csv", action="store_true",
+                 dest="csv", default=False,
+                 help="Output results in CSV format")
+    ##p.add_option("--with-default", action="store_true", dest="with_default",
+    ##             default=False, help="Include default cost in listing")
+
+    opts, args = p.parse_args(args)
+
+    # prepare formatters
+    if opts.csv:
+        fmt = "%s,%s,%s,%s,%s,%s"
+        print_(fmt % ("handler", "backend", "speed", "costscale", "targetcost",
+                      "curdefault"))
+        null = ""
+    else:
+        fmt = "%-30s %-10s %10s %10s %10s"
+        print_(fmt % ("handler", "speed", "costscale", "targetcost", "curdefault"))
+        print_(fmt % ("-" * 30, "-" * 10, "-" * 10, "-" * 10, "-" * 10))
+        null = "-"
+
+    try:
+        for timer in benchmark(schemes=args or None,
+                               max_time=opts.max_time,
+                               backend_filter=opts.backend_filter,
+                               ):
+            name = timer.handler.name
+            backend = timer.backend
+            scale = timer.scale if timer.hasrounds else "fixed"
+            spd = cost = curdef = null
+            if timer.speed is not None:
+                spd = ("%g" if timer.speed < 10 else "%d") % (timer.speed,)
+                if timer.hasrounds:
+                    cost = timer.estimate(opts.target_time)
+                    curdef = timer.handler.default_rounds
+            if opts.csv:
+                print_(fmt % (name, backend or '', spd, scale, cost, curdef))
+            else:
+                tag = "%s (%s)" % (name, backend) if backend else name
+                print_(fmt % (tag, spd, scale, cost, curdef))
+    except BenchmarkError:
+        print_("\nerror: %s" % exc_err())
+        return 1
     return 0
 
 #=========================================================
