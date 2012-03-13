@@ -12,7 +12,7 @@ import warnings
 #pkg
 #module
 from passlib.utils.compat import b, bytes, bascii_to_str, irange, PY2, PY3, u, \
-                                 unicode, bjoin
+                                 unicode, join_bytes
 from passlib.tests.utils import TestCase, Params as ak, enable_option, catch_warnings
 
 def hb(source):
@@ -139,15 +139,19 @@ class MiscTest(TestCase):
         self.assertTrue(test_crypt("test", h1))
         self.assertFalse(test_crypt("test", h1x))
 
-        # test crypt.crypt() returning None is supported.
-        # (Python's Modules/_cryptmodule.c notes some platforms may do this
-        # when algorithm is not supported - but don't say which platforms)
+        # check crypt returning variant error indicators
+        # some platforms return None on errors, others empty string,
+        # The BSDs in some cases return ":"
         import passlib.utils as mod
         orig = mod._crypt
         try:
-            mod._crypt = lambda secret, hash: None
-            self.assertEqual(safe_crypt("test", "aa"), None)
-            self.assertFalse(test_crypt("test", h1))
+            fake = None
+            mod._crypt = lambda secret, hash: fake
+            for fake in [None, "", ":", ":0", "*0"]:
+                self.assertEqual(safe_crypt("test", "aa"), None)
+                self.assertFalse(test_crypt("test", h1))
+            fake = 'xxx'
+            self.assertEqual(safe_crypt("test", "aa"), "xxx")
         finally:
             mod._crypt = orig
 
@@ -356,7 +360,7 @@ class CodecTest(TestCase):
                                                             b('\x00\xc3\xbf'))
 
         #check bytes transcoding
-        self.assertEqual(to_bytes(b('\x00\xc3\xbf'), "latin-1", "utf-8"),
+        self.assertEqual(to_bytes(b('\x00\xc3\xbf'), "latin-1", "", "utf-8"),
                                                             b('\x00\xff'))
 
         #check other
@@ -542,7 +546,7 @@ class _Base64Test(TestCase):
     # helper to generate bytemap-specific strings
     def m(self, *offsets):
         "generate byte string from offsets"
-        return bjoin(self.engine.bytemap[o:o+1] for o in offsets)
+        return join_bytes(self.engine.bytemap[o:o+1] for o in offsets)
 
     #=========================================================
     # test encode_bytes
@@ -664,6 +668,38 @@ class _Base64Test(TestCase):
                 self.assertEqual(result[:-1], encoded[:-1])
             else:
                 self.assertEqual(result, encoded)
+
+    def test_repair_unused(self):
+        "test repair_unused()"
+        # NOTE: this test relies on encode_bytes() always returning clear
+        # padding bits - which should be ensured by test vectors.
+        from passlib.utils import rng, getrandstr
+        engine = self.engine
+        check_repair_unused = self.engine.check_repair_unused
+        i = 0
+        while i < 300:
+            size = rng.randint(0,23)
+            cdata = getrandstr(rng, engine.charmap, size).encode("ascii")
+            if size & 3 == 1:
+                # should throw error
+                self.assertRaises(ValueError, check_repair_unused, cdata)
+                continue
+            rdata = engine.encode_bytes(engine.decode_bytes(cdata))
+            if rng.random() < .5:
+                cdata = cdata.decode("ascii")
+                rdata = rdata.decode("ascii")
+            if cdata == rdata:
+                # should leave unchanged
+                ok, result = check_repair_unused(cdata)
+                self.assertFalse(ok)
+                self.assertEqual(result, rdata)
+            else:
+                # should repair bits
+                self.assertNotEqual(size % 4, 0)
+                ok, result = check_repair_unused(cdata)
+                self.assertTrue(ok)
+                self.assertEqual(result, rdata)
+            i += 1
 
     #=========================================================
     # test transposed encode/decode - encoding independant
@@ -806,7 +842,7 @@ from passlib.utils import h64, h64big
 class H64_Test(_Base64Test):
     "test H64 codec functions"
     engine = h64
-    case_prefix = "h64 codec"
+    descriptionPrefix = "h64 codec"
 
     encoded_data = [
         #test lengths 0..6 to ensure tail is encoded properly
@@ -831,7 +867,7 @@ class H64_Test(_Base64Test):
 class H64Big_Test(_Base64Test):
     "test H64Big codec functions"
     engine = h64big
-    case_prefix = "h64big codec"
+    descriptionPrefix = "h64big codec"
 
     encoded_data = [
         #test lengths 0..6 to ensure tail is encoded properly
@@ -924,12 +960,12 @@ has_ssl_md4 = (md4_mod.md4 is not md4_mod._builtin_md4)
 
 if has_ssl_md4:
     class MD4_SSL_Test(_MD4_Test):
-        case_prefix = "MD4 (SSL version)"
+        descriptionPrefix = "MD4 (SSL version)"
         hash = staticmethod(md4_mod.md4)
 
 if not has_ssl_md4 or enable_option("cover"):
     class MD4_Builtin_Test(_MD4_Test):
-        case_prefix = "MD4 (builtin version)"
+        descriptionPrefix = "MD4 (builtin version)"
         hash = md4_mod._builtin_md4
 
 #=========================================================
@@ -940,6 +976,50 @@ import hmac
 from passlib.utils import pbkdf2
 
 #TODO: should we bother testing hmac_sha1() function? it's verified via sha1_crypt testing.
+class CryptoTest(TestCase):
+    "test various crypto functions"
+
+    ndn_formats = ["hashlib", "iana"]
+    ndn_values = [
+        # (iana name, hashlib name, ... other unnormalized names)
+        ("md5", "md5",          "SCRAM-MD5-PLUS", "MD-5"),
+        ("sha1", "sha-1",       "SCRAM-SHA-1", "SHA1"),
+        ("sha256", "sha-256",   "SHA_256", "sha2-256"),
+        ("ripemd", "ripemd",    "SCRAM-RIPEMD", "RIPEMD"),
+        ("ripemd160", "ripemd-160",
+                                "SCRAM-RIPEMD-160", "RIPEmd160"),
+        ("test128", "test-128", "TEST128"),
+        ("test2", "test2", "TEST-2"),
+        ("test3128", "test3-128", "TEST-3-128"),
+    ]
+
+    def test_norm_hash_name(self):
+        "test norm_hash_name()"
+        from itertools import chain
+        from passlib.utils.pbkdf2 import norm_hash_name, _nhn_hash_names
+
+        # test formats
+        for format in self.ndn_formats:
+            norm_hash_name("md4", format)
+        self.assertRaises(ValueError, norm_hash_name, "md4", None)
+        self.assertRaises(ValueError, norm_hash_name, "md4", "fake")
+
+        # test types
+        self.assertEqual(norm_hash_name(u("MD4")), "md4")
+        self.assertEqual(norm_hash_name(b("MD4")), "md4")
+        self.assertRaises(TypeError, norm_hash_name, None)
+
+        # test selected results
+        with catch_warnings():
+            warnings.filterwarnings("ignore", '.*unknown hash')
+            for row in chain(_nhn_hash_names, self.ndn_values):
+                for idx, format in enumerate(self.ndn_formats):
+                    correct = row[idx]
+                    for value in row:
+                        result = norm_hash_name(value, format)
+                        self.assertEqual(result, correct,
+                                         "name=%r, format=%r:" % (value,
+                                                                  format))
 
 class KdfTest(TestCase):
     "test kdf helpers"
@@ -1147,12 +1227,12 @@ has_m2crypto = (pbkdf2._EVP is not None)
 
 if has_m2crypto:
     class Pbkdf2_M2Crypto_Test(_Pbkdf2BackendTest):
-        case_prefix = "pbkdf2 (m2crypto backend)"
+        descriptionPrefix = "pbkdf2 (m2crypto backend)"
         enable_m2crypto = True
 
 if not has_m2crypto or enable_option("cover"):
     class Pbkdf2_Builtin_Test(_Pbkdf2BackendTest):
-        case_prefix = "pbkdf2 (builtin backend)"
+        descriptionPrefix = "pbkdf2 (builtin backend)"
         enable_m2crypto = False
 
 #=========================================================

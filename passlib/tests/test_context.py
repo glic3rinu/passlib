@@ -18,7 +18,7 @@ except ImportError:
 #pkg
 from passlib import hash
 from passlib.context import CryptContext, CryptPolicy, LazyCryptContext
-from passlib.exc import PasslibContextWarning
+from passlib.exc import PasslibConfigWarning
 from passlib.utils import tick, to_bytes, to_unicode
 from passlib.utils.compat import irange, u
 import passlib.utils.handlers as uh
@@ -37,7 +37,7 @@ class CryptPolicyTest(TestCase):
 
     #TODO: need to test user categories w/in all this
 
-    case_prefix = "CryptPolicy"
+    descriptionPrefix = "CryptPolicy"
 
     #=========================================================
     #sample crypt policies used for testing
@@ -209,7 +209,12 @@ admin__context__deprecated = des_crypt, bsdi_crypt
             )
 
         #check nameless handler rejected
-        self.assertRaises(ValueError, CryptPolicy, schemes=[uh.StaticHandler])
+        class nameless(uh.StaticHandler):
+            name = None
+        self.assertRaises(ValueError, CryptPolicy, schemes=[nameless])
+
+        # check scheme must be name or crypt handler
+        self.assertRaises(TypeError, CryptPolicy, schemes=[uh.StaticHandler])
 
         #check name conflicts are rejected
         class dummy_1(uh.StaticHandler):
@@ -467,11 +472,7 @@ admin__context__deprecated = des_crypt, bsdi_crypt
     def test_15_min_verify_time(self):
         "test get_min_verify_time() method"
         # silence deprecation warnings for min verify time
-        with catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            self._test_15()
-
-    def _test_15(self):
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         pa = CryptPolicy()
         self.assertEqual(pa.get_min_verify_time(), 0)
@@ -521,7 +522,7 @@ admin__context__deprecated = des_crypt, bsdi_crypt
 #=========================================================
 class CryptContextTest(TestCase):
     "test CryptContext object's behavior"
-    case_prefix = "CryptContext"
+    descriptionPrefix = "CryptContext"
 
     #=========================================================
     #constructor
@@ -581,7 +582,8 @@ class CryptContextTest(TestCase):
     #policy adaptation
     #=========================================================
     sample_policy_1 = dict(
-            schemes = [ "des_crypt", "md5_crypt", "nthash", "bsdi_crypt", "sha256_crypt"],
+            schemes = [ "des_crypt", "md5_crypt", "phpass", "bsdi_crypt",
+                       "sha256_crypt"],
             deprecated = [ "des_crypt", ],
             default = "sha256_crypt",
             bsdi_crypt__max_rounds = 30,
@@ -590,29 +592,31 @@ class CryptContextTest(TestCase):
             sha256_crypt__max_rounds = 3000,
             sha256_crypt__min_rounds = 2000,
             sha256_crypt__default_rounds = 3000,
-            nthash__ident = "NT",
+            phpass__ident = "H",
+            phpass__default_rounds = 7,
     )
 
     def test_10_01_genconfig_settings(self):
         "test genconfig() settings"
         cc = CryptContext(policy=None,
-                          schemes=["md5_crypt", "nthash"],
-                          nthash__ident="NT",
+                          schemes=["md5_crypt", "phpass"],
+                          phpass__ident="H",
+                          phpass__default_rounds=7,
                          )
 
         # hash specific settings
         self.assertTrue(cc.genconfig().startswith("$1$"))
         self.assertEqual(
-            cc.genconfig(scheme="nthash"),
-            '$NT$00000000000000000000000000000000',
+            cc.genconfig(scheme="phpass", salt='.'*8),
+            '$H$5........',
             )
         self.assertEqual(
-            cc.genconfig(scheme="nthash", ident="3"),
-            '$3$$00000000000000000000000000000000',
+            cc.genconfig(scheme="phpass", salt='.'*8, rounds=8, ident='P'),
+            '$P$6........',
             )
 
         # unsupported hash settings should be rejected
-        self.assertRaises(KeyError, cc.replace, md5_crypt__ident="NT")
+        self.assertRaises(KeyError, cc.replace, md5_crypt__ident="P")
 
     def test_10_02_genconfig_rounds_limits(self):
         "test genconfig() policy rounds limits"
@@ -629,65 +633,61 @@ class CryptContextTest(TestCase):
             # set below handler min
             c2 = cc.replace(all__min_rounds=500, all__max_rounds=None,
                             all__default_rounds=500)
-            self.assertWarningMatches(wlog.pop(), category=PasslibContextWarning)
-            self.assertWarningMatches(wlog.pop(), category=PasslibContextWarning)
+            self.consumeWarningList(wlog, [PasslibConfigWarning]*2)
             self.assertEqual(c2.genconfig(salt="nacl"), "$5$rounds=1000$nacl$")
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog)
 
             # below
             self.assertEqual(
                 cc.genconfig(rounds=1999, salt="nacl"),
                 '$5$rounds=2000$nacl$',
                 )
-            self.assertWarningMatches(wlog.pop(), category=PasslibContextWarning)
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog, PasslibConfigWarning)
 
             # equal
             self.assertEqual(
                 cc.genconfig(rounds=2000, salt="nacl"),
                 '$5$rounds=2000$nacl$',
                 )
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog)
 
             # above
             self.assertEqual(
                 cc.genconfig(rounds=2001, salt="nacl"),
                 '$5$rounds=2001$nacl$'
                 )
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog)
 
         # max rounds
         with catch_warnings(record=True) as wlog:
             # set above handler max
             c2 = cc.replace(all__max_rounds=int(1e9)+500, all__min_rounds=None,
                             all__default_rounds=int(1e9)+500)
-            self.assertWarningMatches(wlog.pop(), category=PasslibContextWarning)
-            self.assertWarningMatches(wlog.pop(), category=PasslibContextWarning)
+            self.consumeWarningList(wlog, [PasslibConfigWarning]*2)
             self.assertEqual(c2.genconfig(salt="nacl"),
                              "$5$rounds=999999999$nacl$")
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog)
 
             # above
             self.assertEqual(
                 cc.genconfig(rounds=3001, salt="nacl"),
                 '$5$rounds=3000$nacl$'
                 )
-            self.assertWarningMatches(wlog.pop(), category=PasslibContextWarning)
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog, PasslibConfigWarning)
 
             # equal
             self.assertEqual(
                 cc.genconfig(rounds=3000, salt="nacl"),
                 '$5$rounds=3000$nacl$'
                 )
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog)
 
             # below
             self.assertEqual(
                 cc.genconfig(rounds=2999, salt="nacl"),
                 '$5$rounds=2999$nacl$',
                 )
-            self.assertNoWarnings(wlog)
+            self.consumeWarningList(wlog)
 
         # explicit default rounds
         self.assertEqual(cc.genconfig(salt="nacl"), '$5$rounds=2500$nacl$')
@@ -788,11 +788,12 @@ class CryptContextTest(TestCase):
         c2 = cc.replace(all__vary_rounds="100%")
         self.assert_rounds_range(c2, "bcrypt", 15, 21)
 
-    def assert_rounds_range(self, context, scheme, lower, upper, salt="."*22):
+    def assert_rounds_range(self, context, scheme, lower, upper):
         "helper to check vary_rounds covers specified range"
         # NOTE: this runs enough times the min and max *should* be hit,
         # though there's a faint chance it will randomly fail.
         handler = context.policy.get_handler(scheme)
+        salt = handler.default_salt_chars[0:1] * handler.max_salt_size
         seen = set()
         for i in irange(300):
             h = context.genconfig(scheme, salt=salt)
@@ -807,12 +808,12 @@ class CryptContextTest(TestCase):
 
         # hash specific settings
         self.assertEqual(
-            cc.encrypt("password", scheme="nthash"),
-            '$NT$8846f7eaee8fb117ad06bdd830b7586c',
+            cc.encrypt("password", scheme="phpass", salt='.'*8),
+            '$H$5........De04R5Egz0aq8Tf.1eVhY/',
             )
         self.assertEqual(
-            cc.encrypt("password", scheme="nthash", ident="3"),
-            '$3$$8846f7eaee8fb117ad06bdd830b7586c',
+            cc.encrypt("password", scheme="phpass", salt='.'*8, ident="P"),
+            '$P$5........De04R5Egz0aq8Tf.1eVhY/',
             )
 
         # NOTE: more thorough job of rounds limits done in genconfig() test,
@@ -824,14 +825,13 @@ class CryptContextTest(TestCase):
                 cc.encrypt("password", rounds=1999, salt="nacl"),
                 '$5$rounds=2000$nacl$9/lTZ5nrfPuz8vphznnmHuDGFuvjSNvOEDsGmGfsS97',
                 )
-            self.assertWarningMatches(wlog.pop(), category=PasslibContextWarning)
-            self.assertFalse(wlog)
+            self.consumeWarningList(wlog, PasslibConfigWarning)
 
             self.assertEqual(
                 cc.encrypt("password", rounds=2001, salt="nacl"),
                 '$5$rounds=2001$nacl$8PdeoPL4aXQnJ0woHhqgIw/efyfCKC2WHneOpnvF.31'
                 )
-            self.assertFalse(wlog)
+            self.consumeWarningList(wlog)
 
         # max rounds, etc tested in genconfig()
 
@@ -941,17 +941,14 @@ class CryptContextTest(TestCase):
             def identify(cls, hash):
                 return True
 
-            @classmethod
-            def genhash(cls, secret, hash):
-                time.sleep(cls.delay)
-                return secret + 'x'
+            def _calc_checksum(self, secret):
+                time.sleep(self.delay)
+                return to_unicode(secret + 'x')
 
         # silence deprecation warnings for min verify time
         with catch_warnings(record=True) as wlog:
-            warnings.filterwarnings("always", category=DeprecationWarning)
             cc = CryptContext([TimedHash], min_verify_time=min_verify_time)
-        self.assertWarningMatches(wlog.pop(0), category=DeprecationWarning)
-        self.assertFalse(wlog)
+        self.consumeWarningList(wlog, DeprecationWarning)
 
         def timecall(func, *args, **kwds):
             start = tick()
@@ -977,13 +974,10 @@ class CryptContextTest(TestCase):
         #ensure taking longer emits a warning.
         TimedHash.delay = max_delay
         with catch_warnings(record=True) as wlog:
-            warnings.filterwarnings("always")
             elapsed, result = timecall(cc.verify, "blob", "stubx")
         self.assertFalse(result)
         self.assertAlmostEqual(elapsed, max_delay, delta=delta)
-        self.assertWarningMatches(wlog.pop(0),
-            message_re="CryptContext: verify exceeded min_verify_time")
-        self.assertFalse(wlog)
+        self.consumeWarningList(wlog, ".*verify exceeded min_verify_time")
 
     def test_25_verify_and_update(self):
         "test verify_and_update()"
@@ -1027,8 +1021,6 @@ class CryptContextTest(TestCase):
         ctx = CryptContext(["bcrypt"])
 
         with catch_warnings(record=True) as wlog:
-            warnings.simplefilter("always")
-
             self.assertTrue(ctx.hash_needs_update(BAD1))
             self.assertFalse(ctx.hash_needs_update(GOOD1))
 
@@ -1105,7 +1097,7 @@ class dummy_2(uh.StaticHandler):
     name = "dummy_2"
 
 class LazyCryptContextTest(TestCase):
-    case_prefix = "LazyCryptContext"
+    descriptionPrefix = "LazyCryptContext"
 
     def setUp(self):
         unload_handler_name("dummy_2")

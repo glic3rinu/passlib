@@ -40,7 +40,7 @@ def extend(source, size_ref):
     else:
         return source*m
 
-def raw_md5_crypt(password, salt, apr=False):
+def _raw_md5_crypt(password, salt, apr=False):
     """perform raw md5-crypt calculation
 
     :arg password:
@@ -173,7 +173,7 @@ class _Md5Common(uh.HasSalt, uh.GenericHandler):
     @classmethod
     def from_string(cls, hash):
         salt, chk = uh.parse_mc2(hash, cls.ident, cls.name)
-        return cls(salt=salt, checksum=chk, strict=bool(chk))
+        return cls(salt=salt, checksum=chk)
 
     def to_string(self):
         return uh.render_mc2(self.ident, self.salt, self.checksum)
@@ -181,7 +181,7 @@ class _Md5Common(uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #primary interface
     #=========================================================
-    #calc_checksum in subclass
+    # calc_checksum defined in subclass
 
     #=========================================================
     #eoc
@@ -230,7 +230,7 @@ class md5_crypt(uh.HasManyBackends, _Md5Common):
         return test_crypt("test", '$1$test$pi/xDtU5WFVRqYS6BMU8X/')
 
     def _calc_checksum_builtin(self, secret):
-        return raw_md5_crypt(secret, self.salt)
+        return _raw_md5_crypt(secret, self.salt)
 
     def _calc_checksum_os_crypt(self, secret):
         hash = safe_crypt(secret, self.ident + self.salt)
@@ -267,8 +267,8 @@ class apr_md5_crypt(_Md5Common):
     #=========================================================
     #primary interface
     #=========================================================
-    def calc_checksum(self, secret):
-        return raw_md5_crypt(secret, self.salt, apr=True)
+    def _calc_checksum(self, secret):
+        return _raw_md5_crypt(secret, self.salt, apr=True)
 
     #=========================================================
     #eoc

@@ -10,7 +10,7 @@ from warnings import warn
 #site
 #libs
 from passlib.utils import classproperty, h64, safe_crypt, test_crypt
-from passlib.utils.compat import b, bytes, belem_ord, irange, u, \
+from passlib.utils.compat import b, bytes, byte_elem_value, irange, u, \
                                  uascii_to_str, unicode
 import passlib.utils.handlers as uh
 #pkg
@@ -42,13 +42,13 @@ def extend(source, size_ref):
     else:
         return source*m
 
-def raw_sha_crypt(secret, salt, rounds, hash):
+def _raw_sha_crypt(secret, salt, rounds, hash):
     """perform raw sha crypt
 
     :arg secret: password to encode (if unicode, encoded to utf-8)
     :arg salt: salt string to use (required)
     :arg rounds: int rounds
-    :arg hash: hash constructor function for 256/512 variant
+    :arg hash: hash constructor function for sha-256 or sha-512
 
     :returns:
         Returns tuple of ``(unencoded checksum, normalized salt, normalized rounds)``.
@@ -59,6 +59,8 @@ def raw_sha_crypt(secret, salt, rounds, hash):
         raise TypeError("secret must be encoded as bytes")
 
     #validate rounds
+    # XXX: this should be taken care of by handler,
+    # change this to an assertion?
     if rounds < 1000:
         rounds = 1000
     if rounds > 999999999: #pragma: no cover
@@ -95,7 +97,7 @@ def raw_sha_crypt(secret, salt, rounds, hash):
     dp = extend(tmp.digest(), secret)
 
     #calc DS - hash of salt, extended to size of salt
-    tmp = hash(salt * (16+belem_ord(a[0])))
+    tmp = hash(salt * (16+byte_elem_value(a[0])))
     ds = extend(tmp.digest(), salt)
 
     #
@@ -103,8 +105,8 @@ def raw_sha_crypt(secret, salt, rounds, hash):
     #
     # NOTE: The code below is quite different in appearance from how the
     # specification performs this step. the original algorithm was that:
-    # C should start out set to A
-    # for i in [0,rounds)... the next value of C is calculated as the digest of:
+    # C starts out set to A
+    # for i in [0,rounds), the next value of C is calculated as the digest of:
     #       if i%2>0 then DP else C
     #       +
     #       if i%3>0 then DS else ""
@@ -113,7 +115,7 @@ def raw_sha_crypt(secret, salt, rounds, hash):
     #       +
     #       if i%2>0 then C else DP
     #
-    # The algorithm can be see as a series of paired even/odd rounds,
+    # This algorithm can be seen as a series of paired even/odd rounds,
     # with each pair performing 'C = md5(odd_data + md5(C + even_data))',
     # where even_data & odd_data cycle through a fixed series of
     # combinations of DP & DS, repeating every 42 rounds (since lcm(2,3,7)==42)
@@ -121,7 +123,7 @@ def raw_sha_crypt(secret, salt, rounds, hash):
     # This code takes advantage of these facts: it precalculates all possible
     # combinations, and then orders them into 21 pairs of even,odd values.
     # this allows the brunt of C stage to be performed in 42-round blocks,
-    # with minimal overhead.
+    # with minimal branching/concatenation overhead.
 
     # build array containing 42-round pattern as pairs of even & odd data.
     dp_dp = dp*2
@@ -142,20 +144,20 @@ def raw_sha_crypt(secret, salt, rounds, hash):
     # perform any leftover rounds
     if tail:
         # perform any pairs of rounds
-        half = tail>>1
-        for even, odd in data[:half]:
+        pairs = tail>>1
+        for even, odd in data[:pairs]:
             c = hash(odd + hash(c + even).digest()).digest()
         # if rounds was odd, do one last round
         if tail & 1:
-            c = hash(c + data[half][0]).digest()
+            c = hash(c + data[pairs][0]).digest()
 
     #return unencoded result, along w/ normalized config values
     return c, salt, rounds
 
-def raw_sha256_crypt(secret, salt, rounds):
+def _raw_sha256_crypt(secret, salt, rounds):
     "perform raw sha256-crypt; returns encoded checksum, normalized salt & rounds"
     #run common crypt routine
-    result, salt, rounds = raw_sha_crypt(secret, salt, rounds, sha256)
+    result, salt, rounds = _raw_sha_crypt(secret, salt, rounds, sha256)
     out = h64.encode_transposed_bytes(result, _256_offsets)
     assert len(out) == 43, "wrong length: %r" % (out,)
     return out, salt, rounds
@@ -174,10 +176,10 @@ _256_offsets = (
     30, 31,
 )
 
-def raw_sha512_crypt(secret, salt, rounds):
+def _raw_sha512_crypt(secret, salt, rounds):
     "perform raw sha512-crypt; returns encoded checksum, normalized salt & rounds"
     #run common crypt routine
-    result, salt, rounds = raw_sha_crypt(secret, salt, rounds, sha512)
+    result, salt, rounds = _raw_sha_crypt(secret, salt, rounds, sha512)
 
     ###encode result
     out = h64.encode_transposed_bytes(result, _512_offsets)
@@ -279,7 +281,7 @@ class sha256_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     #=========================================================
 
     #: regexp used to parse hashes
-    _pat = re.compile(u(r"""
+    _hash_regex = re.compile(u(r"""
         ^
         \$5
         (\$rounds=(?P<rounds>\d+))?
@@ -300,25 +302,29 @@ class sha256_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
             raise ValueError("no hash specified")
         if isinstance(hash, bytes):
             hash = hash.decode("ascii")
-        m = cls._pat.match(hash)
+        m = cls._hash_regex.match(hash)
         if not m:
             raise ValueError("invalid sha256-crypt hash")
         rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
         if rounds and rounds.startswith(u("0")):
             raise ValueError("invalid sha256-crypt hash (zero-padded rounds)")
         return cls(
-            implicit_rounds = not rounds,
+            implicit_rounds=not rounds,
             rounds=int(rounds) if rounds else 5000,
             salt=salt1 or salt2,
             checksum=chk,
-            strict=bool(chk),
+            relaxed=not chk, # NOTE: relaxing parsing for config strings,
+                             # since SHA2-Crypt specification treats them this
+                             # way (at least for the rounds value)
         )
 
     def to_string(self):
-        if self.rounds == 5000 and self.implicit_rounds:
-            hash = u("$5$%s$%s") % (self.salt, self.checksum or u(''))
+        chk = self.checksum or u('')
+        rounds = self.rounds
+        if rounds == 5000 and self.implicit_rounds:
+            hash = u("$5$%s$%s") % (self.salt, chk)
         else:
-            hash = u("$5$rounds=%d$%s$%s") % (self.rounds, self.salt, self.checksum or u(''))
+            hash = u("$5$rounds=%d$%s$%s") % (rounds, self.salt, chk)
         return uascii_to_str(hash)
 
     #=========================================================
@@ -336,7 +342,7 @@ class sha256_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     def _calc_checksum_builtin(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        checksum, salt, rounds = raw_sha256_crypt(secret,
+        checksum, salt, rounds = _raw_sha256_crypt(secret,
                                                   self.salt.encode("ascii"),
                                                   self.rounds)
         assert salt == self.salt.encode("ascii"), \
@@ -429,7 +435,7 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
     #=========================================================
 
     #: regexp used to parse hashes
-    _pat = re.compile(u(r"""
+    _hash_regex = re.compile(u(r"""
         ^
         \$6
         (\$rounds=(?P<rounds>\d+))?
@@ -452,7 +458,7 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
             raise ValueError("no hash specified")
         if isinstance(hash, bytes):
             hash = hash.decode("ascii")
-        m = cls._pat.match(hash)
+        m = cls._hash_regex.match(hash)
         if not m:
             raise ValueError("invalid sha512-crypt hash")
         rounds, salt1, salt2, chk = m.group("rounds", "salt1", "salt2", "chk")
@@ -463,7 +469,9 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
             rounds=int(rounds) if rounds else 5000,
             salt=salt1 or salt2,
             checksum=chk,
-            strict=bool(chk),
+            relaxed=not chk, # NOTE: relaxing parsing for config strings,
+                             # since SHA2-Crypt specification treats them this
+                             # way (at least for the rounds value)
         )
 
     def to_string(self):
@@ -487,12 +495,13 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
                                           "yWeBdRDx4DU.1H3eGmse6pgsOgDisWBG"
                                           "I5c7TZauS0")
 
-    #NOTE: testing w/ HashTimer shows 64-bit linux's crypt to be ~2.6x faster than builtin (627253 vs 238152 rounds/sec)
+    # NOTE: testing w/ HashTimer shows 64-bit linux's crypt to be ~2.6x faster
+    # than builtin (627253 vs 238152 rounds/sec)
 
     def _calc_checksum_builtin(self, secret):
         if isinstance(secret, unicode):
             secret = secret.encode("utf-8")
-        checksum, salt, rounds = raw_sha512_crypt(secret,
+        checksum, salt, rounds = _raw_sha512_crypt(secret,
                                                   self.salt.encode("ascii"),
                                                   self.rounds)
         assert salt == self.salt.encode("ascii"), \

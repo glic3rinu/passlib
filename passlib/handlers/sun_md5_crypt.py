@@ -18,7 +18,7 @@ from warnings import warn
 #site
 #libs
 from passlib.utils import h64
-from passlib.utils.compat import b, bytes, belem_ord, trange, u, \
+from passlib.utils.compat import b, bytes, byte_elem_value, irange, u, \
                                  uascii_to_str, unicode, str_to_bascii
 import passlib.utils.handlers as uh
 #pkg
@@ -73,7 +73,7 @@ MAGIC_HAMLET = b(
 )
 
 #NOTE: these sequences are pre-calculated iteration ranges used by X & Y loops w/in rounds function below
-xr = trange(7)
+xr = irange(7)
 _XY_ROUNDS = [
     tuple((i,i,i+3) for i in xr), #xrounds 0
     tuple((i,i+1,i+4) for i in xr), #xrounds 1
@@ -116,7 +116,7 @@ def raw_sun_md5_crypt(secret, rounds, salt):
     round = 0
     while round < real_rounds:
         #convert last result byte string to list of byte-ints for easy access
-        rval = [ belem_ord(c) for c in result ].__getitem__
+        rval = [ byte_elem_value(c) for c in result ].__getitem__
 
         #build up X bit by bit
         x = 0
@@ -198,6 +198,7 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     name = "sun_md5_crypt"
     setting_kwds = ("salt", "rounds", "bare_salt", "salt_size")
     checksum_chars = uh.HASH64_CHARS
+    checksum_size = 22
 
     #NOTE: docs say max password length is 255.
     #release 9u2
@@ -214,7 +215,8 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     max_rounds = 4294963199 ##2**32-1-4096
         #XXX: ^ not sure what it does if past this bound... does 32 int roll over?
     rounds_cost = "linear"
-    _strict_rounds_bounds = True
+
+    ident_values = (u("$md5$"), u("$md5,"))
 
     #=========================================================
     #instance attrs
@@ -233,7 +235,14 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     #=========================================================
     @classmethod
     def identify(cls, hash):
-        return uh.identify_prefix(hash, (u("$md5$"), u("$md5,")))
+        if not hash:
+            return False
+        if isinstance(hash, bytes):
+            try:
+                hash = hash.decode("ascii")
+            except UnicodeDecodeError:
+                return False
+        return hash.startswith(cls.ident_values)
 
     @classmethod
     def from_string(cls, hash):
@@ -304,7 +313,6 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
             salt=salt,
             checksum=chk,
             bare_salt=bare_salt,
-            strict=bool(chk),
         )
 
     def to_string(self, withchk=True):
@@ -328,7 +336,7 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     # actually behaves correctly.
     # especially, when using ''-config, make sure to append '$x' to string.
 
-    def calc_checksum(self, secret):
+    def _calc_checksum(self, secret):
         #NOTE: no reference for how sun_md5_crypt handles unicode
         if secret is None:
             raise TypeError("no secret specified")

@@ -20,7 +20,7 @@ class MissingBackendError(RuntimeError):
 class PasslibWarning(UserWarning):
     """base class for Passlib's user warnings"""
 
-class PasslibContextWarning(PasslibWarning):
+class PasslibConfigWarning(PasslibWarning):
     """Warning issued when non-fatal issue is found related to the configuration
     of a :class:`~passlib.context.CryptContext` instance.
 
@@ -35,7 +35,7 @@ class PasslibContextWarning(PasslibWarning):
     but the warning is issued as a sign the configuration may need updating.
     """
 
-class PasslibHandlerWarning(PasslibWarning):
+class PasslibHashWarning(PasslibWarning):
     """Warning issued when non-fatal issue is found with parameters
     or hash string passed to a passlib hash class.
 
@@ -49,9 +49,20 @@ class PasslibHandlerWarning(PasslibWarning):
     """
 
 class PasslibRuntimeWarning(PasslibWarning):
-    """Warning issued when something strange but correctable happens during
-    runtime. These are generally ok, but the developers would love to hear
-    the conditions under which it occurred."""
+    """Warning issued when something unexpected happens during runtime.
+
+    The fact that it's a warning instead of an error means Passlib
+    was able to correct for the issue, but that it's anonmalous enough
+    that the developers would love to hear under what conditions it occurred.
+    """
+
+class PasslibSecurityWarning(PasslibWarning):
+    """Special warning issued when Passlib encounters something
+    that might affect security.
+
+    The main reason this is issued is when Passlib's pure-python bcrypt
+    backend is used, to warn that it's 20x too slow to acheive real security.
+    """
 
 #==========================================================================
 # eof

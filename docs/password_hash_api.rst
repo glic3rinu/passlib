@@ -143,6 +143,14 @@ Required Attributes
         the same hash. The class's documentation will generally list
         the allowed values, allowing alternate output formats to be selected.
 
+    ``relaxed``
+        If supported, ``relaxed=True`` will cause the handler to
+        be more forgiving about invalid input. Instead of immediately throwing
+        a :exc:`ValueError`, it will first attempt to correct the input,
+        and issue a :exc:`~passlib.exc.PasslibHashWarning` if successful.
+        This includes actions like clamping out-of-range rounds values,
+        and truncating salts that are too long.
+
 .. attribute:: PasswordHash.context_kwds
 
     This attribute should contain a tuple of keywords
@@ -197,35 +205,44 @@ which scheme a hash belongs to when multiple schemes are in use.
         Common settings keywords include ``salt`` and ``rounds``.
 
     :raises ValueError:
-        * if settings are invalid and handler cannot correct them.
-          (eg: if a ``salt`` string is to short, this will
-          cause an error; but a ``rounds`` value that's too large
-          should be silently clipped).
 
-        * if a context keyword contains an invalid value, or was required
-          but omitted.
+        * If a keyword's value is invalid (e.g. if a ``salt`` string
+          is too small, or a ``rounds`` value is out of range).
 
-        * if secret contains forbidden characters (e.g: des-crypt forbids null characters).
-          this should rarely occur, since most modern algorithms have no limitations
-          on the types of characters.
+        * If the secret contains characters forbidden by the handler
+          (e.g. :class:`!des_crypt` forbids NULL characters). This should not
+          happen often, since most modern algorithms have no limitations on
+          the character values they accept.
 
-    :raises TypeError: if :samp:`{secret}` is not a bytes or unicode instance.
+    :raises TypeError:
+
+        * if :samp:`{secret}` is not a bytes or unicode instance.
+
+        * if a required option (such as a context keyword) was not set.
 
     :returns:
         Hash string, using an algorithm-specific format.
 
+    .. versionchanged:: 1.6
+
+        Previous versions of Passlib would raise :exc:`ValueError` if a
+        required keyword was missing; this has been changed to :exc:`TypeError`
+        in order to conform with normal Python behavior.
+
+        Previous versions of Passlib would silently correct invalid settings
+        where possible (e.g. silently clamping out-of-range ``rounds``); as
+        of Passlib 1.6 the policy is to raise an explicit error.
+
 .. classmethod:: PasswordHash.identify(hash)
 
-    identify if a hash string belongs to this algorithm.
+    Quickly identify if a hash string belongs to this algorithm.
 
     :arg hash:
         the candidate hash string to check
 
     :returns:
-        * ``True`` if input appears to be a hash string belonging to this algorithm.
-        * ``True`` if input appears to be a configuration string belonging to this algorithm.
-        * ``False`` if no input is an empty string or ``None``.
-        * ``False`` if none of the above conditions was met.
+        ``True`` if the input appears to be a hash or configuration string
+        which belongs to this algorithm, otherwise ``False``.
 
     .. note::
 
@@ -259,9 +276,9 @@ which scheme a hash belongs to when multiple schemes are in use.
     :raises TypeError: if :samp:`{secret}` is not a bytes or unicode instance.
 
     :raises ValueError:
-        * if the hash not specified.
-        * if the hash does not match this algorithm's hash format.
-        * if the provided secret contains forbidden characters (see
+        * if no hash is provided, or the hash does not match this
+          algorithm's hash format.
+        * if the secret contains forbidden characters (see
           :meth:`~PasswordHash.encrypt`).
         * if a configuration string from :meth:`~PasswordHash.genconfig`
           is passed in as the value for *hash*.
@@ -292,41 +309,27 @@ and :meth:`~PasswordHash.genhash`.
     referred to as a ``salt string``, though it may contain much more
     than just a salt).
 
-    This function takes in optional configuration options (a complete list
-    of which should be found in :attr:`~PasswordHash.setting_kwds`), validates
-    the inputs, fills in defaults where appropriate, and returns
-    a configuration string.
-    For algorithms which do not have any configuration options,
-    this function should always return ``None``.
-
-    While each algorithm may have it's own configuration options,
-    the following keywords (if supported) should always have a consistent
-    meaning:
-
-    * ``salt`` - algorithm uses a salt. if passed into genconfig,
-      should contain an encoded salt string of length and character set
-      required by the specific handler.
-
-      salt strings which are too small or have invalid characters
-      should cause an error, salt strings which are too large
-      should be truncated but accepted.
-
-    * ``rounds`` - algorithm uses a variable number of rounds. if passed
-      into genconfig, should contain an integer number of rounds
-      (this may represent logarithmic rounds, eg bcrypt, or linear, eg sha-crypt).
-      if the number of rounds is too small or too large, it should
-      be clipped but accepted.
+    This function takes in configuration options specific to the handler,
+    validates the inputs, fills in defaults where appropriate, and returns
+    a configuration string. For algorithms which do not have any configuration
+    options, this function should always return ``None``.
 
     :param \*\*settings_kwds:
-        this function takes in keywords as specified in :attr:`~PasswordHash.setting_kwds`.
+
+        While each algorithm may have it's own specific configuration options
+        (detailed in it's documentation), a list of common options can be
+        found in in :attr:`~PasswordHash.setting_kwds`.
+
         commonly supported keywords include ``salt`` and ``rounds``.
 
+    :raises TypeError:
+        if any required configuration options are omitted
+        (most options do not need to be specified; e.g. an appropriate
+        value for ``salt`` will be autogenerated for each call).
+
     :raises ValueError:
-        * if any configuration options are required, missing, AND
-          a default value cannot be autogenerated.
-          (for example: salt strings should be autogenerated if not specified).
-        * if any configuration options are invalid, and cannot be
-          normalized in a reasonble manner (eg: salt strings clipped to maximum size).
+        if any configuration options are invalid (and cannot
+        be corrected, if in relaxed parsing mode).
 
     :returns:
         the configuration string, or ``None`` if the algorithm does not support
@@ -556,8 +559,8 @@ the following issues:
    that applications should never need to use a specific
    encoding with these hashes, as they are natively unicode.
 
-   (The only hashes in Passlib like this are
-   :class:`~passlib.hash.oracle10` and :class:`~passlib.hash.nthash`)
+   (Hashes like this include :class:`~passlib.hash.oracle10` and
+   :class:`~passlib.hash.nthash`)
 
 Hashes
 ------
@@ -582,7 +585,7 @@ and ease of implementation issues:
     use ``utf-8`` to encode unicode passwords,
     and reproduce existing passwords as opaque bytes.
 
-*   Internally, it is recommended that handlers use 
+*   Internally, it is recommended that handlers use
     :class:`unicode` for parsing / formatting
     purposes, and only use :class:`bytes` for decoded
     binary data ready to be passed into their digest routines.

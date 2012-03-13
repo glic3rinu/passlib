@@ -17,9 +17,9 @@ import unicodedata
 from warnings import warn
 #site
 #pkg
-from passlib.utils.compat import _add_doc, b, bytes, bjoin, bjoin_ints, \
-                                 bjoin_elems, exc_err, irange, imap, PY3, u, \
-                                 ujoin, unicode
+from passlib.utils.compat import add_doc, b, bytes, join_bytes, join_byte_values, \
+                                 join_byte_elems, exc_err, irange, imap, PY3, u, \
+                                 join_unicode, unicode, byte_elem_value
 #local
 __all__ = [
     # constants
@@ -90,7 +90,8 @@ unix_crypt_schemes = [
     "sha512_crypt", "sha256_crypt",
     "sha1_crypt", "bcrypt",
     "md5_crypt",
-    "bsdi_crypt", "des_crypt"
+    # "bsd_nthash",
+    "bsdi_crypt", "des_crypt",
     ]
 
 # list of rounds_cost constants
@@ -202,6 +203,24 @@ def relocated_function(target, msg=None, name=None, deprecated=None, mod=None,
     wrapper.__doc__ = msg
     return wrapper
 
+class memoized_property(object):
+    """decorator which invokes method once, then replaces attr with result"""
+    def __init__(self, func):
+        self.im_func = func
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+        func = self.im_func
+        value = func(obj)
+        setattr(obj, func.__name__, value)
+        return value
+
+    @property
+    def __func__(self):
+        "py3 alias"
+        return self.im_func
+
 #works but not used
 ##class memoized_class_property(object):
 ##    """function decorator which calls function as classmethod,
@@ -251,14 +270,14 @@ def consteq(left, right):
     # validate types
     if isinstance(left, unicode):
         if not isinstance(right, unicode):
-            raise TypeError("inputs must be both unicode or bytes")
+            raise TypeError("inputs must be both unicode or both bytes")
         is_py3_bytes = False
     elif isinstance(left, bytes):
         if not isinstance(right, bytes):
-            raise TypeError("inputs must be both unicode or bytes")
+            raise TypeError("inputs must be both unicode or both bytes")
         is_py3_bytes = PY3
     else:
-        raise TypeError("inputs must be both unicode or bytes")
+        raise TypeError("inputs must be both unicode or both bytes")
 
     # do size comparison.
     # NOTE: the double-if construction below is done deliberately, to ensure
@@ -334,7 +353,7 @@ def saslprep(source, errname="value"):
     #   - strip 'commonly mapped to nothing' chars (stringprep B.1)
     in_table_c12 = stringprep.in_table_c12
     in_table_b1 = stringprep.in_table_b1
-    data = ujoin(
+    data = join_unicode(
         _USPACE if in_table_c12(c) else c
         for c in source
         if not in_table_b1(c)
@@ -416,8 +435,8 @@ if PY3:
         return bytes(l ^ r for l, r in zip(left, right))
 else:
     def xor_bytes(left, right):
-        return bjoin(chr(ord(l) ^ ord(r)) for l, r in zip(left, right))
-_add_doc(xor_bytes, "perform bitwise-xor of two byte strings")
+        return join_bytes(chr(ord(l) ^ ord(r)) for l, r in zip(left, right))
+add_doc(xor_bytes, "perform bitwise-xor of two byte strings")
 
 def render_bytes(source, *args):
     """helper for using formatting operator with bytes.
@@ -444,17 +463,17 @@ def render_bytes(source, *args):
 @deprecated_function(deprecated="1.6", removed="1.8")
 def bytes_to_int(value):
     "decode string of bytes as single big-endian integer"
-    from passlib.utils.compat import belem_ord
+    from passlib.utils.compat import byte_elem_value
     out = 0
     for v in value:
-        out = (out<<8) | belem_ord(v)
+        out = (out<<8) | byte_elem_value(v)
     return out
 
 @deprecated_function(deprecated="1.6", removed="1.8")
 def int_to_bytes(value, count):
     "encodes integer into single big-endian byte string"
     assert value < (1<<(8*count)), "value too large for %d bytes: %d" % (count, value)
-    return bjoin_ints(
+    return join_byte_values(
         ((value>>s) & 0xff)
         for s in irange(8*count-8,-8,-8)
     )
@@ -477,7 +496,7 @@ def is_ascii_safe(source):
     r = _B80 if isinstance(source, bytes) else _U80
     return all(c < r for c in source)
 
-def to_bytes(source, encoding="utf-8", source_encoding=None, errname="value"):
+def to_bytes(source, encoding="utf-8", errname="value", source_encoding=None):
     """helper to normalize input to bytes.
 
     :arg source:
@@ -486,11 +505,13 @@ def to_bytes(source, encoding="utf-8", source_encoding=None, errname="value"):
     :arg encoding:
         Target encoding (defaults to ``"utf-8"``).
 
-    :param source_encoding:
-        Source encoding (if known), used for transcoding.
-
     :param errname:
         Optional name of variable/noun to reference when raising errors
+
+    :param source_encoding:
+        If this is specified, and the source is bytes,
+        the source will be transcoded from *source_encoding* to *encoding*
+        (via unicode).
 
     :raises TypeError: if source is not unicode or bytes.
 
@@ -508,6 +529,8 @@ def to_bytes(source, encoding="utf-8", source_encoding=None, errname="value"):
             return source
     elif isinstance(source, unicode):
         return source.encode(encoding)
+    elif source is None:
+        raise TypeError("no %s specified" % (errname,))
     else:
         raise TypeError("%s must be unicode or bytes, not %s" % (errname,
                                                                  type(source)))
@@ -534,6 +557,8 @@ def to_unicode(source, source_encoding="utf-8", errname="value"):
         return source
     elif isinstance(source, bytes):
         return source.decode(source_encoding)
+    elif source is None:
+        raise TypeError("no %s specified" % (errname,))
     else:
         raise TypeError("%s must be unicode or bytes, not %s" % (errname,
                                                                  type(source)))
@@ -544,6 +569,8 @@ if PY3:
             return source.decode(encoding)
         elif isinstance(source, unicode):
             return source
+        elif source is None:
+            raise TypeError("no %s specified" % (errname,))
         else:
             raise TypeError("%s must be unicode or bytes, not %s" %
                             (errname, type(source)))
@@ -553,11 +580,13 @@ else:
             return source
         elif isinstance(source, unicode):
             return source.encode(encoding)
+        elif source is None:
+            raise TypeError("no %s specified" % (errname,))
         else:
             raise TypeError("%s must be unicode or bytes, not %s" %
                             (errname, type(source)))
 
-_add_doc(to_native_str,
+add_doc(to_native_str,
     """take in unicode or bytes, return native string.
 
     python 2: encodes unicode using specified encoding, leaves bytes alone.
@@ -597,6 +626,7 @@ class Base64Engine(object):
     .. automethod:: decode_bytes
     .. automethod:: encode_transposed_bytes
     .. automethod:: decode_transposed_bytes
+    .. automethod:: check_repair_unused
 
     Integers <-> Encoded Bytes
     ==========================
@@ -702,7 +732,7 @@ class Base64Engine(object):
         else:
             next_value = (ord(elem) for elem in source).next
         gen = self._encode_bytes(next_value, chunks, tail)
-        out = bjoin_elems(imap(self._encode64, gen))
+        out = join_byte_elems(imap(self._encode64, gen))
         ##if tail:
         ##    padding = self.padding
         ##    if padding:
@@ -811,7 +841,7 @@ class Base64Engine(object):
         else:
             next_value = imap(self._decode64, source).next
         try:
-            return bjoin_ints(self._decode_bytes(next_value, chunks, tail))
+            return join_byte_values(self._decode_bytes(next_value, chunks, tail))
         except KeyError:
             err = exc_err()
             raise ValueError("invalid character: %r" % (err.args[0],))
@@ -887,25 +917,108 @@ class Base64Engine(object):
                 yield ((v2&0xF)<<4) | (v3>>2)
 
     #=============================================================
+    # encode/decode helpers
+    #=============================================================
+
+    # padmap2/3 - dict mapping last char of string ->
+    # equivalent char with no padding bits set.
+
+    def __make_padset(self, bits):
+        "helper to generate set of valid last chars & bytes"
+        pset = set(c for i,c in enumerate(self.bytemap) if not i & bits)
+        pset.update(c for i,c in enumerate(self.charmap) if not i & bits)
+        return frozenset(pset)
+
+    @memoized_property
+    def _padinfo2(self):
+        "mask to clear padding bits, and valid last bytes (for strings 2 % 4)"
+        # 4 bits of last char unused (lsb for big, msb for little)
+        bits = 15 if self.big else (15<<2)
+        return ~bits, self.__make_padset(bits)
+
+    @memoized_property
+    def _padinfo3(self):
+        "mask to clear padding bits, and valid last bytes (for strings 3 % 4)"
+        # 2 bits of last char unused (lsb for big, msb for little)
+        bits = 3 if self.big else (3<<4)
+        return ~bits, self.__make_padset(bits)
+
+    def check_repair_unused(self, source):
+        """helper to detect & clear invalid unused bits in last character.
+
+        :arg source:
+            encoded data (as ascii bytes or unicode).
+
+        :returns:
+            `(True, result)` if the string was repaired,
+            `(False, source)` if the string was ok as-is.
+        """
+        # figure out how many padding bits there are in last char.
+        tail = len(source) & 3
+        if tail == 2:
+            mask, padset = self._padinfo2
+        elif tail == 3:
+            mask, padset = self._padinfo3
+        elif not tail:
+            return False, source
+        else:
+            raise ValueError("source length must != 1 mod 4")
+
+        # check if last char is ok (padset contains bytes & unicode versions)
+        last = source[-1]
+        if last in padset:
+            return False, source
+
+        # we have dirty bits - repair the string by decoding last char,
+        # clearing the padding bits via <mask>, and encoding new char.
+        if isinstance(source, unicode):
+            cm = self.charmap
+            last = cm[cm.index(last) & mask]
+            assert last in padset, "failed to generate valid padding char"
+        else:
+            # NOTE: this assumes ascii-compat encoding, and that
+            # all chars used by encoding are 7-bit ascii.
+            last = self._encode64(self._decode64(last) & mask)
+            assert last in padset, "failed to generate valid padding char"
+            if PY3:
+                last = bytes([last])
+        return True, source[:-1] + last
+
+    def repair_unused(self, source):
+        return self.check_repair_unused(source)[1]
+
+    ##def transcode(self, source, other):
+    ##    return ''.join(
+    ##        other.charmap[self.charmap.index(char)]
+    ##        for char in source
+    ##    )
+
+    ##def random_encoded_bytes(self, size, random=None, unicode=False):
+    ##    "return random encoded string of given size"
+    ##    data = getrandstr(random or rng,
+    ##                      self.charmap if unicode else self.bytemap, size)
+    ##    return self.repair_unused(data)
+
+    #=============================================================
     # transposed encoding/decoding
     #=============================================================
     def encode_transposed_bytes(self, source, offsets):
         "encode byte string, first transposing source using offset list"
         if not isinstance(source, bytes):
             raise TypeError("source must be bytes, not %s" % (type(source),))
-        tmp = bjoin_elems(source[off] for off in offsets)
+        tmp = join_byte_elems(source[off] for off in offsets)
         return self.encode_bytes(tmp)
 
     def decode_transposed_bytes(self, source, offsets):
         "decode byte string, then reverse transposition described by offset list"
         # NOTE: if transposition does not use all bytes of source,
-        # the original can't be recovered... and bjoin_elems() will throw
+        # the original can't be recovered... and join_byte_elems() will throw
         # an error because 1+ values in <buf> will be None.
         tmp = self.decode_bytes(source)
         buf = [None] * len(offsets)
         for off, char in zip(offsets, tmp):
             buf[off] = char
-        return bjoin_elems(buf)
+        return join_byte_elems(buf)
 
     #=============================================================
     # integer decoding helpers - mainly used by des_crypt family
@@ -1027,7 +1140,7 @@ class Base64Engine(object):
         else:
             itr = irange(0, bits, 6)
             # padding is msb, so no change needed.
-        return bjoin_elems(imap(self._encode64,
+        return join_byte_elems(imap(self._encode64,
                                 ((value>>off) & 0x3f for off in itr)))
 
     #---------------------------------------------
@@ -1050,7 +1163,7 @@ class Base64Engine(object):
         raw = [value & 0x3f, (value>>6) & 0x3f]
         if self.big:
             raw = reversed(raw)
-        return bjoin_elems(imap(self._encode64, raw))
+        return join_byte_elems(imap(self._encode64, raw))
 
     def encode_int24(self, value):
         "encodes 24-bit integer -> 4 char string"
@@ -1060,7 +1173,7 @@ class Base64Engine(object):
                (value>>12) & 0x3f, (value>>18) & 0x3f]
         if self.big:
             raw = reversed(raw)
-        return bjoin_elems(imap(self._encode64, raw))
+        return join_byte_elems(imap(self._encode64, raw))
 
     def encode_int64(self, value):
         """encode 64-bit integer -> 11 char hash64 string
@@ -1076,6 +1189,24 @@ class Base64Engine(object):
     # eof
     #=============================================================
 
+class LazyBase64Engine(Base64Engine):
+    "Base64Engine which delays initialization until it's accessed"
+    _lazy_opts = None
+
+    def __init__(self, *args, **kwds):
+        self._lazy_opts = (args, kwds)
+
+    def _lazy_init(self):
+        args, kwds = self._lazy_opts
+        super(LazyBase64Engine, self).__init__(*args, **kwds)
+        del self._lazy_opts
+        self.__class__ = Base64Engine
+
+    def __getattribute__(self, attr):
+        if not attr.startswith("_"):
+            self._lazy_init()
+        return object.__getattribute__(self, attr)
+
 # common charmaps
 BASE64_CHARS = u("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
 AB64_CHARS =   u("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789./")
@@ -1083,8 +1214,9 @@ HASH64_CHARS = u("./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 BCRYPT_CHARS = u("./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
 
 # common variants
-h64 = Base64Engine(HASH64_CHARS)
-h64big = Base64Engine(HASH64_CHARS, big=True)
+h64 = LazyBase64Engine(HASH64_CHARS)
+h64big = LazyBase64Engine(HASH64_CHARS, big=True)
+bcrypt64 = LazyBase64Engine(BCRYPT_CHARS, big=True)
 
 #=============================================================================
 # adapted-base64 encoding
@@ -1137,6 +1269,14 @@ except ImportError: #pragma: no cover
 else:
     has_crypt = True
     _NULL = '\x00'
+
+    # some crypt() variants will return various constant strings when
+    # an invalid/unrecognized config string is passed in; instead of
+    # returning NULL / None. examples include ":", ":0", "*0", etc.
+    # safe_crypt() returns None for any string starting with one of the
+    # chars in this string...
+    _invalid_prefixes = u("*:!")
+
     if PY3:
         def safe_crypt(secret, hash):
             if isinstance(secret, bytes):
@@ -1162,8 +1302,10 @@ else:
                 raise ValueError("null character in secret")
             if isinstance(hash, bytes):
                 hash = hash.decode("ascii")
-            # NOTE: may return None on some OSes, if hash not supported.
-            return _crypt(secret, hash)
+            result = _crypt(secret, hash)
+            if not result or result[0] in _invalid_prefixes:
+                return None
+            return result
     else:
         def safe_crypt(secret, hash):
             if isinstance(secret, unicode):
@@ -1172,14 +1314,15 @@ else:
                 raise ValueError("null character in secret")
             if isinstance(hash, unicode):
                 hash = hash.encode("ascii")
-            # NOTE: may return None on some OSes, if hash not supported.
             result = _crypt(secret, hash)
-            if result is None:
+            if not result:
                 return None
-            else:
-                return result.decode("ascii")
+            result = result.decode("ascii")
+            if result[0] in _invalid_prefixes:
+                return None
+            return result
 
-_add_doc(safe_crypt, """wrapper around stdlib's crypt.
+add_doc(safe_crypt, """wrapper around stdlib's crypt.
 
     This is a wrapper around stdlib's :func:`!crypt.crypt`, which attempts
     to provide uniform behavior across Python 2 and 3.
@@ -1203,6 +1346,10 @@ _add_doc(safe_crypt, """wrapper around stdlib's crypt.
         * Some OSes will return ``None`` if they don't recognize
           the algorithm being used (though most will simply fall
           back to des-crypt).
+
+        * Some OSes will return an error string if the input config
+          is recognized but malformed; current code converts these to ``None``
+          as well.
     """)
 
 def test_crypt(secret, hash):
@@ -1323,10 +1470,13 @@ def getrandbytes(rng, count):
             yield value & 0xff
             value >>= 3
             i += 1
-    return bjoin_ints(helper())
+    return join_byte_values(helper())
 
 def getrandstr(rng, charset, count):
     """return string containing *count* number of chars/bytes, whose elements are drawn from specified charset, using specified rng"""
+    # NOTE: tests determined this is 4x faster than rng.sample(),
+    # which is why that's not being used here.
+
     #check alphabet & count
     if count < 0:
         raise ValueError("count must be >= 0")
@@ -1347,9 +1497,9 @@ def getrandstr(rng, charset, count):
             i += 1
 
     if isinstance(charset, unicode):
-        return ujoin(helper())
+        return join_unicode(helper())
     else:
-        return bjoin_elems(helper())
+        return join_byte_elems(helper())
 
 _52charset = '2346789ABCDEFGHJKMNPQRTUVWXYZabcdefghjkmnpqrstuvwxyz'
 

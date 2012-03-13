@@ -84,7 +84,10 @@ _handler_locations = {
                         ("passlib.handlers.pbkdf2",      "atlassian_pbkdf2_sha1"),
     "bcrypt":           ("passlib.handlers.bcrypt",      "bcrypt"),
     "bigcrypt":         ("passlib.handlers.des_crypt",   "bigcrypt"),
+    "bsd_nthash":       ("passlib.handlers.windows",     "bsd_nthash"),
     "bsdi_crypt":       ("passlib.handlers.des_crypt",   "bsdi_crypt"),
+    "cisco_pix":        ("passlib.handlers.cisco",       "cisco_pix"),
+    "cisco_type7":      ("passlib.handlers.cisco",       "cisco_type7"),
     "cta_pbkdf2_sha1":  ("passlib.handlers.pbkdf2",      "cta_pbkdf2_sha1"),
     "crypt16":          ("passlib.handlers.des_crypt",   "crypt16"),
     "des_crypt":        ("passlib.handlers.des_crypt",   "des_crypt"),
@@ -121,10 +124,15 @@ _handler_locations = {
                         ("passlib.handlers.pbkdf2",      "ldap_pbkdf2_sha256"),
     "ldap_pbkdf2_sha512":
                         ("passlib.handlers.pbkdf2",      "ldap_pbkdf2_sha512"),
+    "lmhash":           ("passlib.handlers.windows",     "lmhash"),
     "md5_crypt":        ("passlib.handlers.md5_crypt",   "md5_crypt"),
+    "msdcc":            ("passlib.handlers.windows",     "msdcc"),
+    "msdcc2":           ("passlib.handlers.windows",     "msdcc2"),
+    "mssql2000":        ("passlib.handlers.mssql",       "mssql2000"),
+    "mssql2005":        ("passlib.handlers.mssql",       "mssql2005"),
     "mysql323":         ("passlib.handlers.mysql",       "mysql323"),
     "mysql41":          ("passlib.handlers.mysql",       "mysql41"),
-    "nthash":           ("passlib.handlers.nthash",      "nthash"),
+    "nthash":           ("passlib.handlers.windows",     "nthash"),
     "oracle10":         ("passlib.handlers.oracle",      "oracle10"),
     "oracle11":         ("passlib.handlers.oracle",      "oracle11"),
     "pbkdf2_sha1":      ("passlib.handlers.pbkdf2",      "pbkdf2_sha1"),
@@ -139,7 +147,8 @@ _handler_locations = {
     "sha256_crypt":     ("passlib.handlers.sha2_crypt",  "sha256_crypt"),
     "sha512_crypt":     ("passlib.handlers.sha2_crypt",  "sha512_crypt"),
     "sun_md5_crypt":    ("passlib.handlers.sun_md5_crypt","sun_md5_crypt"),
-    "unix_fallback":    ("passlib.handlers.misc",        "unix_fallback"),
+    "unix_disabled":    ("passlib.handlers.misc",         "unix_disabled"),
+    "unix_fallback":    ("passlib.handlers.misc",         "unix_fallback"),
 }
 
 #: master regexp for detecting valid handler names
@@ -259,7 +268,7 @@ def register_crypt_handler(handler, force=False, name=None):
 
     #register handler in dict
     _handlers[name] = handler
-    log.info("registered crypt handler %r: %r", name, handler)
+    log.debug("registered crypt handler %r: %r", name, handler)
 
 _NOTSET = object()
 
@@ -285,6 +294,7 @@ def get_crypt_handler(name, default=_NOTSET):
         return handler
 
     #normalize name (and if changed, check dict again)
+    assert isinstance(name, str), "name must be str instance"
     alt = name.replace("-","_").lower()
     if alt != name:
         warn("handler names should be lower-case, and use underscores instead "

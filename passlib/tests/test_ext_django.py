@@ -30,13 +30,16 @@ except ImportError:
     settings = None
     has_django = False
 
-has_django0 = False #are we using django 0.9 release?
-has_django1 = False #inverse - are we using django >= 1.0
+has_django0 = False # are we using django 0.9?
+has_django1 = False # are we using django >= 1.0?
+has_django14 = False # are we using django >= 1.4?
 
 if has_django:
     from django import VERSION
+    log.debug("found django %r installation", VERSION)
     has_django0 = (VERSION < (1,0))
     has_django1 = (VERSION >= (1,0))
+    has_django14 = (VERSION >= (1,4))
 
     if not isinstance(settings, LazySettings):
         #this could mean django has been configured somehow,
@@ -51,6 +54,8 @@ if has_django:
     else:
         if not settings.configured:
             settings.configure()
+else:
+    log.debug("django installation not found")
 
 _NOTSET = object()
 
@@ -130,7 +135,7 @@ def get_cc_rounds(**kwds):
 class PatchTest(TestCase):
     "test passlib.ext.django.utils:set_django_password_context"
 
-    case_prefix = "passlib.ext.django utils"
+    descriptionPrefix = "passlib.ext.django utils"
 
     def assert_unpatched(self):
         "helper to ensure django hasn't been patched"
@@ -224,36 +229,31 @@ class PatchTest(TestCase):
             pass
 
         with catch_warnings(record=True) as wlog:
-            warnings.simplefilter("always")
-
             #patch to use stock django context
             utils.set_django_password_context(django_context)
             self.assert_patched(context=django_context)
-            self.assertEqual(len(wlog), 0)
+            self.consumeWarningList(wlog)
 
             #mess with User.set_password, make sure it's detected
             dam.User.set_password = dummy
             utils.set_django_password_context(django_context)
             self.assert_patched(context=django_context)
-            self.assertEqual(len(wlog), 1)
-            self.assertWarningMatches(wlog.pop(),
-                message_re="^another library has patched.*User\.set_password$")
+            self.consumeWarningList(wlog,
+                        "^another library has patched.*User\.set_password$")
 
             #mess with user.check_password, make sure it's detected
             dam.User.check_password = dummy
             utils.set_django_password_context(django_context)
             self.assert_patched(context=django_context)
-            self.assertEqual(len(wlog), 1)
-            self.assertWarningMatches(wlog.pop(),
-                message_re="^another library has patched.*User\.check_password$")
+            self.consumeWarningList(wlog,
+                        "^another library has patched.*User\.check_password$")
 
             #mess with user.check_password, make sure it's detected
             dam.check_password = dummy
             utils.set_django_password_context(django_context)
             self.assert_patched(context=django_context)
-            self.assertEqual(len(wlog), 1)
-            self.assertWarningMatches(wlog.pop(),
-                message_re="^another library has patched.*models:check_password$")
+            self.consumeWarningList(wlog,
+                        "^another library has patched.*models:check_password$")
 
     def test_01_patch_bad_types(self):
         "test set_django_password_context bad inputs"
@@ -412,22 +412,22 @@ PatchTest = skipUnlessDjango(PatchTest)
 #=========================================================
 
 django_hash_tests = [
-                    th.HexMd5Test,
-                    th.DjangoDesCryptTest,
-                    th.DjangoSaltedMd5Test,
-                    th.DjangoSaltedSha1Test,
+                    th.hex_md5_test,
+                    th.django_des_crypt_test,
+                    th.django_salted_md5_test,
+                    th.django_salted_sha1_test,
                      ]
 
-default_hash_tests = django_hash_tests + [ th.Builtin_SHA512CryptTest \
-                                          or th.OsCrypt_SHA512CryptTest ]
+default_hash_tests = django_hash_tests + [ th.builtin_sha512_crypt_test \
+                                          or th.os_crypt_sha512_crypt_test ]
 
 if has_django0:
-    django_hash_tests.remove(th.DjangoDesCryptTest)
+    django_hash_tests.remove(th.django_des_crypt_test)
 
 class PluginTest(TestCase):
     "test django plugin via settings"
 
-    case_prefix = "passlib.ext.django plugin"
+    descriptionPrefix = "passlib.ext.django plugin"
 
     def setUp(self):
         #remove django patch
@@ -458,7 +458,7 @@ class PluginTest(TestCase):
 
         # run against hashes from tests...
         for test in tests:
-            for secret, hash in test.all_correct_hashes:
+            for secret, hash in test.iter_known_hashes():
 
                 # check against valid password
                 u.password = hash

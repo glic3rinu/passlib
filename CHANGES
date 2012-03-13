@@ -8,6 +8,37 @@ Release History
 
     Hashes
 
+        * The :doc:`bcrypt <lib/passlib.hash.bcrypt>` class now supports
+          crypt_blowfish's ``$2y$`` hash prefix (though it will not generate
+          them by default).
+
+        * The *unix_fallback* handler has been deprecated, and will be removed
+          in Passlib 1.8. Please use the improved replacement,
+          :doc:`unix_disabled <lib/passlib.hash.unix_disabled>`,
+          instead.
+
+        * Added support for Window's Domain Cached Credentials (aka
+          "dcc", "mscache", "mscash"), versions 1 and 2:
+          :doc:`msdcc <lib/passlib.hash.msdcc>` and
+          :doc:`msdcc2 <lib/passlib.hash.msdcc2>`.
+
+        * The rarely-used hash previously known as ``nthash`` has been renamed to
+          :class:`~passlib.hash.bsd_nthash`, to better indicate it's lineage;
+          a new :class:`~passlib.hash.nthash` class now directly implements
+          the plain hexidecimal Windows NT password hash.
+
+        * added support for Windows' :doc:`lmhash <lib/passlib.hash.lmhash>`
+          (aka Lan Manager password hash).
+
+        * added support for Cisco :doc:`PIX <lib/passlib.hash.cisco_pix>` and
+          :doc:`Type 7 <lib/passlib.hash.cisco_type7>` password hashes.
+          (Cisco Type 5 passwords seem to be the same as
+          :doc:`md5_crypt <lib/passlib.hash.md5_crypt>`).
+
+        * added support for MS SQL Server password hashes (
+          :doc:`mssql2000 <lib/passlib.hash.mssql2000>` and
+          :doc:`mssql2005 <lib/passlib.hash.mssql2005>`).
+
         * Passlib now offers the :doc:`scram <lib/passlib.hash.scram>` hash,
           specially designed for storing digest information for verifying
           a user against the SCRAM protocol (:rfc:`5802`). It can also
@@ -34,7 +65,6 @@ Release History
           operations should all have much shorter code-paths.
 
         * Config parsing now done with :class:`SafeConfigParser`.
-
           :meth:`CryptPolicy.from_path` and :meth:`CryptPolicy.from_string`
           previously used :class:`!ConfigParser` interpolation.
           Release 1.5 switched to :class:`SafeConfigParser`,
@@ -46,6 +76,28 @@ Release History
     Utils
 
         .. currentmodule:: passlib.utils.handlers
+
+        * Internal handler framework (:mod:`passlib.utils.handlers`) rewritten
+          drastically. Provides stricter input checking, reduction in
+          boilerplate code.
+
+        * :class:`~passlib.utils.handlers.GenericHandler` and related mixins
+          changed in backward-incompatible way: the ``strict`` keyword
+          was removed. :class:`!GenericHandler` now defaults to a behavior
+          which matches ``strict=True``: the constructor strictly requires
+          all values be specified, and that all values be within correct bounds.
+          The new keywords ``use_defaults`` and ``relaxed`` can be used
+          to disable these two requirements, respectively.
+
+        * :class:`~passlib.utils.handlers.StaticHandler` now derived from
+          :class:`!GenericHandler`, and required ``_calc_checksum()`` be
+          implemented instead of ``encrypt()``.
+
+        * :class:`~passlib.utils.handlers.GenericHandler` and related mixins
+          changed in backward-incompatible way: the :samp:`norm_{xxx}`
+          classmethods have been renamed to :samp:`_norm_{xxx}`, and turned
+          into instance methods. Similar renames were done for
+          ``calc_calchecksum`` and ``generate_salt``.
 
         * Calls to :meth:`HasManyBackends.set_backend`
           should now use the string ``"any"`` instead of the value ``None``.
@@ -69,8 +121,13 @@ Release History
 
     Other
 
+        * Handle platform-specific error strings returned by :func:`!crypt.crypt`.
+
         * Passlib is now source-compatible with Python 2.5+ and Python 3,
           and no longer requires the use of :command:`2to3` to run under Python 3.
+
+        * Hash unittest framework rewritten. More border cases handled,
+          some simple fuzz testing added.
 
         .. currentmodule:: passlib.hash
 
@@ -383,7 +440,7 @@ Release History
 ====================
 
     * CryptContext & CryptHandler framework
-    * added support for: des-crypt, bcrypt (via pybcrypt), postgres, mysql
+    * added support for: des-crypt, bcrypt (via py-bcrypt), postgres, mysql
     * added unit tests
 
 **0.5** (2008-05-10)
