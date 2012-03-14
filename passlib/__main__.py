@@ -12,59 +12,45 @@ from passlib import __version__
 from passlib.exc import MissingBackendError
 from passlib.registry import list_crypt_handlers, get_crypt_handler
 from passlib.utils.compat import print_, iteritems, imap, exc_err
+import passlib.utils._examine as examine
 import passlib.utils.handlers as uh
 
 vstr = "Passlib " + __version__
 
 #=========================================================
-# utils
-#=========================================================
-
-# handlers which aren't hashes
-_disabled_handlers = ["unix_fallback", "unix_disabled", "django_disabled"]
-
-# plaintext handlers
-_plaintext_handlers = ["plaintext", "roundup_plaintext", "ldap_plaintext"]
-
-# hashes with a username, but don't require one.
-_user_optional_hashes = ["cisco_pix"]
-
-def _is_psuedo(name):
-    return name in _disabled_handlers or name in _plaintext_handlers
-
-def _is_variable(name):
-    return 'rounds' in get_crypt_handler(name).setting_kwds
-
-def _is_wrapper(name):
-    return hasattr(get_crypt_handler(name), "orig_prefix")
-
-#=========================================================
-# encrypt command
+# encrypt & verify commands
 #=========================================================
 
 def encrypt_cmd(args):
     """encrypt password using specific format"""
     # FIXME: this should read password from file / stdin
-    # TODO: look at unix mkpasswd command (and maybe rename encrypt to that or digest)
+    # XXX: ask for user on cmdline?
 
     #
     # parse args
     #
     p = OptionParser(prog="passlib encrypt", version=vstr,
-                     usage="%prog [options] <method> <password>",
+                     usage="%prog [options] <method> [<password>]",
                      description="This subcommand will hash the specified password, "
                                  "using the specified hashing method, and output a single line containing the result.",
                      epilog="Specify the method 'help' to get a list of available methods")
     p.add_option("-u", "--user", dest="user", default=None,
-                 help="specify username for algorithms which require it")
+                 help="specify username for algorithms which require it",
+                 )
     p.add_option("-s", "--salt", dest="salt", default=None,
-                 help="specify custom salt")
+                 help="specify fixed salt string",
+                 )
     p.add_option("-z", "--salt-size", dest="salt_size", default=None, type="int",
-                 help="specify size of generated salt", metavar="SIZE")
+                 metavar="NUM",
+                 help="specify size of generated salt",
+                 )
     p.add_option("-r", "--rounds", dest="rounds", default=None, type="int",
-                 help="specify number of rounds")
+                 metavar="NUM",
+                 help="specify rounds/cost parameter for variable-cost algorithms",
+                 )
     p.add_option("-i", "--ident", dest="ident", default=None,
-                 help="specify identifier or subformat")
+                 help="specify identifier or subformat for certain algorithms",
+                 )
 
     #
     # handle positional args
@@ -73,9 +59,10 @@ def encrypt_cmd(args):
     if not args:
         p.error("no method specified")
     method = args.pop(0)
-    if not args:
-        p.error("No password provided")
-    password = args.pop(0)
+    if args:
+        password = args.pop(0)
+    else:
+        password = None
     if args:
         p.error("Unexpected positional arguments")
 
@@ -92,20 +79,27 @@ def encrypt_cmd(args):
         return 0
     handler = get_crypt_handler(method)
     kwds = {}
-    if 'user' in handler.context_kwds:
+    if examine.has_user(handler):
         if opts.user:
             kwds['user'] = opts.user
-        elif method not in _user_optional_hashes:
+        elif not examine.has_optional_user(handler):
             print_("error: %s requires a --user" % method)
             return 1
-    if opts.rounds and 'rounds' in handler.setting_kwds:
+    if examine.is_variable(handler):
         kwds['rounds'] = int(opts.rounds)
-    if opts.salt and 'salt' in handler.setting_kwds:
+    if opts.salt and examine.has_salt(handler):
         kwds['salt'] = opts.salt
-    if opts.salt_size and 'salt_size' in handler.setting_kwds:
+    if opts.salt_size and examine.has_salt_size(handler):
         kwds['salt_size'] = int(opts.salt_size)
-    if opts.ident and 'ident' in handler.setting_kwds:
+    if opts.ident and examine.has_many_idents(handler):
         kwds['ident'] = opts.ident
+
+    #
+    # read password
+    #
+    if password is None:
+        import getpass
+        password = getpass.getpass("Password: ")
 
     #
     # create hash, and done
@@ -113,17 +107,83 @@ def encrypt_cmd(args):
     print_(handler.encrypt(password, **kwds))
     return 0
 
+def verify_cmd(args):
+    """verify password using specific format"""
+    # FIXME: this should read password from file / stdin
+
+    #
+    # parse args
+    #
+    p = OptionParser(prog="passlib verify", version=vstr,
+                     usage="%prog [options] <method> <hash> [<password>]",
+                     description="This subcommand will attempt to verify the hash against the specified password,"
+                                 "using the specified hashing method, and output success or failure.",
+                     epilog="The <method> may be a comma-separated list, or 'guess', in which case"
+                            "multi methods will be tries, to see if any suceed")
+    p.add_option("-u", "--user", dest="user", default=None,
+                 help="specify username for algorithms which require it",
+                 )
+
+    #
+    # handle positional args
+    #
+    opts, args = p.parse_args(args)
+    if not args:
+        p.error("no method specified")
+    method = args.pop(0)
+    if not args:
+        p.error("no hash specified")
+    hash = args.pop(0)
+    if args:
+        password = args.pop(0)
+    else:
+        password = None
+    if args:
+        p.error("Unexpected positional arguments")
+
+    #
+    # validate & assemble options
+    #
+    if not method:
+        p.error("No method provided")
+    elif method == "help":
+        print_("available hash algorithms:\n"
+               "--------------------------")
+        for name in list_crypt_handlers():
+            print_(name)
+        return 0
+    # TODO: support multiple methods, and 'guess'
+    handler = get_crypt_handler(method)
+    kwds = {}
+    if examine.has_user(handler):
+        if opts.user:
+            kwds['user'] = opts.user
+        elif not examine.has_optional_user(handler):
+            print_("error: %s requires a --user" % method)
+            return 1
+
+    #
+    # read password
+    #
+    if password is None:
+        import getpass
+        password = getpass.getpass("Password: ")
+        print_("")
+
+    #
+    # create hash, and done
+    #
+    result = handler.verify(password, hash, **kwds)
+    if result:
+        print_("password VERIFIED successfully.")
+        return 0
+    else:
+        print_("password FAILED to verify.")
+        return 1
+
 #=========================================================
 # identify command
 #=========================================================
-
-# handlers that will match anything, and shouldn't be checked.
-_skip_handlers = [
-    "plaintext",
-    "ldap_plaintext",
-    "unix_fallback",
-    "unix_disabled",
-]
 
 # some handlers lack fixed identifier, and may match against hashes
 # that aren't their own; this is used to rate those as less likely.
@@ -133,6 +193,7 @@ _handler_weights = dict(
     crypt16=25,
 )
 
+# list of known character ranges
 _char_ranges = [
     uh.LOWER_HEX_CHARS,
     uh.UPPER_HEX_CHARS,
@@ -142,24 +203,14 @@ _char_ranges = [
 ]
 
 def _identify_char_range(source):
+    "identify if source string uses known character range"
     source = set(source)
     for cr in _char_ranges:
         if source.issubset(cr):
             return cr
     return None
 
-def _match_ident_prefixes(hash, handler):
-    if isinstance(hash, bytes):
-        hash = hash.decode("utf-8")
-    ident = getattr(handler, "ident", None)
-    if ident is not None and hash.startswith(ident):
-        return True
-    ident_values = getattr(handler, "ident_values", None)
-    if ident_values and any(hash.startswith(ident) for ident in ident_values):
-        return True
-    return False
-
-def _examine(hash, handler):
+def _identify_helper(hash, handler):
     """try to interpret hash as belonging to handler, report results
     :arg hash: hash string to check
     :arg handler: handler to check against
@@ -178,11 +229,15 @@ def _examine(hash, handler):
     if not handler.identify(hash):
         # last-minute check to see if it *might* be one,
         # but identify() method was too strict.
-        if _match_ident_prefixes(hash, handler):
+        if isinstance(hash, bytes):
+            hash = hash.decode("utf-8")
+        if any(hash.startswith(ident) for ident in
+               examine.iter_ident_values(handler)):
             return "malformed", malformed
         return None, 0
 
-    # hack for cisco_type7
+    # apply hash-specific fuzz checks (if any).
+    # currently only used by cisco_type7
     fid = getattr(handler, "_fuzzy_identify", None)
     if fid:
         score = fid(hash)
@@ -203,7 +258,7 @@ def _examine(hash, handler):
 
         # detect salts
         if checksum is None:
-            return "salt", score
+            return "config", score
 
         # if checksum contains suspiciously fewer chars than it should
         # (e.g. is strictly hex, but should be h64), weaken score.
@@ -213,39 +268,41 @@ def _examine(hash, handler):
         if isinstance(checksum, unicode) and uc > 1 and chars:
             cr = _identify_char_range(checksum)
             hr = _identify_char_range(chars)
-            if hr != cr:
-                if (cr in [uh.LOWER_HEX_CHARS, uh.UPPER_HEX_CHARS] and
+            if (cr in [uh.LOWER_HEX_CHARS, uh.UPPER_HEX_CHARS] and
                     hr in [uh.HASH64_CHARS, uh.BASE64_CHARS]):
-                        # *really* unlikely this is right
-                        return None, 0
+                # *really* unlikely this belongs to handler.
+                return None, 0
         return "hash", score
 
-    # prepare context kwds
-    if handler.context_kwds == ("user",):
-        ctx = dict(user="user")
+    # as fallback, try to run hash through verify & genhash and see
+    # if any errors are thrown.
     else:
+
+        # prepare context kwds
         ctx = {}
+        if examine.has_optional_user(handler):
+            ctx['user'] = 'user'
 
-    # check if it verifies against password
-    try:
-        ok = handler.verify('xxx', hash, **ctx)
-    except ValueError:
-        pass
-    else:
-        return "hash", score
+        # check if it verifies against password
+        try:
+            ok = handler.verify('xxx', hash, **ctx)
+        except ValueError:
+            pass
+        else:
+            return "hash", score
 
-    # check if we can encrypt against password
-    try:
-        handler.genhash('xxx', hash, **ctx)
-    except ValueError:
-        pass
-    else:
-        return "salt", score
+        # check if we can encrypt against password
+        try:
+            handler.genhash('xxx', hash, **ctx)
+        except ValueError:
+            pass
+        else:
+            return "config", score
 
-    # identified, but can't parse
-    return "malformed", malformed
+        # identified, but can't parse
+        return "malformed", malformed
 
-def identify(hash):
+def fuzzy_identify(hash):
     """try to identify format of hash.
 
     :arg hash: hash to try to identify
@@ -256,38 +313,47 @@ def identify(hash):
         * ``confidence`` -- confidence rating used to rank possibilities.
           currently rather arbitrary and inexact.
     """
-    # TODO: weight based on smallest encompassing character set
-    # (upper hex, lower hex, mixed hex, base64)
-
-    # gather results
+    # gather results, considering all handlers which don't use wildcard identify
     results = []
-    hist = dict(hash=0, salt=0, malformed=0)
     for name in list_crypt_handlers():
-        if name not in _skip_handlers:
-            handler = get_crypt_handler(name)
-            cat, score = _examine(hash, handler)
-            if cat:
-                score = score * _handler_weights.get(name, 100) // 100
-                results.append([name, cat, score])
-                hist[cat] += 1
+        if examine.has_wildcard_identify(name):
+            continue
+        handler = get_crypt_handler(name)
+        cat, score = _identify_helper(hash, handler)
+        if cat:
+            score *= _handler_weights.get(name, 100) // 100
+            results.append([name, cat, score])
 
     # sort by score and return
-    so = ["hash", "salt", "malformed"]
+    so = ["hash", "config", "malformed"]
     def sk(record):
         return -record[2], so.index(record[1]), record[0]
     results.sort(key=sk)
     return results
 
+def identify_format(hash):
+    "identify scheme used by format (mcf, ldap, None:unknown)"
+    m = re.match(r"(\$[a-zA-Z0-9_-]+\$)\w+", candidate)
+    if m:
+        return "mcf", m.group(1)
+    m = re.match(r"(\{\w+\})\w+", candidate)
+    if m:
+        return "ldap", m.group(1)
+    return None, None
+
 def identify_cmd(args):
-    """attempt to identify format of unknown password hashes"""
+    """attempt to identify format of unknown password hashes.
+    this is just a wrapper for the more python-friendly fuzzy_identify()
+    """
     #
     # parse args
     #
     p = OptionParser(prog="passlib identify", version=vstr,
                      usage="%prog [options] <hash>")
-    p.add_option("-d", "--details",
-                      action="store_true", dest="details", default=False,
-                      help="show details about referenced hashes")
+    ##p.add_option("-d", "--details", action="store_true", dest="details",
+    ##             default=False, help="show details about referenced hashes")
+    p.add_option("--csv", action="store_true", dest="csv", default=False,
+                 help="output results in csv format")
 
     opts, args = p.parse_args(args)
     if not args:
@@ -299,76 +365,101 @@ def identify_cmd(args):
     #
     # identify hash
     #
-    results = identify(candidate)
+    results = fuzzy_identify(candidate)
 
     #
     # display results
     #
-    def pl(cond, p, s=""):
-        return p if cond else s
-    rc = 0
-    if results:
+    if opts.csv:
+        import csv
+        writer = csv.writer(sys.stdout)
+        writer.writerow(("name", "category", "score", "summary"))
+        for name, cat, score in results:
+            row = (name, cat, score)
+            summary = examine.summary(name)
+            if summary:
+                row += (summary,)
+            writer.writerow(row)
+    elif results:
+        cat_aliases = dict(config="config-string", malformed="malformed-hash")
+        def pl(cond, p, s=""):
+            return p if cond else s
         best = results[0][2]
         multi = len(results) > 1
-        trigger = (best>50)
+        accurate = (best>50)
         if best == 100 and not multi:
             print_("Input identified:")
         else:
-            print_("Input is " + pl(best > 50, "likely", "possibly") +
+            print_("Input is " + pl(accurate, "likely", "possibly") +
                    pl(multi, " one of the following") + ":")
-        for name, cat, conf in results:
-            if trigger and conf < 50:
+        for name, cat, score in results:
+            if accurate and score < 50:
                 print_("\nLess likely alternatives include:")
-                trigger = False
-            details = []
+                accurate = False
+            txt = name
             if cat != "hash":
-                details.append(cat)
-            details.append("score=%s" % conf)
-            details = "(%s)" % ", ".join(details)
-            summary = getattr(get_crypt_handler(name), "summary", "")
+                txt += " " + cat_aliases.get(cat,cat)
+            txt += " (score=%s)" % score
+            summary = examine.summary(name) or ""
             if summary:
                 summary = " %s" % summary
-            x = "%s %s" % (name, details)
-            print "  %-40s %s" % (x, summary)
-#            print "  %-15s %-20s %s" % (name, details, summary)
-#            print "  %s (%s) %s" % (name, ", ".join(details), summary)
+            print "  %-40s %s" % (txt, summary)
     else:
         print_("Input could not be identified by Passlib.")
         best = 0
 
     # inform user about general class of hash if the guesses were poor.
-    if best < 25:
-        m = re.match(r"(\$[a-zA-Z0-9_-]+\$)\w+", candidate)
-        if m:
+    if not opts.csv and best < 25:
+        fmt, ident = identify_format(hash)
+        if fmt == "mcf":
             print_("\nDue to the %r prefix, "
                    "input is possibly an unknown/unsupported "
-                   "hash using Modular Crypt Format." % (m.group(1),))
+                   "hash using Modular Crypt Format." % (ident,))
 
-        m = re.match(r"(\{\w+\})\w+", candidate)
-        if m:
+        elif fmt == "ldap":
             print_("\nDue to the %r prefix, "
                    "input is possibly an unknown/unsupported "
-                   "hash using an LDAP-style hash format." % (m.group(1),))
+                   "hash using an LDAP-style hash format." % (ident,))
 
     return 0 if results else 1
 
 #=========================================================
-# timer command
+# benchmark command
 #=========================================================
 class BenchmarkError(ValueError):
     pass
 
-_bf_aliases = dict(a="all", d="default", f="fastest", i="installed")
+_backend_filter_aliases = dict(a="all", d="default",
+                               f="fastest", i="installed")
 
 _benchmark_presets = dict(
     all=lambda name: True,
-    variable=lambda name: _is_variable(name) and not _is_wrapper(name),
-    base=lambda name: not _is_wrapper(name),
+    variable=lambda name: examine.is_variable(name) and not examine.is_wrapper(name),
+    base=lambda name: not examine.is_wrapper(name),
 )
 
 def benchmark(schemes=None, backend_filter="all", max_time=None):
-    """helper for benchmark command"""
+    """helper for benchmark command, times specified schemes.
 
+    :arg schemes:
+        list of schemes to test.
+        presets ("all", "variable", "base") will be expanded.
+
+    :arg backend_filter:
+        how to handler multi-backend. should be "all", "default",
+        "installed", or "fastest".
+
+    :arg max_time:
+        maximum time to spend measuring each hash.
+
+    :returns:
+        this function yeilds a series of HashTimer objects,
+        one for every scheme/backend combination tested.
+
+        * if a backend is not available, the object will have ``.speed=None``.
+        * if no backend is available, the object ``.speed=None`` and
+          ``.backend=None``
+    """
     # expand aliases from list of schemes
     if schemes is None:
         schemes = ["all"]
@@ -377,11 +468,11 @@ def benchmark(schemes=None, backend_filter="all", max_time=None):
         func = _benchmark_presets.get(scheme)
         if func:
             names.update(name for name in list_crypt_handlers()
-                         if not _is_psuedo(name) and func(name))
+                         if not examine.is_psuedo(name) and func(name))
             names.discard(scheme)
 
     # validate backend filter
-    backend_filter = _bf_aliases.get(backend_filter, backend_filter)
+    backend_filter = _backend_filter_aliases.get(backend_filter, backend_filter)
     if backend_filter not in ["all", "default", "installed", "fastest"]:
         raise ValueError("unknown backend filter value: %r" % (backend_filter,))
 
@@ -432,7 +523,9 @@ def benchmark(schemes=None, backend_filter="all", max_time=None):
                 yield measure(handler, default)
 
 def benchmark_cmd(args):
-    """benchmark speed of hash algorithms"""
+    """benchmark speed of hash algorithms.
+    this is mainly a wrapper for the benchmark() function.
+    """
     #
     # parse args
     #
@@ -446,12 +539,12 @@ provide the special name "all", all algorithms in Passlib will be tested.""",
                  dest="backend_filter",
                  help="only list specific backends (possible values are: all, default, installed, fastest)")
     p.add_option("-t", "--target-time", action="store", type="float",
-                 dest="target_time", default=.25, metavar="TIME",
-                 help="display cost setting needed to take specified amount of seconds (default=%default)",
+                 dest="target_time", default=.25, metavar="SECONDS",
+                 help="display cost setting required for verify() to take specified time (default=%default)",
                 )
     p.add_option("--max-time", action="store", type="float",
-                 dest="max_time", default=1.0, metavar="TIME",
-                 help="spend at most TIME seconds benchmarking each hash (default=%default)",
+                 dest="max_time", default=1.0, metavar="SECONDS",
+                 help="spend at most SECONDS benchmarking each hash (default=%default)",
                 )
     p.add_option("--csv", action="store_true",
                  dest="csv", default=False,
@@ -503,6 +596,7 @@ provide the special name "all", all algorithms in Passlib will be tested.""",
 commands = {
     "identify": identify_cmd,
     "encrypt": encrypt_cmd,
+    "verify": verify_cmd,
     "benchmark": benchmark_cmd,
     # TODO: verify_cmd
     # TODO: gencfg_cmd - generate config w/ timings, possibly taking in another

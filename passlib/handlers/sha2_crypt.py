@@ -312,7 +312,7 @@ class sha256_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
         return cls(
             implicit_rounds=not rounds,
             rounds=int(rounds) if rounds else 5000,
-            salt=salt1 or salt2,
+            salt=salt1 or salt2 or u(''),
             checksum=chk,
             relaxed=not chk, # NOTE: relaxing parsing for config strings,
                              # since SHA2-Crypt specification treats them this
@@ -469,7 +469,7 @@ class sha512_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandl
         return cls(
             implicit_rounds = not rounds,
             rounds=int(rounds) if rounds else 5000,
-            salt=salt1 or salt2,
+            salt=salt1 or salt2 or u(''),
             checksum=chk,
             relaxed=not chk, # NOTE: relaxing parsing for config strings,
                              # since SHA2-Crypt specification treats them this
