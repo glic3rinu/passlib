@@ -1,5 +1,13 @@
 """passlib.utils -- helpers for writing password hashes"""
 #=============================================================================
+# Python VM identification
+#=============================================================================
+import sys
+PYPY = hasattr(sys, "pypy_version_info")
+JYTHON = sys.platform.startswith('java')
+IRONPYTHON = 'IronPython' in sys.version
+
+#=============================================================================
 #imports
 #=============================================================================
 #core
@@ -9,9 +17,15 @@ from functools import update_wrapper
 import logging; log = logging.getLogger(__name__)
 import math
 import os
-import sys
 import random
-import stringprep
+_ipy_missing_stringprep = False
+if IRONPYTHON:
+    try:
+        import stringprep
+    except ImportError:
+        _ipy_missing_stringprep = True
+else:
+    import stringprep
 import time
 import unicodedata
 from warnings import warn
@@ -430,6 +444,13 @@ def saslprep(source, errname="value"):
             raise ValueError("forbidden bidi character in " + errname)
 
     return data
+
+# implement stub for ironpython
+if _ipy_missing_stringprep:
+    def saslprep(source, errname="value"):
+        "ironpython stub for saslprep()"
+        raise NotImplementedError("saslprep() requires the stdlib 'stringprep' "
+                                  "module, which is not available under IronPython")
 
 #=============================================================================
 # bytes helpers

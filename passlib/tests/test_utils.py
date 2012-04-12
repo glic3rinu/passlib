@@ -241,7 +241,13 @@ class MiscTest(TestCase):
 
     def test_saslprep(self):
         "test saslprep() unicode normalizer"
-        from passlib.utils import saslprep as sp
+        from passlib.utils import saslprep as sp, _ipy_missing_stringprep
+
+        if IRONPYTHON:
+            self.assertTrue(_ipy_missing_stringprep,
+                "alert passlib author that IPY has stringprep support!")
+            self.assertRaises(NotImplementedError, sp, u('abc'))
+            raise self.skipTest("stringprep missing under IPY")
 
         # invalid types
         self.assertRaises(TypeError, sp, None)
