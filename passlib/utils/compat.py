@@ -10,6 +10,54 @@ PY27 = sys.version_info[:2] == (2,7) # supports last 2.x release
 PY_MIN_32 = sys.version_info >= (3,2) # py 3.2 or later
 
 #=============================================================================
+# figure out what VM we're running
+#=============================================================================
+PYPY = hasattr(sys, "pypy_version_info")
+JYTHON = sys.platform.startswith('java')
+IRONPYTHON = 'IronPython' in sys.version
+if IRONPYTHON:
+    from warnings import warn
+    warn("All of Passlib's lazy-import features are disabled under IronPython")
+    # NOTE: this is due to IPY 2.7.2 not supporting __getattr__ and __dir__
+    # in ModuleType subclasses that are inserted into sys.modules.
+
+    """
+    disabled features under ironpython
+    ==================================
+
+    * passlib.utils.compat's lazy import behavior doesn't work,
+      since __getattr__ and __dir__ aren't honor for ModuleType subclasses.
+
+    * saslprep() is disabled, since the 'stringprep' module isn't available.
+
+    remaining issues
+    ================
+    * lazy import behavior for hash object probably won't work either.
+
+    * apparently native str is unicode even under 2.7.
+      this breaks a bunch of assumptions in passlib.
+      this will be a real headache. but argues for feature-detection
+      rather than version-detection.
+
+      made a stab to change all unicode/bytes wrappers accordingly,
+      and then discovered...
+
+        ``u'abc'.encode("utf-8")`` is u'abc', not b'abc' !?!
+
+      will try to work on this some other time.
+    """
+
+##if PYPY:
+##    PYVM = "pypy"
+##elif JYTHON:
+##    PYVM = "jython"
+##elif IRONPYTHON:
+##    PYVM = "ironpython"
+##else:
+##    # NOTE: all other vms will show up as this
+##    PYVM = "cpython"
+
+#=============================================================================
 # common imports
 #=============================================================================
 import logging; log = logging.getLogger(__name__)
@@ -28,6 +76,9 @@ def add_doc(obj, doc):
 __all__ = [
     # python versions
     'PY2', 'PY3', 'PY_MAX_25', 'PY27', 'PY_MIN_32',
+
+    # python VMs
+    'PYPY', 'JYTHON', 'IRONPYTHON',
 
     # io
     'BytesIO', 'StringIO', 'NativeStringIO', 'SafeConfigParser',
@@ -67,9 +118,12 @@ _lazy_attrs = dict()
 #=============================================================================
 # unicode & bytes types
 #=============================================================================
-if PY3:
+if PY3 or IRONPYTHON:
+    # IPY 2.7.2 has native unicode strings like PY3.
+
     unicode = str
     bytes = builtins.bytes
+    base_string_types = (unicode, bytes)
 
     def u(s):
         assert isinstance(s, str)
@@ -79,11 +133,10 @@ if PY3:
         assert isinstance(s, str)
         return s.encode("latin-1")
 
-    base_string_types = (unicode, bytes)
-
 else:
     unicode = builtins.unicode
     bytes = str if PY_MAX_25 else builtins.bytes
+    base_string_types = basestring
 
     def u(s):
         assert isinstance(s, str)
@@ -92,8 +145,6 @@ else:
     def b(s):
         assert isinstance(s, str)
         return s
-
-    base_string_types = basestring
 
 #=============================================================================
 # unicode & bytes helpers
@@ -104,7 +155,7 @@ join_unicode = u('').join
 # function to join list of byte strings
 join_bytes = b('').join
 
-if PY3:
+if PY3 or IRONPYTHON:
     def uascii_to_str(s):
         assert isinstance(s, unicode)
         return s
@@ -121,6 +172,25 @@ if PY3:
         assert isinstance(s, str)
         return s.encode("ascii")
 
+else:
+
+    def uascii_to_str(s):
+        assert isinstance(s, unicode)
+        return s.encode("ascii")
+
+    def bascii_to_str(s):
+        assert isinstance(s, bytes)
+        return s
+
+    def str_to_uascii(s):
+        assert isinstance(s, str)
+        return s.decode("ascii")
+
+    def str_to_bascii(s):
+        assert isinstance(s, str)
+        return s
+
+if PY3:
     join_byte_values = join_byte_elems = bytes
 
     def byte_elem_value(elem):
@@ -132,21 +202,6 @@ if PY3:
         return s
 
 else:
-    def uascii_to_str(s):
-        assert isinstance(s, unicode)
-        return s.encode("ascii")
-
-    def bascii_to_str(s):
-        assert isinstance(s, bytes)
-        return s
-
-    def str_to_uascii(s):
-        assert isinstance(s, str)
-        return s.decode("ascii")
-
-    def str_to_bascii(s):
-        assert isinstance(s, str)
-        return s
 
     def join_byte_values(values):
         return join_bytes(chr(v) for v in values)
@@ -337,6 +392,13 @@ def _import_object(source):
     mod = __import__(modname, fromlist=[modattr], level=0)
     return getattr(mod, modattr)
 
+def _resolve_object(source):
+    "resolve _LazyOverlayModule value"
+    if callable(source):
+        value = source()
+    else:
+        value = _import_object(source)
+
 class _LazyOverlayModule(ModuleType):
     """proxy module which overlays original module,
     and lazily imports specified attributes.
@@ -352,6 +414,12 @@ class _LazyOverlayModule(ModuleType):
     @classmethod
     def replace_module(cls, name, attrmap):
         orig = sys.modules[name]
+        if IRONPYTHON:
+            # lazy modules don't work under IPY 2.7 (see note at top of this file).
+            # so we just un-lazy everything!
+            for attr, source in attrmap.items():
+                setattr(orig, attr, _resolve_object(source))
+            return orig
         self = cls(name, attrmap, orig)
         sys.modules[name] = self
         return self
@@ -368,11 +436,7 @@ class _LazyOverlayModule(ModuleType):
             return getattr(proxy, attr)
         attrmap = self.__attrmap
         if attr in attrmap:
-            source = attrmap[attr]
-            if callable(source):
-                value = source()
-            else:
-                value = _import_object(source)
+            value = _resolve_object(attrmap[attr])
             setattr(self, attr, value)
             self.__log.debug("loaded lazy attr %r: %r", attr, value)
             return value
