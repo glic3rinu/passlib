@@ -245,6 +245,7 @@ class md5_crypt(uh.HasManyBackends, _MD5_Common):
     # class attrs
     #=========================================================
     name = "md5_crypt"
+    summary = "MD5-Crypt - widely used MD5-based password hash"
     ident = u("$1$")
 
     #=========================================================
@@ -293,6 +294,7 @@ class apr_md5_crypt(_MD5_Common):
     # class attrs
     #=========================================================
     name = "apr_md5_crypt"
+    summary = "Apache-specific variant of MD5-Crypt"
     ident = u("$apr1$")
 
     #=========================================================

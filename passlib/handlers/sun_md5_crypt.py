@@ -196,6 +196,7 @@ class sun_md5_crypt(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     #class attrs
     #=========================================================
     name = "sun_md5_crypt"
+    summary = "complex MD5-based hash found on Solaris systems"
     setting_kwds = ("salt", "rounds", "bare_salt", "salt_size")
     checksum_chars = uh.HASH64_CHARS
     checksum_size = 22

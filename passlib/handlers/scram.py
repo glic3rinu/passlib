@@ -80,6 +80,7 @@ class scram(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler):
 
     #--GenericHandler--
     name = "scram"
+    summary = "PBKDF2-based hash used to store credentials for the SCRAM protocol"
     setting_kwds = ("salt", "salt_size", "rounds", "algs")
     ident = u("$scram$")
 

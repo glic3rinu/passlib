@@ -2,10 +2,12 @@
 #=========================================================
 #imports
 #=========================================================
+from __future__ import division
 #core
 from binascii import hexlify, unhexlify
 from hashlib import md5
 import logging; log = logging.getLogger(__name__)
+import re
 from warnings import warn
 #site
 #libs
@@ -47,6 +49,7 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
     # class attrs
     #=========================================================
     name = "cisco_pix"
+    summary = "password hash used by Cisco PIX Firewalls"
     checksum_size = 16
     checksum_chars = uh.HASH64_CHARS
 
@@ -107,10 +110,13 @@ class cisco_type7(uh.GenericHandler):
     # class attrs
     #=========================================================
     name = "cisco_type7"
+    summary = "reversible encoding used by Cisco IOS"
     setting_kwds = ("salt",)
     checksum_chars = uh.UPPER_HEX_CHARS
 
     max_salt_value = 52
+
+    _hash_regex = re.compile(u("^([0-4]\d)([0-9a-f]{2})*$"), re.I)
 
     #=========================================================
     # methods
@@ -197,6 +203,45 @@ class cisco_type7(uh.GenericHandler):
             value ^ ord(key[(salt + idx) % key_size])
             for idx, value in enumerate(iter_byte_values(data))
         )
+
+    @classmethod
+    def _fuzzy_identify(cls, source):
+        if not cls.identify(source):
+            return 0
+        
+        # decode raw secret
+        try:
+            data = cls.decode(source, None)
+        except ValueError:
+            return 0
+        if len(data) < 2:
+            return 0
+
+        # assuming ascii-compatible encoding.
+        # if contains ascii control codes, it's pretty much guaranteed
+        # to not be a cisco_type7 hash.
+        values = list(iter_byte_values(data))
+        if any(value < 32 or value == 127 or value == 255 for value in values):
+            return 0
+
+        # otherwise try ascii / utf-8. if successful, probably *is*.
+        for codec in ("ascii", "utf-8"):
+            try:
+                data.decode(codec)
+                return 100
+            except UnicodeDecodeError:
+                pass
+
+        # otherwise assume latin-1, guess based on ratio of 8/7 bit chars.
+        r = len([c for c in values if c < 128]) / len(values)
+        if r < .2:
+            return 1
+        elif r < .4:
+            return 10
+        elif r < .8:
+            return 50
+        else:
+            return 100
 
 #=========================================================
 #eof

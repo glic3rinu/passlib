@@ -110,6 +110,7 @@ class ldap_md5(_Base64DigestHelper):
     The :meth:`encrypt()` and :meth:`genconfig` methods have no optional keywords.
     """
     name = "ldap_md5"
+    summary = "LDAP base64-encoded MD5 digest"
     setting_kwds = ()
 
     ident = u("{MD5}")
@@ -122,6 +123,7 @@ class ldap_sha1(_Base64DigestHelper):
     The :meth:`encrypt()` and :meth:`genconfig` methods have no optional keywords.
     """
     name = "ldap_sha1"
+    summary = "LDAP base64-encoded SHA1 digest"
     setting_kwds = ()
 
     ident = u("{SHA}")
@@ -147,6 +149,7 @@ class ldap_salted_md5(_SaltedBase64DigestHelper):
         any value between 4-16.
     """
     name = "ldap_salted_md5"
+    summary = "LDAP base64-encoded MD5 digest, with salt"
     ident = u("{SMD5}")
     checksum_size = 16
     _hash_func = md5
@@ -172,6 +175,7 @@ class ldap_salted_sha1(_SaltedBase64DigestHelper):
         any value between 4-16.
     """
     name = "ldap_salted_sha1"
+    summary = "LDAP base64-encoded SHA1 digest, with salt"
     ident = u("{SSHA}")
     checksum_size = 20
     _hash_func = sha1
@@ -191,6 +195,7 @@ class ldap_plaintext(plaintext):
     # is override identify()
 
     name = "ldap_plaintext"
+    summary = "LDAP plaintext handler - matches everything but LDAP style hashes"
     _2307_pat = re.compile(u(r"^\{\w+\}.*$"))
 
     @classmethod
