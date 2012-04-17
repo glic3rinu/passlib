@@ -292,7 +292,7 @@ def benchmark(schemes=None, backend_filter="all", max_time=None,
                          password_size=password_size)
 
     def stub(handler, backend='none'):
-        return HashTimer(handler, backend, autorun=False)
+        return HashTimer(handler, backend=backend, autorun=False)
 
     # run through all schemes
     for name in sorted(names):
