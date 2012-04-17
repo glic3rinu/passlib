@@ -1364,7 +1364,7 @@ class PrefixWrapper(object):
     """
 
     def __init__(self, name, wrapped, prefix=u(''), orig_prefix=u(''), lazy=False,
-                 doc=None, ident=None):
+                 doc=None, ident=None, description=None):
         self.name = name
         if isinstance(prefix, bytes):
             prefix = prefix.decode("ascii")
@@ -1374,6 +1374,8 @@ class PrefixWrapper(object):
         self.orig_prefix = orig_prefix
         if doc:
             self.__doc__ = doc
+        # XXX: create default description from name + wrapped.description?
+        self.description = description
         if hasattr(wrapped, "name"):
             self._check_handler(wrapped)
             self._wrapped_handler = wrapped

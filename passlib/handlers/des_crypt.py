@@ -127,7 +127,7 @@ class des_crypt(uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #--GenericHandler--
     name = "des_crypt"
-    summary = "DES-based password hash found on most Unix systems"
+    description = "DES-based password hash found on most Unix systems"
     setting_kwds = ("salt",)
     checksum_chars = uh.HASH64_CHARS
     checksum_size = 11
@@ -216,7 +216,7 @@ class bsdi_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler
     #=========================================================
     #--GenericHandler--
     name = "bsdi_crypt"
-    summary = "BSDi's multi-round variant of DES-Crypt"
+    description = "BSDi's multi-round variant of DES-Crypt"
     setting_kwds = ("salt", "rounds")
     checksum_size = 11
     checksum_chars = uh.HASH64_CHARS
@@ -338,7 +338,7 @@ class bigcrypt(uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #--GenericHandler--
     name = "bigcrypt"
-    summary = "weak variant of DES-Crypt"
+    description = "weak variant of DES-Crypt"
     setting_kwds = ("salt",)
     checksum_chars = uh.HASH64_CHARS
     #NOTE: checksum chars must be multiple of 11
@@ -411,7 +411,7 @@ class crypt16(uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #--GenericHandler--
     name = "crypt16"
-    summary = "weak variant of DES-Crypt"
+    description = "weak variant of DES-Crypt"
     setting_kwds = ("salt",)
     checksum_size = 22
     checksum_chars = uh.HASH64_CHARS

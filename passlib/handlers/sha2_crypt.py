@@ -391,7 +391,7 @@ class sha256_crypt(_SHA2_Common):
     # class attrs
     #=========================================================
     name = "sha256_crypt"
-    summary = "multi-round SHA256-based hash used on Linux and other systems"
+    description = "multi-round SHA256-based hash used on Linux and other systems"
     ident = u("$5$")
     checksum_size = 43
 
@@ -446,7 +446,7 @@ class sha512_crypt(_SHA2_Common):
     # class attrs
     #=========================================================
     name = "sha512_crypt"
-    summary = "multi-round SHA512-based hash used on Linux and other systems"
+    description = "multi-round SHA512-based hash used on Linux and other systems"
     ident = u("$6$")
     checksum_size = 86
     _cdb_use_512 = True

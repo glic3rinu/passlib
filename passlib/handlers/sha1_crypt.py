@@ -57,7 +57,7 @@ class sha1_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler
     #=========================================================
     #--GenericHandler--
     name = "sha1_crypt"
-    summary = "PBKDF1-HMAC variant used by NetBSD"
+    description = "PBKDF1-HMAC variant used by NetBSD"
     setting_kwds = ("salt", "salt_size", "rounds")
     ident = u("$sha1$")
     checksum_size = 28

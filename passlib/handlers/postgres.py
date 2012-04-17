@@ -37,7 +37,7 @@ class postgres_md5(uh.HasUserContext, uh.StaticHandler):
     # algorithm information
     #=========================================================
     name = "postgres_md5"
-    summary = "simple MD5-based hash used by Postgres to store user passwords"
+    description = "simple MD5-based hash used by Postgres to store user passwords"
     _hash_prefix = u("md5")
     checksum_chars = uh.HEX_CHARS
     checksum_size = 32

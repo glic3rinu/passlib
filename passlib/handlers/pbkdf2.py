@@ -162,6 +162,7 @@ class cta_pbkdf2_sha1(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Generic
     #=========================================================
     #--GenericHandler--
     name = "cta_pbkdf2_sha1"
+    description = "PBKDF2-HMAC-SHA1 hash used by the python library Cryptacular"
     setting_kwds = ("salt", "salt_size", "rounds")
     ident = u("$p5k2$")
 
@@ -248,6 +249,7 @@ class dlitz_pbkdf2_sha1(uh.HasRounds, uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #--GenericHandler--
     name = "dlitz_pbkdf2_sha1"
+    description = "PBKDF2-HMAC-SHA1 hash released by the author of PyCrypto"
     setting_kwds = ("salt", "salt_size", "rounds")
     ident = u("$p5k2$")
 
@@ -322,6 +324,7 @@ class atlassian_pbkdf2_sha1(uh.HasRawSalt, uh.HasRawChecksum, uh.GenericHandler)
     """
     #--GenericHandler--
     name = "atlassian_pbkdf2_sha1"
+    description = "fixed-round PBKDF1-HMAC-SHA1 hash used by various Atlassian products"
     setting_kwds =("salt",)
     ident = u("{PKCS5S2}")
     checksum_size = 32
@@ -377,6 +380,7 @@ class grub_pbkdf2_sha512(uh.HasRounds, uh.HasRawSalt, uh.HasRawChecksum, uh.Gene
         Defaults to 10000, but must be within ``range(1,1<<32)``.
     """
     name = "grub_pbkdf2_sha512"
+    description = "PBKDF2-HMAC-SHA512 hash used by the GRUB bootloader"
     setting_kwds = ("salt", "salt_size", "rounds")
 
     ident = u("grub.pbkdf2.sha512.")

@@ -67,7 +67,7 @@ class oracle10(uh.HasUserContext, uh.StaticHandler):
     # algorithm information
     #=========================================================
     name = "oracle10"
-    summary = "DES-based hash, used to store Oracle <= 10g user passwords"
+    description = "DES-based hash, used to store Oracle <= 10g user passwords"
     checksum_chars = uh.UPPER_HEX_CHARS
     checksum_size = 16
 
@@ -121,7 +121,7 @@ class oracle11(uh.HasSalt, uh.GenericHandler):
     #=========================================================
     #--GenericHandler--
     name = "oracle11"
-    summary = "SHA1-based hash, used to store Oracle 11g+ user passwords"
+    description = "SHA1-based hash, used to store Oracle 11g+ user passwords"
     setting_kwds = ("salt",)
     checksum_size = 40
     checksum_chars = uh.UPPER_HEX_CHARS

@@ -96,7 +96,7 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
     #=========================================================
     #--GenericHandler--
     name = "bcrypt"
-    summary = "OpenBSD's EKS-Blowfish based password hash"
+    description = "OpenBSD's EKS-Blowfish based password hash"
     setting_kwds = ("salt", "rounds", "ident")
     checksum_size = 31
     checksum_chars = bcrypt64.charmap

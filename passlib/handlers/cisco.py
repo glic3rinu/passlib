@@ -49,7 +49,7 @@ class cisco_pix(uh.HasUserContext, uh.StaticHandler):
     # class attrs
     #=========================================================
     name = "cisco_pix"
-    summary = "password hash used by Cisco PIX Firewalls"
+    description = "password hash used by Cisco PIX Firewalls"
     checksum_size = 16
     checksum_chars = uh.HASH64_CHARS
 
@@ -110,7 +110,7 @@ class cisco_type7(uh.GenericHandler):
     # class attrs
     #=========================================================
     name = "cisco_type7"
-    summary = "reversible encoding used by Cisco IOS"
+    description = "reversible encoding used by Cisco IOS"
     setting_kwds = ("salt",)
     checksum_chars = uh.UPPER_HEX_CHARS
 

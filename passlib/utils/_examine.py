@@ -138,8 +138,8 @@ def iter_ident_values(source):
         for ident in ident_values:
             yield ident
 
-def summary(source):
-    return getattr(_handler(source), "summary", None)
+def description(source):
+    return getattr(_handler(source), "description", None)
 
 #=========================================================
 # eof

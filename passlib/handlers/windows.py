@@ -57,7 +57,7 @@ class lmhash(_HasEncodingContext, uh.StaticHandler):
     # class attrs
     #=========================================================
     name = "lmhash"
-    summary = "legacy DES-based hash, used by Windows for passwords"
+    description = "legacy DES-based hash, used by Windows for passwords"
     checksum_chars = uh.HEX_CHARS
     checksum_size = 32
     _default_encoding = "cp437"
@@ -130,7 +130,7 @@ class nthash(uh.StaticHandler):
     # class attrs
     #=========================================================
     name = "nthash"
-    summary = "MD4-based hash, used by Windows for passwords"
+    description = "MD4-based hash, used by Windows for passwords"
     checksum_chars = uh.HEX_CHARS
     checksum_size = 32
 
@@ -239,7 +239,7 @@ class msdcc(uh.HasUserContext, uh.StaticHandler):
     it will accept upper-case digests as well.
     """
     name = "msdcc"
-    summary = "legacy MD4-based hash, used by Windows for network passwords - aka 'mscash'"
+    description = "legacy MD4-based hash, used by Windows for network passwords - aka 'mscash'"
     checksum_chars = uh.HEX_CHARS
     checksum_size = 32
 
@@ -284,7 +284,7 @@ class msdcc2(uh.HasUserContext, uh.StaticHandler):
         (e.g. ``Administrator``, not ``SOMEDOMAIN\\Administrator``).
     """
     name = "msdcc2"
-    summary = "PBKDF2-based hash, used by Windows for network passwords - aka 'mscash2'"
+    description = "PBKDF2-based hash, used by Windows for network passwords - aka 'mscash2'"
     checksum_chars = uh.HEX_CHARS
     checksum_size = 32
 

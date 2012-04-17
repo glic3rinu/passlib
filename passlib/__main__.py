@@ -373,12 +373,12 @@ def identify_cmd(args):
     if opts.csv:
         import csv
         writer = csv.writer(sys.stdout)
-        writer.writerow(("name", "category", "score", "summary"))
+        writer.writerow(("name", "category", "score", "description"))
         for name, cat, score in results:
             row = (name, cat, score)
-            summary = examine.summary(name)
-            if summary:
-                row += (summary,)
+            description = examine.description(name)
+            if description:
+                row += (description,)
             writer.writerow(row)
     elif results:
         cat_aliases = dict(config="config-string", malformed="malformed-hash")
@@ -400,10 +400,10 @@ def identify_cmd(args):
             if cat != "hash":
                 txt += " " + cat_aliases.get(cat,cat)
             txt += " (score=%s)" % score
-            summary = examine.summary(name) or ""
-            if summary:
-                summary = " %s" % summary
-            print "  %-40s %s" % (txt, summary)
+            description = examine.description(name) or ""
+            if description:
+                description = " %s" % description
+            print "  %-40s %s" % (txt, description)
     else:
         print_("Input could not be identified by Passlib.")
         best = 0

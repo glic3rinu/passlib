@@ -54,7 +54,7 @@ class mysql323(uh.StaticHandler):
     # class attrs
     #=========================================================
     name = "mysql323"
-    summary = "simple checksum, used to store MySQL 3.2.3 - 4.0 user passwords"
+    description = "simple checksum, used to store MySQL 3.2.3 - 4.0 user passwords"
     checksum_size = 16
     checksum_chars = uh.LOWER_HEX_CHARS
 
@@ -104,7 +104,7 @@ class mysql41(uh.StaticHandler):
     # class attrs
     #=========================================================
     name = "mysql41"
-    summary = "double-SHA1 hash, used to store MySQL 4.1+ user passwords"
+    description = "double-SHA1 hash, used to store MySQL 4.1+ user passwords"
     _hash_prefix = u("*")
     checksum_chars = uh.UPPER_HEX_CHARS
     checksum_size = 40

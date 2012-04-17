@@ -37,7 +37,7 @@ class HexDigestHash(uh.StaticHandler):
     checksum_chars = uh.HEX_CHARS
 
     @classproperty
-    def summary(cls):
+    def description(cls):
         return "hexidecimal %s digest of password" % cls.name[4:]
 
     #=========================================================
