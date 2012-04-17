@@ -10,15 +10,19 @@ from __future__ import division
 #core
 from math import log as logb
 import logging; log = logging.getLogger(__name__)
+import random
 import sys
 #site
 #pkg
 from passlib.registry import get_crypt_handler
-from passlib.utils import tick
+from passlib.utils import tick, repeat_string
 from passlib.utils.compat import u
+from passlib.utils.handlers import BASE64_CHARS
+import passlib.utils._examine as examine
 #local
 __all__ = [
     "HashTimer",
+    "benchmark", "BenchmarkError",
 ]
 #=========================================================
 # timer class
@@ -58,17 +62,32 @@ class HashTimer(object):
     c2v = None # convert cost parameter -> rounds value
     v2c = None # convert rounds value -> cost parameter
 
+    # helper to generate passwords
+    _gensecret = None
+
     #====================================================================
     # init / main loop
     #====================================================================
-    def __init__(self, handler, max_time=None, backend=None, autorun=True):
+    def __init__(self, handler, max_time=None, backend=None, autorun=True,
+                 password_size=10):
         # validate params
         if max_time is not None:
             self.max_time = max(0, max_time)
 
+        # init gensecret
+        if isinstance(password_size, int):
+            secret = repeat_string(BASE64_CHARS, password_size)
+            self._gensecret = lambda : secret
+        else:
+            mu, sigma = password_size
+            def gensecret():
+                size = int(random.gauss(mu, sigma))
+                return repeat_string(BASE64_CHARS, min(1,size))
+            self._gensecret = gensecret
+
         # characterize handler
         self.handler = handler
-        self.hasrounds = 'rounds' in handler.setting_kwds
+        self.hasrounds = examine.has_rounds(handler)
         self.scale = handler.rounds_cost if self.hasrounds else "linear"
 
         # init cost manipulation helpers
@@ -83,8 +102,10 @@ class HashTimer(object):
         # init stub context kwds
         ctx = self.ctx = {}
         if handler.context_kwds:
-            if 'user' in handler.context_kwds:
+            if examine.has_user(handler):
                 ctx['user'] = u("dummyuser")
+            if examine.has_realm(handler):
+                ctx['realm'] = u("dummyrealm")
 
         # run timing loop
         self.backend = backend
@@ -119,23 +140,27 @@ class HashTimer(object):
         else:
             rounds = 16
             setup_factor = 1
-            hash = handler.encrypt(SECRET, **ctx)
+            secret = self._gensecret()
+            hash = handler.encrypt(secret, **ctx)
 
         # do main testing loop
         while True:
             # test with specified number of rounds
+            secret = self._gensecret()
             if self.hasrounds:
                 # NOTE: the extra time taken by this encrypt() call is
                 #       why setup_factor is set to 1.9, above
-                hash = handler.encrypt(SECRET, rounds=rounds, **ctx)
+                if getattr(handler, "_avoid_even_rounds", False):
+                    rounds |= 1
+                hash = handler.encrypt(secret, rounds=rounds, **ctx)
                 start = tick()
-                handler.verify(SECRET, hash, **ctx)
+                handler.verify(secret, hash, **ctx)
                 end = tick()
             else:
                 i = 0
                 start = tick()
                 while i < rounds:
-                    handler.verify(SECRET, hash, **ctx)
+                    handler.verify(secret, hash, **ctx)
                     i += 1
                 end = tick()
 
@@ -202,62 +227,163 @@ def estimate_rounds_value(handler, target_time=.25, max_time=None, **kwds):
     return timer.estimate(target_time)
 
 #=========================================================
+# benchmark frontend
+#=========================================================
+class BenchmarkError(ValueError):
+    pass
+
+_backend_filter_aliases = dict(a="all", d="default",
+                               f="fastest", i="installed")
+
+_benchmark_presets = dict(
+    all=lambda name: True,
+    variable=lambda name: examine.is_variable(name) and not examine.is_wrapper(name),
+    base=lambda name: not examine.is_wrapper(name),
+)
+
+def benchmark(schemes=None, backend_filter="all", max_time=None,
+              password_size=10):
+    """helper for benchmark command, times specified schemes.
+
+    :arg schemes:
+        list of schemes to test.
+        presets ("all", "variable", "base") will be expanded.
+
+    :arg backend_filter:
+        how to handler multi-backend. should be "all", "default",
+        "installed", or "fastest".
+
+    :arg max_time:
+        maximum time to spend measuring each hash.
+
+    :arg password_size:
+        specify size of password to benchmark.
+        if a tuple, interpreted as ``(avg, sigma)``.
+
+    :returns:
+        this function yeilds a series of HashTimer objects,
+        one for every scheme/backend combination tested.
+
+        * if a backend is not available, the object will have ``.speed=None``.
+        * if no backend is available, the object ``.speed=None`` and
+          ``.backend=None``
+    """
+    # expand aliases from list of schemes
+    if schemes is None:
+        schemes = ["all"]
+    names = set(schemes)
+    for scheme in schemes:
+        func = _benchmark_presets.get(scheme)
+        if func:
+            names.update(name for name in examine.list_crypt_handlers()
+                         if not examine.is_psuedo(name) and func(name))
+            names.discard(scheme)
+
+    # validate backend filter
+    backend_filter = _backend_filter_aliases.get(backend_filter, backend_filter)
+    if backend_filter not in ["all", "default", "installed", "fastest"]:
+        raise ValueError("unknown backend filter value: %r" % (backend_filter,))
+
+    # prepare for loop
+    def measure(handler, backend=None):
+        if backend and not handler.has_backend(backend):
+            return stub(handler, backend)
+        return HashTimer(handler, backend=backend, max_time=max_time,
+                         password_size=password_size)
+
+    def stub(handler, backend='none'):
+        return HashTimer(handler, backend, autorun=False)
+
+    # run through all schemes
+    for name in sorted(names):
+        handler = examine.get_crypt_handler(name)
+        if not hasattr(handler, "backends"):
+            yield measure(handler)
+        elif backend_filter == "fastest":
+            best = None
+            for backend in handler.backends:
+                timer = measure(handler, backend)
+                if timer.speed is not None and (best is None or
+                                                timer.speed > best.speed):
+                    best = timer
+            yield best or stub(handler)
+        elif backend_filter == "all":
+            for backend in handler.backends:
+                yield measure(handler, backend)
+        elif backend_filter == "installed":
+            found = False
+            for backend in handler.backends:
+                if handler.has_backend(backend):
+                    found = True
+                    yield measure(handler, backend)
+            if not found:
+                yield stub(handler)
+        else:
+            assert backend_filter == "default"
+            try:
+                default = handler.get_backend()
+            except MissingBackendError:
+                yield stub(handler)
+            else:
+                yield measure(handler, default)
+
+#=========================================================
 # development helpers
 #=========================================================
 
-def _test_timer(timer, cost):
-    "helper to test HashTimer's accuracy"
-    handler = timer.handler
-    ctx = timer.ctx
-    if timer.hasrounds:
-        h = handler.encrypt(SECRET, rounds=cost, **ctx)
-        s = default_timer()
-        handler.verify(SECRET, h, **ctx)
-        return default_timer()-s
-    else:
-        h = handler.encrypt(SECRET, **ctx)
-        s = default_timer()
-        i = 0
-        while i < cost:
-            handler.verify(SECRET, h, **ctx)
-            i += 1
-        return default_timer()-s
-
-def main(*args):
-    "test script used to develop & test HashTimer"
-    from bps.logs import setup_std_logging
-    setup_std_logging(level="warn", dev=True)
-    from passlib import hash
-
-    target_delta = .25
-
-    for name in dir(hash):
-        if name.startswith("_"):
-            continue
-        handler = getattr(hash, name)
-
-        s = default_timer()
-        timer = HashTimer(handler, max_time=1)
-        run_time = default_timer()-s
-
-        target_cost = timer.estimate(target_delta)
-        real_delta = _test_timer(timer, target_cost)
-        real_speed = timer.c2v(target_cost)/real_delta
-
-        speeds = [ timer.c2v(c)/e for c,e in timer._samples ]
-        def fpe(value, correct):
-            return round((value-correct)/correct*100,2)
-        print "%30s, %10s, % 10.2f, % 5.4f%%, % 5.4fs [%s]" % \
-            (timer.handler.name,
-             timer.scale if timer.hasrounds else "fixed",
-             timer.speed,
-             fpe(timer.speed, real_speed),
-             run_time,
-             ", ".join(str(fpe(s,real_speed)) for s in sorted(speeds))
-             )
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+##def _test_timer(timer, cost):
+##    "helper to test HashTimer's accuracy"
+##    handler = timer.handler
+##    ctx = timer.ctx
+##    if timer.hasrounds:
+##        h = handler.encrypt(SECRET, rounds=cost, **ctx)
+##        s = default_timer()
+##        handler.verify(SECRET, h, **ctx)
+##        return default_timer()-s
+##    else:
+##        h = handler.encrypt(SECRET, **ctx)
+##        s = default_timer()
+##        i = 0
+##        while i < cost:
+##            handler.verify(SECRET, h, **ctx)
+##            i += 1
+##        return default_timer()-s
+##
+##def main(*args):
+##    "test script used to develop & test HashTimer"
+##    from bps.logs import setup_std_logging
+##    setup_std_logging(level="warn", dev=True)
+##    from passlib import hash
+##
+##    target_delta = .25
+##
+##    for name in dir(hash):
+##        if name.startswith("_"):
+##            continue
+##        handler = getattr(hash, name)
+##
+##        s = default_timer()
+##        timer = HashTimer(handler, max_time=1)
+##        run_time = default_timer()-s
+##
+##        target_cost = timer.estimate(target_delta)
+##        real_delta = _test_timer(timer, target_cost)
+##        real_speed = timer.c2v(target_cost)/real_delta
+##
+##        speeds = [ timer.c2v(c)/e for c,e in timer._samples ]
+##        def fpe(value, correct):
+##            return round((value-correct)/correct*100,2)
+##        print "%30s, %10s, % 10.2f, % 5.4f%%, % 5.4fs [%s]" % \
+##            (timer.handler.name,
+##             timer.scale if timer.hasrounds else "fixed",
+##             timer.speed,
+##             fpe(timer.speed, real_speed),
+##             run_time,
+##             ", ".join(str(fpe(s,real_speed)) for s in sorted(speeds))
+##             )
+##
+##if __name__ == "__main__":
+##    sys.exit(main(sys.argv[1:]))
 
 #=========================================================
 #eof

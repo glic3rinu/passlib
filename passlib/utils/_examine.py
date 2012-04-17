@@ -4,7 +4,7 @@
 #=========================================================
 # core
 # package
-from passlib.registry import get_crypt_handler
+from passlib.registry import get_crypt_handler, list_crypt_handlers
 from passlib.utils import is_crypt_handler, has_salt_info, has_rounds_info
 # local
 
@@ -58,6 +58,14 @@ def _pair(source, errname="value"):
     else:
         raise TypeError("%s must be handler or handler name" % (errname,))
 
+def _lazy_pair(source, errname="value"):
+    if is_crypt_handler(source):
+        return (lambda : source), source.name
+    elif isinstance(source, str):
+        return (lambda : get_crypt_handler(source)), source
+    else:
+        raise TypeError("%s must be handler or handler name" % (errname,))
+
 #=========================================================
 # categorization
 #=========================================================
@@ -70,12 +78,12 @@ def handler_type(source):
     * ``"linear"`` - variable-rounds handler w/ linear cost
     * ``"log2"`` - variable-rounds handler w/ log2 cost
     """
-    handler, name = _pair(source)
+    handlerfn, name = _lazy_pair(source)
     if name in _disabled_handlers:
         return "disabled"
     if name in _plaintext_handlers:
         return "plaintext"
-    return getattr(handler, "rounds_cost", "fixed")
+    return getattr(handlerfn(), "rounds_cost", "fixed")
 
 def is_variable(source):
     "does handler have variable cost?"
@@ -90,18 +98,40 @@ def is_wrapper(source):
 def is_psuedo(source):
     "is handler a plaintext/disabled handler?"
     name = _name(source)
-    return name in _disable_handlers or name in _plaintext_handlers
+    return name in _disabled_handlers or name in _plaintext_handlers
+
+def registered_handlers(disabled=True, resolve=False):
+    """return (optionally filtered) list of registered handler names.
+
+    :param disabled:
+        if ``False``, filters out "disabled" handlers.
+    """
+    names = list_crypt_handlers()
+    if not disabled:
+        def ff(name):
+            ht = handler_type(name)
+            if ht == "disabled":
+                return disabled
+            return True
+        names = filter(ff, names)
+    if resolve:
+        names = map(get_crypt_handler, names)
+    return names
 
 #=========================================================
 # properties
 #=========================================================
 def has_user(source):
-    "does handler support user context?"
+    "does handler support user context kwd?"
     return 'user' in _handler(source).context_kwds
 
-def has_optional_user(source):
+def is_user_optional(source):
     "does handler support user context, but not require it?"
     return _name(source) in _user_optional_handlers
+
+def has_realm(source):
+    "does handler support realm context kwd?"
+    return 'realm' in _handler(source).context_kwds
 
 def has_wildcard_identify(source):
     "does handler have a wildcard identify?"
@@ -140,6 +170,9 @@ def iter_ident_values(source):
 
 def description(source):
     return getattr(_handler(source), "description", None)
+
+def avoid_even_rounds(source):
+    return getattr(_handler(source), "_avoid_even_rounds", False)
 
 #=========================================================
 # eof

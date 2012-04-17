@@ -1,4 +1,30 @@
-"""passlib.__main__ -- command line helper tool"""
+"""passlib.__main__ -- command line helper tool
+
+this is a work in progress. it has significant functionality,
+but many border cases are lacking.
+
+todo
+====
+* for all commands, add support for dot-separated handler names
+  to be interpreted as external handler object to import.
+
+* add 'guess' support to verify()
+
+* potential additional commands:
+    - gencfg_cmd - generate config w/ timings, possibly taking in another
+    - chkcfg_cmd - check config file for errors.
+    - should add 'selftest' command as well
+
+* unittests for all the commands (and internals)
+
+* expand examine module into the unittests (probably should wait
+  until merged back into default).
+
+* instead of 'help' handler giving alg list, should make it a separate option,
+  so it doesn't suprise users.
+
+* support for raw salts to be provided to encrypt
+"""
 #=========================================================
 #imports
 #=========================================================
@@ -10,7 +36,6 @@ import sys
 # package
 from passlib import __version__
 from passlib.exc import MissingBackendError
-from passlib.registry import list_crypt_handlers, get_crypt_handler
 from passlib.utils.compat import print_, iteritems, imap, exc_err
 import passlib.utils._examine as examine
 import passlib.utils.handlers as uh
@@ -18,8 +43,33 @@ import passlib.utils.handlers as uh
 vstr = "Passlib " + __version__
 
 #=========================================================
+# general support funcs
+#=========================================================
+def maxlen(source):
+    return max(len(elem) for elem in source)
+
+#=========================================================
 # encrypt & verify commands
 #=========================================================
+def _print_algorithms():
+    "print list of available algorithms for encrypt & verify"
+    print_("Hash algorithms currently supported by encrypt/verify:\n"
+           "------------------------------------------------------")
+    names = examine.registered_handlers(disabled=False)
+    fmt = "%-" + str(3+maxlen(names)) + "s %s"
+    for name in names:
+        text = examine.description(name) or '<no description>'
+        extra = []
+        if examine.has_user(name):
+            if examine.is_user_optional(name):
+                extra.append("supports --user")
+            else:
+                extra.append("requires --user")
+        if examine.is_variable(name):
+            extra.append("supports --rounds")
+        if extra:
+            text = "%s (%s)" % (text, ", ".join(extra))
+        print_(fmt % (name, text))
 
 def encrypt_cmd(args):
     """encrypt password using specific format"""
@@ -59,6 +109,9 @@ def encrypt_cmd(args):
     if not args:
         p.error("no method specified")
     method = args.pop(0)
+    if method == "help":
+        _print_algorithms()
+        return 0
     if args:
         password = args.pop(0)
     else:
@@ -71,21 +124,15 @@ def encrypt_cmd(args):
     #
     if not method:
         p.error("No method provided")
-    elif method == "help":
-        print_("available hash algorithms:\n"
-               "--------------------------")
-        for name in list_crypt_handlers():
-            print_(name)
-        return 0
-    handler = get_crypt_handler(method)
+    handler = examine.get_crypt_handler(method)
     kwds = {}
     if examine.has_user(handler):
         if opts.user:
             kwds['user'] = opts.user
-        elif not examine.has_optional_user(handler):
+        elif not examine.is_user_optional(handler):
             print_("error: %s requires a --user" % method)
             return 1
-    if examine.is_variable(handler):
+    if opts.rounds is not None and examine.is_variable(handler):
         kwds['rounds'] = int(opts.rounds)
     if opts.salt and examine.has_salt(handler):
         kwds['salt'] = opts.salt
@@ -118,8 +165,8 @@ def verify_cmd(args):
                      usage="%prog [options] <method> <hash> [<password>]",
                      description="This subcommand will attempt to verify the hash against the specified password,"
                                  "using the specified hashing method, and output success or failure.",
-                     epilog="The <method> may be a comma-separated list, or 'guess', in which case"
-                            "multi methods will be tries, to see if any suceed")
+                     epilog="The <method> may be a comma-separated list, 'help', or 'guess', in the latter case"
+                            "multiple methods will be tried, to see if any succeed")
     p.add_option("-u", "--user", dest="user", default=None,
                  help="specify username for algorithms which require it",
                  )
@@ -131,6 +178,9 @@ def verify_cmd(args):
     if not args:
         p.error("no method specified")
     method = args.pop(0)
+    if method == "help":
+        _print_algorithms()
+        return 0
     if not args:
         p.error("no hash specified")
     hash = args.pop(0)
@@ -146,19 +196,13 @@ def verify_cmd(args):
     #
     if not method:
         p.error("No method provided")
-    elif method == "help":
-        print_("available hash algorithms:\n"
-               "--------------------------")
-        for name in list_crypt_handlers():
-            print_(name)
-        return 0
     # TODO: support multiple methods, and 'guess'
-    handler = get_crypt_handler(method)
+    handler = examine.get_crypt_handler(method)
     kwds = {}
     if examine.has_user(handler):
         if opts.user:
             kwds['user'] = opts.user
-        elif not examine.has_optional_user(handler):
+        elif not examine.is_user_optional(handler):
             print_("error: %s requires a --user" % method)
             return 1
 
@@ -184,167 +228,12 @@ def verify_cmd(args):
 #=========================================================
 # identify command
 #=========================================================
-
-# some handlers lack fixed identifier, and may match against hashes
-# that aren't their own; this is used to rate those as less likely.
-_handler_weights = dict(
-    des_crypt=90,
-    bigcrypt=25,
-    crypt16=25,
-)
-
-# list of known character ranges
-_char_ranges = [
-    uh.LOWER_HEX_CHARS,
-    uh.UPPER_HEX_CHARS,
-    uh.HEX_CHARS,
-    uh.HASH64_CHARS,
-    uh.BASE64_CHARS,
-]
-
-def _identify_char_range(source):
-    "identify if source string uses known character range"
-    source = set(source)
-    for cr in _char_ranges:
-        if source.issubset(cr):
-            return cr
-    return None
-
-def _identify_helper(hash, handler):
-    """try to interpret hash as belonging to handler, report results
-    :arg hash: hash string to check
-    :arg handler: handler to check against
-    :returns:
-        ``(category, score)``, where category is one of:
-
-        * ``"hash"`` -- if parsed correctly as hash string
-        * ``"salt"`` -- if parsed correctly as salt / configuration string
-        * ``"malformed"`` -- if identified, but couldn't be parsed
-        * ``None`` -- no match whatsoever
-    """
-    # fix odds of identifying malformed vs other hash
-    malformed = 75
-
-    # check if handler identifies hash
-    if not handler.identify(hash):
-        # last-minute check to see if it *might* be one,
-        # but identify() method was too strict.
-        if isinstance(hash, bytes):
-            hash = hash.decode("utf-8")
-        if any(hash.startswith(ident) for ident in
-               examine.iter_ident_values(handler)):
-            return "malformed", malformed
-        return None, 0
-
-    # apply hash-specific fuzz checks (if any).
-    # currently only used by cisco_type7
-    fid = getattr(handler, "_fuzzy_identify", None)
-    if fid:
-        score = fid(hash)
-        assert 0 <= score <= 100
-        if score == 0:
-            return None, 0
-    else:
-        score = 100
-
-    # first try to parse the hash using GenericHandler.from_string(),
-    # since that's cheaper than always calling verify()
-    if hasattr(handler, "from_string"):
-        try:
-            hobj = handler.from_string(hash)
-        except ValueError:
-            return "malformed", malformed
-        checksum = hobj.checksum
-
-        # detect salts
-        if checksum is None:
-            return "config", score
-
-        # if checksum contains suspiciously fewer chars than it should
-        # (e.g. is strictly hex, but should be h64), weaken score.
-        # uc>1 is there so we skip 'fake' checksums that are all one char.
-        uc = len(set(checksum))
-        chars = getattr(handler, "checksum_chars", None)
-        if isinstance(checksum, unicode) and uc > 1 and chars:
-            cr = _identify_char_range(checksum)
-            hr = _identify_char_range(chars)
-            if (cr in [uh.LOWER_HEX_CHARS, uh.UPPER_HEX_CHARS] and
-                    hr in [uh.HASH64_CHARS, uh.BASE64_CHARS]):
-                # *really* unlikely this belongs to handler.
-                return None, 0
-        return "hash", score
-
-    # as fallback, try to run hash through verify & genhash and see
-    # if any errors are thrown.
-    else:
-
-        # prepare context kwds
-        ctx = {}
-        if examine.has_optional_user(handler):
-            ctx['user'] = 'user'
-
-        # check if it verifies against password
-        try:
-            ok = handler.verify('xxx', hash, **ctx)
-        except ValueError:
-            pass
-        else:
-            return "hash", score
-
-        # check if we can encrypt against password
-        try:
-            handler.genhash('xxx', hash, **ctx)
-        except ValueError:
-            pass
-        else:
-            return "config", score
-
-        # identified, but can't parse
-        return "malformed", malformed
-
-def fuzzy_identify(hash):
-    """try to identify format of hash.
-
-    :arg hash: hash to try to identify
-    :returns:
-        list of ``(name, category, confidence)`` entries.
-        * ``name`` -- name of handler
-        * ``category`` -- one of ``"hash", "salt", "malformed", "guess"``
-        * ``confidence`` -- confidence rating used to rank possibilities.
-          currently rather arbitrary and inexact.
-    """
-    # gather results, considering all handlers which don't use wildcard identify
-    results = []
-    for name in list_crypt_handlers():
-        if examine.has_wildcard_identify(name):
-            continue
-        handler = get_crypt_handler(name)
-        cat, score = _identify_helper(hash, handler)
-        if cat:
-            score *= _handler_weights.get(name, 100) // 100
-            results.append([name, cat, score])
-
-    # sort by score and return
-    so = ["hash", "config", "malformed"]
-    def sk(record):
-        return -record[2], so.index(record[1]), record[0]
-    results.sort(key=sk)
-    return results
-
-def identify_format(hash):
-    "identify scheme used by format (mcf, ldap, None:unknown)"
-    m = re.match(r"(\$[a-zA-Z0-9_-]+\$)\w+", candidate)
-    if m:
-        return "mcf", m.group(1)
-    m = re.match(r"(\{\w+\})\w+", candidate)
-    if m:
-        return "ldap", m.group(1)
-    return None, None
-
 def identify_cmd(args):
     """attempt to identify format of unknown password hashes.
     this is just a wrapper for the more python-friendly fuzzy_identify()
     """
+    from passlib.utils._identify import fuzzy_identify_hash, identify_hash_format
+
     #
     # parse args
     #
@@ -410,7 +299,7 @@ def identify_cmd(args):
 
     # inform user about general class of hash if the guesses were poor.
     if not opts.csv and best < 25:
-        fmt, ident = identify_format(hash)
+        fmt, ident = identify_hash_format(hash)
         if fmt == "mcf":
             print_("\nDue to the %r prefix, "
                    "input is possibly an unknown/unsupported "
@@ -426,133 +315,62 @@ def identify_cmd(args):
 #=========================================================
 # benchmark command
 #=========================================================
-class BenchmarkError(ValueError):
-    pass
-
-_backend_filter_aliases = dict(a="all", d="default",
-                               f="fastest", i="installed")
-
-_benchmark_presets = dict(
-    all=lambda name: True,
-    variable=lambda name: examine.is_variable(name) and not examine.is_wrapper(name),
-    base=lambda name: not examine.is_wrapper(name),
-)
-
-def benchmark(schemes=None, backend_filter="all", max_time=None):
-    """helper for benchmark command, times specified schemes.
-
-    :arg schemes:
-        list of schemes to test.
-        presets ("all", "variable", "base") will be expanded.
-
-    :arg backend_filter:
-        how to handler multi-backend. should be "all", "default",
-        "installed", or "fastest".
-
-    :arg max_time:
-        maximum time to spend measuring each hash.
-
-    :returns:
-        this function yeilds a series of HashTimer objects,
-        one for every scheme/backend combination tested.
-
-        * if a backend is not available, the object will have ``.speed=None``.
-        * if no backend is available, the object ``.speed=None`` and
-          ``.backend=None``
-    """
-    # expand aliases from list of schemes
-    if schemes is None:
-        schemes = ["all"]
-    names = set(schemes)
-    for scheme in schemes:
-        func = _benchmark_presets.get(scheme)
-        if func:
-            names.update(name for name in list_crypt_handlers()
-                         if not examine.is_psuedo(name) and func(name))
-            names.discard(scheme)
-
-    # validate backend filter
-    backend_filter = _backend_filter_aliases.get(backend_filter, backend_filter)
-    if backend_filter not in ["all", "default", "installed", "fastest"]:
-        raise ValueError("unknown backend filter value: %r" % (backend_filter,))
-
-    # prepare for loop
-    from passlib.utils._cost import HashTimer
-
-    def measure(handler, backend=None):
-        if backend and not handler.has_backend(backend):
-            # create stub instance by not running measurements;
-            # detected via .speed=None
-            return HashTimer(handler, backend=backend, autorun=False)
-        return HashTimer(handler, backend=backend, max_time=max_time)
-
-    def stub(handler):
-        return HashTimer(handler, 'none', autorun=False)
-
-    # run through all schemes
-    for name in sorted(names):
-        handler = get_crypt_handler(name)
-        if not hasattr(handler, "backends"):
-            yield measure(handler)
-        elif backend_filter == "fastest":
-            best = None
-            for backend in handler.backends:
-                timer = measure(handler, backend)
-                if timer.speed is not None and (best is None or
-                                                timer.speed > best.speed):
-                    best = timer
-            yield best or stub(handler)
-        elif backend_filter == "all":
-            for backend in handler.backends:
-                yield measure(handler, backend)
-        elif backend_filter == "installed":
-            found = False
-            for backend in handler.backends:
-                if handler.has_backend(backend):
-                    found = True
-                    yield measure(handler, backend)
-            if not found:
-                yield stub(handler)
-        else:
-            assert backend_filter == "default"
-            try:
-                default = handler.get_backend()
-            except MissingBackendError:
-                yield stub(handler)
-            else:
-                yield measure(handler, default)
-
 def benchmark_cmd(args):
     """benchmark speed of hash algorithms.
     this is mainly a wrapper for the benchmark() function.
     """
+    # TODO: support way to list preset filters.
+
     #
     # parse args
     #
     p = OptionParser(prog="passlib benchmark", version=vstr,
                      usage="%prog [options] [all | variable | <alg> ... ]",
-                     description="""You should provide the names of one
-or more algorithms to benchmark, as positional arguments. If you
-provide the special name "all", all algorithms in Passlib will be tested.""",
+                     description="""\
+This command runs a speed test of one or more password hashing algorithms.
+You should provide the names of one or more algorithms to benchmark, as
+positional arguments. If you provide the special name "all", all algorithms
+in Passlib will be tested. If you provide the special name "variable",
+all variable-cost algorithms will be tested.""",
                      )
     p.add_option("-b", "--backend-filter", action="store", default="installed",
                  dest="backend_filter",
-                 help="only list specific backends (possible values are: all, default, installed, fastest)")
+                 help="only list specific backends (possible values are: "
+                      "'all', 'default', 'installed', 'fastest';"
+                      " default is '%default')")
     p.add_option("-t", "--target-time", action="store", type="float",
                  dest="target_time", default=.25, metavar="SECONDS",
-                 help="display cost setting required for verify() to take specified time (default=%default)",
+                 help="display cost setting required for verify()"
+                      " to take specified time (default=%default)",
                 )
-    p.add_option("--max-time", action="store", type="float",
-                 dest="max_time", default=1.0, metavar="SECONDS",
+    p.add_option("-x", "--measure-time", action="store", type="float",
+                 dest="measure_time", default=2.0, metavar="SECONDS",
                  help="spend at most SECONDS benchmarking each hash (default=%default)",
                 )
     p.add_option("--csv", action="store_true",
                  dest="csv", default=False,
                  help="Output results in CSV format")
+    p.add_option("--speed-scale", action="store", type="float",
+                 dest="speed_scale", default=1.0,
+                 help="scale results based on external factor, e.g. cpu speed")
+    p.add_option("--password-size", action="store",
+                 dest="password_size", default="10/2", metavar="SIZE",
+                 help="size of password to test (default=%default)",
+                )
     ##p.add_option("--with-default", action="store_true", dest="with_default",
     ##             default=False, help="Include default cost in listing")
 
     opts, args = p.parse_args(args)
+
+    opts.exact = False
+
+    # normalize password size
+    if isinstance(opts.password_size, str):
+        if '/' in opts.password_size:
+            mu, sigma = opts.password_size.split("/")
+            opts.password_size = int(mu), int(sigma)
+        else:
+            opts.password_size = int(opts.password_size)
 
     # prepare formatters
     if opts.csv:
@@ -566,19 +384,27 @@ provide the special name "all", all algorithms in Passlib will be tested.""",
         print_(fmt % ("-" * 30, "-" * 10, "-" * 10, "-" * 10, "-" * 10))
         null = "-"
 
+    from passlib.utils._cost import benchmark, BenchmarkError
     try:
         for timer in benchmark(schemes=args or None,
-                               max_time=opts.max_time,
+                               max_time=opts.measure_time,
                                backend_filter=opts.backend_filter,
+                               password_size=opts.password_size,
                                ):
             name = timer.handler.name
             backend = timer.backend
             scale = timer.scale if timer.hasrounds else "fixed"
             spd = cost = curdef = null
             if timer.speed is not None:
+                timer.speed *= opts.speed_scale
                 spd = ("%g" if timer.speed < 10 else "%d") % (timer.speed,)
                 if timer.hasrounds:
-                    cost = timer.estimate(opts.target_time)
+                    if opts.exact:
+                        cost = timer.estimate(opts.target_time)
+                    else:
+                        cost = timer.pretty_estimate(opts.target_time)
+                    if examine.avoid_even_rounds(timer.handler):
+                        cost |= 1
                     curdef = timer.handler.default_rounds
             if opts.csv:
                 print_(fmt % (name, backend or '', spd, scale, cost, curdef))
@@ -598,10 +424,6 @@ commands = {
     "encrypt": encrypt_cmd,
     "verify": verify_cmd,
     "benchmark": benchmark_cmd,
-    # TODO: verify_cmd
-    # TODO: gencfg_cmd - generate config w/ timings, possibly taking in another
-    # TODO: chkcfg_cmd - check config file for errors.
-    # TODO: test_cmd
 }
 
 def _print_avail():
