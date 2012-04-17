@@ -24,6 +24,8 @@ todo
   so it doesn't suprise users.
 
 * support for raw salts to be provided to encrypt
+
+* benchmark should support testing multiple variants (e.g. FSHP, SCRAM)
 """
 #=========================================================
 #imports
@@ -362,7 +364,7 @@ all variable-cost algorithms will be tested.""",
 
     opts, args = p.parse_args(args)
 
-    opts.exact = False
+    opts.exact = True # XXX: add pretty_estimate flag?
 
     # normalize password size
     if isinstance(opts.password_size, str):
