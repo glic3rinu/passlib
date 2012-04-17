@@ -176,7 +176,8 @@ bsd_nthash = uh.PrefixWrapper("bsd_nthash", nthash, prefix="$3$$", ident="$3$$",
     It has no salt and a single fixed round.
 
     The :meth:`encrypt()` and :meth:`genconfig` methods accept no optional keywords.
-    """)
+    """,
+    description="FreeBSD's crypt()-compatible NTHASH format")
 
 ##class ntlm_pair(object):
 ##    "combined lmhash & nthash"

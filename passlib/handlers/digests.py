@@ -89,7 +89,7 @@ class htdigest(object):
         document this hash
     """
     name = "htdigest"
-    summary = "apache htdigest hash"
+    description = "Apache's htdigest hash"
     setting_kwds = ()
     context_kwds = ("user", "realm")
 

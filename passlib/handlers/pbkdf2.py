@@ -93,6 +93,7 @@ def create_pbkdf2_hash(hash_name, digest_size, ident=None):
     base = Pbkdf2DigestHandler
     return type(name, (base,), dict(
         name=name,
+        description="PBKDF2-based hash defined by Passlib, uses HMAC-" + hash_name.upper(),
         ident=ident,
         _prf = prf,
         checksum_size=digest_size,
@@ -125,9 +126,12 @@ pbkdf2_sha1 = create_pbkdf2_hash("sha1", 20, ident=u("$pbkdf2$"))
 pbkdf2_sha256 = create_pbkdf2_hash("sha256", 32)
 pbkdf2_sha512 = create_pbkdf2_hash("sha512", 64)
 
-ldap_pbkdf2_sha1 = uh.PrefixWrapper("ldap_pbkdf2_sha1", pbkdf2_sha1, "{PBKDF2}", "$pbkdf2$")
-ldap_pbkdf2_sha256 = uh.PrefixWrapper("ldap_pbkdf2_sha256", pbkdf2_sha256, "{PBKDF2-SHA256}", "$pbkdf2-sha256$")
-ldap_pbkdf2_sha512 = uh.PrefixWrapper("ldap_pbkdf2_sha512", pbkdf2_sha512, "{PBKDF2-SHA512}", "$pbkdf2-sha512$")
+ldap_pbkdf2_sha1 = uh.PrefixWrapper("ldap_pbkdf2_sha1", pbkdf2_sha1, "{PBKDF2}", "$pbkdf2$",
+                                    description="LDAP-style variant of passlib's pbkdf2_sha1")
+ldap_pbkdf2_sha256 = uh.PrefixWrapper("ldap_pbkdf2_sha256", pbkdf2_sha256, "{PBKDF2-SHA256}", "$pbkdf2-sha256$",
+                                    description="LDAP-style variant of passlib's pbkdf2_sha256")
+ldap_pbkdf2_sha512 = uh.PrefixWrapper("ldap_pbkdf2_sha512", pbkdf2_sha512, "{PBKDF2-SHA512}", "$pbkdf2-sha512$",
+                                    description="LDAP-style variant of passlib's pbkdf2_sha512")
 
 #=========================================================
 #cryptacular's pbkdf2 hash

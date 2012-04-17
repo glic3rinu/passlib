@@ -162,6 +162,7 @@ class plaintext(object):
     # NOTE: this is subclassed by ldap_plaintext
 
     name = "plaintext"
+    description = "handler for plaintext (unhashed) passwords"
     setting_kwds = ()
     context_kwds = ()
     _hash_encoding = "utf-8"
