@@ -42,7 +42,7 @@ from passlib.utils import has_rounds_info, has_salt_info, rounds_cost_values, \
                           classproperty, rng, getrandstr, is_ascii_safe, to_native_str, \
                           repeat_string
 from passlib.utils.compat import b, bytes, iteritems, irange, callable, \
-                                 base_string_types, exc_err, u, unicode
+                                 base_string_types, exc_err, u, unicode, PY2
 import passlib.utils.handlers as uh
 #local
 __all__ = [
@@ -133,6 +133,18 @@ def get_file(path):
     "read file as bytes"
     with open(path, "rb") as fh:
         return fh.read()
+
+def tonn(source):
+    "convert native string to non-native string"
+    if not isinstance(source, str):
+        return source
+    elif PY3:
+        return source.encode("utf-8")
+    else:
+        try:
+            return source.decode("utf-8")
+        except UnicodeDecodeError:
+            return source.decode("latin-1")
 
 #=========================================================
 #custom test base
@@ -493,6 +505,13 @@ class TestCase(unittest.TestCase):
             msg = "error for case %r:" % (elem.render(1),)
             self.assertEqual(result, correct, msg)
 
+    def require_stringprep(self):
+        "helper to skip test if stringprep is missing"
+        from passlib.utils import stringprep
+        if not stringprep:
+            from passlib.utils import _stringprep_missing_reason
+            raise self.skipTest("not available - stringprep module is " +
+                                _stringprep_missing_reason)
     #============================================================
     #eoc
     #============================================================
@@ -741,7 +760,7 @@ class HandlerCase(TestCase):
 
         # XXX: any more checks needed?
 
-    def test_02_config(self):
+    def test_02_config_workflow(self):
         """test basic config-string workflow
 
         this tests that genconfig() returns the expected types,
@@ -785,7 +804,7 @@ class HandlerCase(TestCase):
         else:
             self.assertRaises(TypeError, self.do_identify, config)
 
-    def test_03_hash(self):
+    def test_03_hash_workflow(self):
         """test basic hash-string workflow.
 
         this tests that encrypt()'s hashes are accepted
@@ -835,8 +854,36 @@ class HandlerCase(TestCase):
             #
             self.assertTrue(self.do_identify(result))
 
+    def test_04_hash_types(self):
+        "test hashes can be unicode or bytes"
+        # this runs through workflow similar to 03, but wraps
+        # everything using tonn() so we test unicode under py2,
+        # and bytes under py3.
 
-    def test_04_backends(self):
+        # encrypt using non-native secret
+        result = self.do_encrypt(tonn('stub'))
+        self.check_returned_native_str(result, "encrypt")
+
+        # verify using non-native hash
+        self.check_verify('stub', tonn(result))
+
+        # verify using non-native hash AND secret
+        self.check_verify(tonn('stub'), tonn(result))
+
+        # genhash using non-native hash
+        other = self.do_genhash('stub', tonn(result))
+        self.check_returned_native_str(other, "genhash")
+        self.assertEqual(other, result)
+
+        # genhash using non-native hash AND secret
+        other = self.do_genhash(tonn('stub'), tonn(result))
+        self.check_returned_native_str(other, "genhash")
+        self.assertEqual(other, result)
+
+        # identify using non-native hash
+        self.assertTrue(self.do_identify(tonn(result)))
+
+    def test_05_backends(self):
         "test multi-backend support"
         handler = self.handler
         if not hasattr(handler, "set_backend"):
@@ -1064,6 +1111,34 @@ class HandlerCase(TestCase):
             if c not in cs:
                 self.assertRaises(ValueError, self.do_genconfig, salt=c*chunk,
                                   __msg__="invalid salt char %r:" % (c,))
+
+    @property
+    def salt_type(self):
+        "hack to determine salt keyword's datatype"
+        # NOTE: cisco_type7 uses 'int'
+        if getattr(self.handler, "_salt_is_bytes", False):
+            return bytes
+        else:
+            return unicode
+
+    def test_15_salt_type(self):
+        "test non-string salt values"
+        self.require_salt()
+        salt_type = self.salt_type
+
+        # should always throw error for random class.
+        class fake(object):
+            pass
+        self.assertRaises(TypeError, self.do_encrypt, 'stub', salt=fake())
+
+        # unicode should be accepted only if salt_type is unicode.
+        if salt_type is not unicode:
+            self.assertRaises(TypeError, self.do_encrypt, 'stub', salt=u('x'))
+
+        # bytes should be accepted only if salt_type is bytes,
+        # OR if salt type is unicode and running PY2 - to allow native strings.
+        if not (salt_type is bytes or (PY2 and salt_type is unicode)):
+            self.assertRaises(TypeError, self.do_encrypt, 'stub', salt=b('x'))
 
     #==============================================================
     # rounds
@@ -1561,12 +1636,15 @@ class HandlerCase(TestCase):
             # run through all verifiers we found.
             for verify in verifiers:
                 name = vname(verify)
-
-                if not verify(secret, hash, **ctx):
+                result = verify(secret, hash, **ctx)
+                if result == "skip": # let verifiers signal lack of support
+                    continue
+                assert result is True or result is False
+                if not result:
                     raise self.failureException("failed to verify against %s: "
                                                 "secret=%r config=%r hash=%r" %
                                                 (name, secret, kwds, hash))
-                # occasionally check that some other secret WON'T verify
+                # occasionally check that some other secrets WON'T verify
                 # against this hash.
                 if rng.random() < .1 and verify(other, hash, **ctx):
                     raise self.failureException("was able to verify wrong "
@@ -1588,13 +1666,16 @@ class HandlerCase(TestCase):
         handler = self.handler
         verifiers = []
 
-        # test against self
-        def check_default(secret, hash, **ctx):
-            "self"
-            return self.do_verify(secret, hash, **ctx)
-        verifiers.append(check_default)
+        # call all methods starting with prefix in order to create
+        # any verifiers.
+        prefix = "fuzz_verifier_"
+        for name in dir(self):
+            if name.startswith(prefix):
+                func = getattr(self, name)()
+                if func is not None:
+                    verifiers.append(func)
 
-        # test against any other available backends
+        # create verifiers for any other available backends
         if hasattr(handler, "backends") and enable_option("all-backends"):
             def maker(backend):
                 def func(secret, hash):
@@ -1604,23 +1685,41 @@ class HandlerCase(TestCase):
                 func.__doc__ = backend + "-backend"
                 return func
             cur = handler.get_backend()
-            check_default.__doc__ = cur + "-backend"
             for backend in handler.backends:
                 if backend != cur and handler.has_backend(backend):
                     verifiers.append(maker(backend))
 
+        return verifiers
+
+    def fuzz_verifier_default(self):
+        # test against self
+        def check_default(secret, hash, **ctx):
+            return self.do_verify(secret, hash, **ctx)
+        if self.backend:
+            check_default.__doc__ = self.backend + "-backend"
+        else:
+            check_default.__doc__ = "self"
+        return check_default
+
+    def os_supports_ident(self, ident):
+        "skip verifier_crypt when OS doesn't support ident"
+        return True
+
+    def fuzz_verifier_crypt(self):
         # test againt OS crypt()
         # NOTE: skipping this if using_patched_crypt since _has_crypt_support()
         # will return false positive in that case.
-        if not self.using_patched_crypt and _has_crypt_support(handler):
-            from crypt import crypt
-            def check_crypt(secret, hash):
-                "stdlib-crypt"
-                secret = to_native_str(secret, self.fuzz_password_encoding)
-                return crypt(secret, hash) == hash
-            verifiers.append(check_crypt)
-
-        return verifiers
+        handler = self.handler
+        if self.using_patched_crypt or not _has_crypt_support(handler):
+            return None
+        from crypt import crypt
+        def check_crypt(secret, hash):
+            "stdlib-crypt"
+            if not self.os_supports_ident(hash):
+                return "skip"
+            secret = to_native_str(secret, self.fuzz_password_encoding)
+            return crypt(secret, hash) == hash
+        return check_crypt
 
     def get_fuzz_password(self):
         "generate random passwords (for fuzz testing)"
@@ -1672,11 +1771,8 @@ class HandlerCase(TestCase):
                 return rng.choice(handler.ident_values)
 
     #=========================================================
-    # test 8x - mixin tests
-    # test 9x - handler-specific tests
-    #=========================================================
-
-    #=========================================================
+    #       test 8x - mixin tests
+    #       test 9x - handler-specific tests
     # eoc
     #=========================================================
 
@@ -1698,9 +1794,6 @@ class OsCryptMixin(HandlerCase):
     # platforms that are known to support / not support this hash natively.
     # encodeds as os.platform prefixes.
     platform_crypt_support = dict()
-
-    # TODO: test that os_crypt support is detected correct on the expected
-    # platofrms.
 
     #=========================================================
     # instance attrs
@@ -1746,20 +1839,27 @@ class OsCryptMixin(HandlerCase):
     #=========================================================
     # custom tests
     #=========================================================
-    def test_80_faulty_crypt(self):
-        "test with faulty crypt()"
-        # patch safe_crypt to return mock value.
+    def _use_mock_crypt(self):
+        "patch safe_crypt() so it returns mock value"
         import passlib.utils as mod
-        self.addCleanup(setattr, mod, "_crypt", mod._crypt)
+        if not self.using_patched_crypt:
+            self.addCleanup(setattr, mod, "_crypt", mod._crypt)
         crypt_value = [None]
         mod._crypt = lambda secret, config: crypt_value[0]
+        def setter(value):
+            crypt_value[0] = value
+        return setter
 
-        # prepare framework
+    def test_80_faulty_crypt(self):
+        "test with faulty crypt()"
         hash = self.get_sample_hash()[1]
         exc_types = (AssertionError,)
+        setter = self._use_mock_crypt()
 
         def test(value):
-            crypt_value[0] = value
+            # set safe_crypt() to return specified value, and
+            # make sure assertion error is raised by handler.
+            setter(value)
             self.assertRaises(exc_types, self.do_genhash, "stub", hash)
             self.assertRaises(exc_types, self.do_encrypt, "stub")
             self.assertRaises(exc_types, self.do_verify, "stub", hash)
@@ -1768,8 +1868,27 @@ class OsCryptMixin(HandlerCase):
         test(hash[:-1]) # detect too short
         test(hash + 'x') # detect too long
 
-    def test_81_crypt_support(self):
-        "test crypt support detection"
+    def test_81_crypt_fallback(self):
+        "test per-call crypt() fallback"
+        # set safe_crypt to return None
+        setter = self._use_mock_crypt()
+        setter(None)
+        if _find_alternate_backend(self.handler, "os_crypt"):
+            # handler should have a fallback to use
+            h1 = self.do_encrypt("stub")
+            h2 = self.do_genhash("stub", h1)
+            self.assertEqual(h2, h1)
+            self.assertTrue(self.do_verify("stub", h1))
+        else:
+            # handler should give up
+            from passlib.exc import MissingBackendError
+            hash = self.get_sample_hash()[1]
+            self.assertRaises(MissingBackendError, self.do_encrypt, 'stub')
+            self.assertRaises(MissingBackendError, self.do_genhash, 'stub', hash)
+            self.assertRaises(MissingBackendError, self.do_verify, 'stub', hash)
+
+    def test_82_crypt_support(self):
+        "test platform-specific crypt() support detection"
         platform = sys.platform
         for name, flag in self.platform_crypt_support.items():
             if not platform.startswith(name):

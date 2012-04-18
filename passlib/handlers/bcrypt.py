@@ -186,8 +186,7 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
 
     def _norm_salt(self, salt, **kwds):
         salt = super(bcrypt, self)._norm_salt(salt, **kwds)
-        if not salt:
-            return None
+        assert salt is not None, "HasSalt didn't generate new salt!"
         changed, salt = bcrypt64.check_repair_unused(salt)
         if changed:
             warn(
@@ -250,10 +249,14 @@ class bcrypt(uh.HasManyIdents, uh.HasRounds, uh.HasSalt, uh.HasManyBackends, uh.
             assert hash.startswith(config) and len(hash) == len(config)+31
             return hash[-31:]
         else:
-            #NOTE: not checking other backends since this is lowest priority one,
-            #      so they probably aren't available either.
+            # NOTE: it's unlikely any other backend will be available,
+            # but checking before we bail, just in case.
+            for name in self.backends:
+                if name != "os_crypt" and self.has_backend(name):
+                    func = getattr(self, "_calc_checksum_" + name)
+                    return func(secret)
             raise uh.exc.MissingBackendError(
-                "encoded password can't be handled by os_crypt, "
+                "password can't be handled by os_crypt, "
                 "recommend installing py-bcrypt.",
                 )
 
