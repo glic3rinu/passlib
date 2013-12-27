@@ -4,7 +4,6 @@
 #=============================================================================
 from __future__ import with_statement
 # core
-import hashlib
 import logging; log = logging.getLogger(__name__)
 import os
 import sys
@@ -15,7 +14,7 @@ from passlib import hash
 from passlib.utils import repeat_string
 from passlib.utils.compat import irange, PY3, u, get_method_function
 from passlib.tests.utils import TestCase, HandlerCase, skipUnless, \
-        TEST_MODE, b, catch_warnings, UserHandlerMixin, randintgauss, EncodingHandlerMixin
+        TEST_MODE, b, UserHandlerMixin, randintgauss, EncodingHandlerMixin
 # module
 
 #=============================================================================

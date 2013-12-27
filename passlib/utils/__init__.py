@@ -12,6 +12,7 @@ import math
 import os
 import sys
 import random
+import re
 if JYTHON: # pragma: no cover -- runtime detection
     # Jython 2.5.2 lacks stringprep module -
     # see http://bugs.jython.org/issue1758320
@@ -1430,6 +1431,13 @@ else:
     # On most other platforms the best timer is time.time()
     from time import time as tick
 
+def parse_version(source):
+    """helper to parse version string"""
+    m = re.search(r"(\d+(?:\.\d+)+)", source)
+    if m:
+        return tuple(int(elem) for elem in m.group(1).split("."))
+    return None
+
 #=============================================================================
 # randomness
 #=============================================================================
@@ -1540,6 +1548,8 @@ def getrandstr(rng, charset, count):
 
 _52charset = '2346789ABCDEFGHJKMNPQRTUVWXYZabcdefghjkmnpqrstuvwxyz'
 
+@deprecated_function(deprecated="1.7", removed="2.0",
+                     replacement="passlib.pwd.generate()")
 def generate_password(size=10, charset=_52charset):
     """generate random password using given length & charset
 

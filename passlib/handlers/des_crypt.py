@@ -8,7 +8,7 @@ import logging; log = logging.getLogger(__name__)
 from warnings import warn
 # site
 # pkg
-from passlib.utils import classproperty, h64, h64big, safe_crypt, test_crypt, to_unicode
+from passlib.utils import h64, h64big, safe_crypt, test_crypt, to_unicode
 from passlib.utils.compat import b, bytes, byte_elem_value, u, uascii_to_str, unicode
 from passlib.utils.des import des_encrypt_int_block
 import passlib.utils.handlers as uh
@@ -176,14 +176,14 @@ class des_crypt(uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):
     #===================================================================
     backends = ("os_crypt", "builtin")
 
-    _has_backend_builtin = True
-
-    @classproperty
-    def _has_backend_os_crypt(cls):
-        return test_crypt("test", 'abgOeLfPimXQo')
-
-    def _calc_checksum_builtin(self, secret):
-        return _raw_des_crypt(secret, self.salt.encode("ascii")).decode("ascii")
+    #---------------------------------------------------------------
+    # os_crypt backend
+    #---------------------------------------------------------------
+    @classmethod
+    def _load_backend_os_crypt(cls):
+        if test_crypt("test", 'abgOeLfPimXQo'):
+            return cls._calc_checksum_os_crypt
+        return None
 
     def _calc_checksum_os_crypt(self, secret):
         # NOTE: safe_crypt encodes unicode secret -> utf8
@@ -192,8 +192,17 @@ class des_crypt(uh.HasManyBackends, uh.HasSalt, uh.GenericHandler):
         if hash:
             assert hash.startswith(self.salt) and len(hash) == 13
             return hash[2:]
-        else:
-            return self._calc_checksum_builtin(secret)
+        return self._try_alternate_backends(secret)
+
+    #---------------------------------------------------------------
+    # builtin backend
+    #---------------------------------------------------------------
+    @classmethod
+    def _load_backend_builtin(cls):
+        return cls._calc_checksum_builtin
+
+    def _calc_checksum_builtin(self, secret):
+        return _raw_des_crypt(secret, self.salt.encode("ascii")).decode("ascii")
 
     #===================================================================
     # eoc
@@ -316,14 +325,14 @@ class bsdi_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler
     #===================================================================
     backends = ("os_crypt", "builtin")
 
-    _has_backend_builtin = True
-
-    @classproperty
-    def _has_backend_os_crypt(cls):
-        return test_crypt("test", '_/...lLDAxARksGCHin.')
-
-    def _calc_checksum_builtin(self, secret):
-        return _raw_bsdi_crypt(secret, self.rounds, self.salt.encode("ascii")).decode("ascii")
+    #---------------------------------------------------------------
+    # os_crypt backend
+    #---------------------------------------------------------------
+    @classmethod
+    def _load_backend_os_crypt(cls):
+        if test_crypt("test", '_/...lLDAxARksGCHin.'):
+            return cls._calc_checksum_os_crypt
+        return None
 
     def _calc_checksum_os_crypt(self, secret):
         config = self.to_string()
@@ -331,8 +340,17 @@ class bsdi_crypt(uh.HasManyBackends, uh.HasRounds, uh.HasSalt, uh.GenericHandler
         if hash:
             assert hash.startswith(config[:9]) and len(hash) == 20
             return hash[-11:]
-        else:
-            return self._calc_checksum_builtin(secret)
+        return self._try_alternate_backends(secret)
+
+    #---------------------------------------------------------------
+    # builtin backend
+    #---------------------------------------------------------------
+    @classmethod
+    def _load_backend_builtin(cls):
+        return cls._calc_checksum_builtin
+
+    def _calc_checksum_builtin(self, secret):
+        return _raw_bsdi_crypt(secret, self.rounds, self.salt.encode("ascii")).decode("ascii")
 
     #===================================================================
     # eoc

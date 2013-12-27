@@ -1,10 +1,9 @@
-"""passlib.tests.test_handlers_bcrypt - tests for passlib hash algorithms"""
+"""passlib.tests.test_handlers - tests for passlib hash algorithms"""
 #=============================================================================
 # imports
 #=============================================================================
 from __future__ import with_statement
 # core
-import hashlib
 import logging; log = logging.getLogger(__name__)
 import os
 import sys
@@ -15,7 +14,7 @@ from passlib import hash
 from passlib.utils import repeat_string
 from passlib.utils.compat import irange, PY3, u, get_method_function
 from passlib.tests.utils import TestCase, HandlerCase, skipUnless, \
-        TEST_MODE, b, catch_warnings, UserHandlerMixin, randintgauss, EncodingHandlerMixin
+        TEST_MODE, b, UserHandlerMixin, randintgauss, EncodingHandlerMixin
 from passlib.tests.test_handlers import UPASS_WAV, UPASS_USD, UPASS_TABLE
 # module
 
@@ -23,7 +22,7 @@ from passlib.tests.test_handlers import UPASS_WAV, UPASS_USD, UPASS_TABLE
 # bcrypt
 #=============================================================================
 class _bcrypt_test(HandlerCase):
-    "base for BCrypt test cases"
+    """base for BCrypt test cases"""
     handler = hash.bcrypt
     secret_size = 72
     reduce_default_rounds = True
@@ -208,27 +207,33 @@ class _bcrypt_test(HandlerCase):
 
     def fuzz_verifier_pybcrypt(self):
         # test against py-bcrypt, if available
-        from passlib.handlers.bcrypt import IDENT_2, IDENT_2A, IDENT_2X, IDENT_2Y
+        from passlib.handlers.bcrypt import IDENT_2A, IDENT_2Y, bcrypt
         from passlib.utils import to_native_str
         try:
-            import bcrypt
+            import bcrypt as bcrypt_mod
         except ImportError:
             return
-        if hasattr(bcrypt, "_ffi"):
+        if hasattr(bcrypt_mod, "_ffi"):
             return
+        bcrypt._load_backend_pybcrypt()
+        lock = bcrypt._calc_lock # reuse threadlock workaround for pybcrypt 0.2
         def check_pybcrypt(secret, hash):
             """pybcrypt"""
             secret = to_native_str(secret, self.fuzz_password_encoding)
             if hash.startswith(IDENT_2Y):
                 hash = IDENT_2A + hash[4:]
             try:
-                return bcrypt.hashpw(secret, hash) == hash
+                if lock:
+                    with lock:
+                        return bcrypt_mod.hashpw(secret, hash) == hash
+                else:
+                    return bcrypt_mod.hashpw(secret, hash) == hash
             except ValueError:
                 raise ValueError("py-bcrypt rejected hash: %r" % (hash,))
         return check_pybcrypt
 
     def fuzz_verifier_bcryptor(self):
-        # test against bcryptor, if available
+        # test against bcryptor if available
         from passlib.handlers.bcrypt import IDENT_2, IDENT_2A, IDENT_2Y
         from passlib.utils import to_native_str
         try:
@@ -338,25 +343,20 @@ class _bcrypt_test(HandlerCase):
             with self.assertWarningList([]):
                 self.assertEqual(bcrypt.genhash(pwd, good), good)
 
-        #
-        # and that verify() works good & bad
-        #
-        with self.assertWarningList([corr_desc]):
-            self.assertTrue(bcrypt.verify(pwd, bad))
-        with self.assertWarningList([]):
-            self.assertTrue(bcrypt.verify(pwd, good))
+            # make sure verify() works correctly with good & bad hashes
+            with self.assertWarningList([corr_desc]):
+                self.assertTrue(bcrypt.verify(pwd, bad))
+            with self.assertWarningList([]):
+                self.assertTrue(bcrypt.verify(pwd, good))
 
-        #
-        # test normhash cleans things up correctly
-        #
-        for pwd, bad, good in samples:
+            # make sure normhash() corrects bad hashes, leaves good unchanged
             with self.assertWarningList([corr_desc]):
                 self.assertEqual(bcrypt.normhash(bad), good)
             with self.assertWarningList([]):
                 self.assertEqual(bcrypt.normhash(good), good)
-        self.assertEqual(bcrypt.normhash("$md5$abc"), "$md5$abc")
 
-hash.bcrypt._no_backends_msg() # call this for coverage purposes
+        # make sure normhash() leaves non-bcrypt hashes alone
+        self.assertEqual(bcrypt.normhash("$md5$abc"), "$md5$abc")
 
 # create test cases for specific backends
 bcrypt_bcrypt_test, bcrypt_pybcrypt_test, bcrypt_bcryptor_test, bcrypt_os_crypt_test, bcrypt_builtin_test = \
