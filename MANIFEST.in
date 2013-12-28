@@ -1,0 +1,2 @@
+recursive-include docs *
+include LICENSE README CHANGES passlib/tests/*.cfg tox.ini setup.cfg
