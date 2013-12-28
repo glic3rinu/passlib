@@ -123,7 +123,6 @@ they can be used compatibly along side other modular crypt format hashes.
     :maxdepth: 1
 
     passlib.hash.apr_md5_crypt
-    passlib.hash.bcrypt_sha256
     passlib.hash.phpass
     passlib.hash.pbkdf2_digest
     passlib.hash.cta_pbkdf2_sha1

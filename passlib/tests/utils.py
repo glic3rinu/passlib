@@ -9,6 +9,7 @@ import re
 import os
 import sys
 import tempfile
+import threading
 import time
 from passlib.exc import PasslibHashWarning
 from passlib.utils.compat import PY27, PY_MIN_32, PY3, JYTHON
@@ -124,7 +125,7 @@ def has_relaxed_setting(handler):
 def has_active_backend(handler):
     """return active backend for handler, if any"""
     if not hasattr(handler, "get_backend"):
-        return "builtin"
+        return "always"
     try:
         return handler.get_backend()
     except MissingBackendError:
@@ -258,9 +259,6 @@ class TestCase(_TestCase):
         name = cls.__name__
         return name.startswith("_") or \
                getattr(cls, "_%s__unittest_skip" % name, False)
-
-        # make this mirror nose's '__test__' attr
-        return not getattr(cls, "__test__", True)
 
     @classproperty
     def __test__(cls):
@@ -1021,20 +1019,19 @@ class HandlerCase(TestCase):
             raise AssertionError("default_salt_size must be <= max_salt_size")
 
         # check for 'salt_size' keyword
-        if 'salt_size' not in cls.setting_kwds and \
-                (not mx_set or cls.min_salt_size < cls.max_salt_size):
-            # NOTE: only bothering to issue warning if default_salt_size
-            # isn't maxed out
-            if (not mx_set or cls.default_salt_size < cls.max_salt_size):
-                warn("%s: hash handler supports range of salt sizes, "
-                     "but doesn't offer 'salt_size' setting" % (cls.name,))
+        # NOTE: skipping warning if default salt size is already maxed out
+        #       (might change that in future)
+        if 'salt_size' not in cls.setting_kwds and (not mx_set or cls.default_salt_size < cls.max_salt_size):
+            warn('%s: hash handler supports range of salt sizes, '
+                 'but doesn\'t offer \'salt_size\' setting' % (cls.name,))
 
         # check salt_chars & default_salt_chars
         if cls.salt_chars:
             if not cls.default_salt_chars:
                 raise AssertionError("default_salt_chars must not be empty")
-            if any(c not in cls.salt_chars for c in cls.default_salt_chars):
-                raise AssertionError("default_salt_chars must be subset of salt_chars: %r not in salt_chars" % (c,))
+            for c in cls.default_salt_chars:
+                if c not in cls.salt_chars:
+                    raise AssertionError("default_salt_chars must be subset of salt_chars: %r not in salt_chars" % (c,))
         else:
             if not cls.default_salt_chars:
                 raise AssertionError("default_salt_chars MUST be specified if salt_chars is empty")
@@ -1741,6 +1738,51 @@ class HandlerCase(TestCase):
                   self.descriptionPrefix,  count, len(verifiers),
                   ", ".join(vname(v) for v in verifiers))
 
+    def test_78_fuzz_threading(self):
+        """run test_77 simultaneously in multiple threads
+        in an attempt to detect any concurrency issues
+        (e.g. the bug fixed by pybcrypt 0.3)
+        """
+        import threading
+
+        # check if this test should run
+        if self.is_disabled_handler:
+            raise self.skipTest("not applicable")
+        thread_count = self.fuzz_thread_count
+        if not thread_count or self.max_fuzz_time <= 0:
+            raise self.skipTest("disabled by test mode")
+
+        # buffer to hold errors thrown by threads
+        failed_lock = threading.Lock()
+        failed = [0]
+
+        # launch <thread count> threads, all of which run
+        # test_77_fuzz_input(), and see if any errors get thrown.
+        # if hash has concurrency issues, this should reveal it.
+        def wrapper():
+            try:
+                self.test_77_fuzz_input()
+            except:
+                with failed_lock:
+                    failed[0] += 1
+                raise
+        def launch(n):
+            name = "Fuzz-Thread-%d (%s.test_78_fuzz_threading)" % (n, self.__class__.__name__)
+            thread = threading.Thread(target=wrapper, name=name)
+            thread.setDaemon(True)
+            thread.start()
+            return thread
+        threads = [launch(n) for n in irange(thread_count)]
+
+        # wait until all threads exit
+        for thread in threads:
+            thread.join()
+
+        # if any thread threw an error, raise one ourselves.
+        if failed[0]:
+            raise self.fail("%d/%d threads failed concurrent fuzz testing "
+                      "(see error log for details)" % (failed[0], thread_count))
+
     #---------------------------------------------------------------
     # fuzz constants & helpers
     #---------------------------------------------------------------
@@ -1763,6 +1805,19 @@ class HandlerCase(TestCase):
             return 1
         else:
             return 5
+
+    @property
+    def fuzz_thread_count(self):
+        "number of threads for threaded fuzz testing"
+        value = int(os.environ.get("PASSLIB_TEST_FUZZ_THREADS") or 0)
+        if value:
+            return value
+        elif TEST_MODE(max="quick"):
+            return 0
+        elif TEST_MODE(max="default"):
+            return 10
+        else:
+            return 20
 
     def os_supports_ident(self, ident):
         """whether native OS crypt() supports particular ident value"""

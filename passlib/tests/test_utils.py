@@ -4,16 +4,14 @@
 #=============================================================================
 from __future__ import with_statement
 # core
-from binascii import hexlify, unhexlify
-import sys
+from binascii import unhexlify
 import random
-import warnings
 # site
 # pkg
 # module
-from passlib.utils.compat import b, bytes, bascii_to_str, irange, PY2, PY3, u, \
+from passlib.utils.compat import b, bytes, irange, PY3, u, \
                                  unicode, join_bytes, SUPPORTS_DIR_METHOD
-from passlib.tests.utils import TestCase, catch_warnings
+from passlib.tests.utils import TestCase
 
 def hb(source):
     return unhexlify(b(source))
@@ -122,15 +120,15 @@ class MiscTest(TestCase):
         self.assertEqual(f('a',5), 'aaaaa')
 
         # letters
-        x = f(u('abc'), 16)
-        y = f(u('abc'), 16)
+        x = f(u('abc'), 32)
+        y = f(u('abc'), 32)
         self.assertIsInstance(x, unicode)
         self.assertNotEqual(x,y)
         self.assertEqual(sorted(set(x)), [u('a'),u('b'),u('c')])
 
         # bytes
-        x = f(b('abc'), 16)
-        y = f(b('abc'), 16)
+        x = f(b('abc'), 32)
+        y = f(b('abc'), 32)
         self.assertIsInstance(x, bytes)
         self.assertNotEqual(x,y)
         # NOTE: decoding this due to py3 bytes

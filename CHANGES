@@ -4,6 +4,9 @@
 Release History
 ===============
 
+**1.7** (NOT YET RELEASED)
+==========================
+
 .. warning::
 
     **Passlib 1.7 will drop support for Python 2.5,** and require Python 2.6 or newer,
@@ -15,6 +18,49 @@ Release History
 
     Passlib 1.7's :mod:`passlib.ext.django` extension will drop
     support for Django 1.3 and earlier, and require Django 1.4 or newer.
+
+Major Changes
+-------------
+* New :mod:`passlib.pwd` module added to aid in password generation
+  and strength measurement (with contributions from Thomas Waldmann).
+
+* The :func:`~passlib.utils.pbkdf2.pbkdf2` function and all PBKDF2-based
+  hashes have been sped up by ~20% compared to Passlib 1.6.
+
+* Passlib will now detect and work around the fatal concurrency bug
+  in py-bcrypt 0.2 and earlier (a :exc:`~passlib.exc.PasslibSecurityWarning`
+  will also be issued). Nevertheless, users are *strongly* encouraged
+  to upgrade to py-bcrypt 0.3 or another bcrypt library if you are using
+  the :doc:`bcrypt </lib/passlib.hash.bcrypt>` hash.
+
+Minor Changes
+-------------
+* The shared :class:`!PasswordHash` unittests now check all hash handlers for
+  basic thread-safety (motivated by the pybcrypt 0.2 concurrency bug).
+
+* The internal support module :mod:`passlib.utils.pbkdf2` has gained
+  to new helpers: :func:`~passlib.utils.pbkdf2.get_hash_info`
+  and :func:`~passlib.utils.pbkdf2.get_keyed_prf`.
+
+Deprecations
+------------
+* The :func:`~passlib.utils.generate_secret` function has been deprecated
+  in favor of the new :mod:`passlib.pwd` module, and will be removed
+  in Passlib 2.0.
+
+* :class:`passlib.utils.handlers.HasManyBackends` internal API change
+
+  Applications implementing a custom handler with multiple backends
+  should now provide :samp:`_load_backend_{name}` classmethod for each backend.
+  This is simpler, more flexible, and more explicit than the
+  previous (1.6 and earlier) API, which required a :samp:`_has_backend_{name}`
+  class property and a :samp:`_calc_checksum_{name}` method. Support
+  for the older API is deprecated, and will it be removed in Passlib 2.0.
+
+Todo
+----
+
+* Thread safety audit and tests for CryptContext, HasManyBackends, and lazy-init subclasses.
 
 **1.6.2** (2013-12-26)
 ======================
