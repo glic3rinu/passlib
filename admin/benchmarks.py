@@ -17,8 +17,6 @@ sys.path.insert(0, os.curdir)
 # core
 from binascii import hexlify
 import logging; log = logging.getLogger(__name__)
-import os
-import warnings
 # site
 # pkg
 try:
@@ -26,7 +24,7 @@ try:
 except ImportError:
     PasslibConfigWarning = None
 import passlib.utils.handlers as uh
-from passlib.utils.compat import u, print_, unicode, next_method_attr
+from passlib.utils.compat import u, print_, unicode
 # local
 
 #=============================================================================
@@ -270,6 +268,16 @@ def test_phpass():
         handler.verify(OTHER, hash)
     return helper
 
+@benchmark.constructor()
+def test_sha1_crypt():
+    from passlib.hash import sha1_crypt as handler
+    kwds = dict(salt='.'*8, rounds=10000)
+    def helper():
+        hash = handler.encrypt(SECRET, **kwds)
+        handler.verify(SECRET, hash)
+        handler.verify(OTHER, hash)
+    return helper
+
 #=============================================================================
 # crypto utils
 #=============================================================================
@@ -277,16 +285,30 @@ def test_phpass():
 def test_pbkdf2_sha1():
     from passlib.utils.pbkdf2 import pbkdf2
     def helper():
-        result = hexlify(pbkdf2("abracadabra", "open sesasme", 40960, 20, "hmac-sha1"))
-        assert result == 'ad317ed77bce584c90932b609e37e3736e6297bf', result
+        result = hexlify(pbkdf2("abracadabra", "open sesame", 10240, 20, "hmac-sha1"))
+        assert result == 'e45ce658e79b16107a418ad4634836f5f0601ad1', result
     return helper
 
 @benchmark.constructor()
 def test_pbkdf2_sha256():
     from passlib.utils.pbkdf2 import pbkdf2
     def helper():
-        result = hexlify(pbkdf2("abracadabra", "open sesasme", 10240, 32, "hmac-sha256"))
-        assert result == '21d1ac0d474aaec49feb4f2172a266223e43edcf1052643dd27d82ebd5fa10c6', result
+        result = hexlify(pbkdf2("abracadabra", "open sesame", 10240, 32, "hmac-sha256"))
+        assert result == 'fadef97054306c93c55213cd57111d6c0791735dcdde8ac32f9f934b49c5af1e', result
+    return helper
+
+#=============================================================================
+# entropy estimates
+#=============================================================================
+@benchmark.constructor()
+def test_average_entropy():
+    from passlib.pwd import _average_entropy
+    testc = "abcdef"*100000
+    def helper():
+        _average_entropy(testc)
+        _average_entropy(testc, True)
+        _average_entropy(iter(testc))
+        _average_entropy(iter(testc), True)
     return helper
 
 #=============================================================================
